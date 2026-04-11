@@ -1,6 +1,8 @@
 import React from "react";
 import { Routes, Route, useMatch } from "react-router-dom";
 import "./App.css";
+import SignIn from "./pages/auth/SignIn";
+import SignUP from "./pages/auth/SignUP";
 import Home from "./pages/student/Home";
 import CourseList from "./pages/student/CoursesList";
 import CourseDetails from "./pages/student/CourseDetails";
@@ -19,21 +21,28 @@ function App() {
     <div className="App">
       {!isInstructorRoute && <Navbar />}
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/course-list" element={<CourseList />} />
-        <Route path="/course-list/:input" element={<CourseList />} />
-        <Route path="/course/:id" element={<CourseDetails />} />
-        <Route path="/my-enrollments" element={<MyEnrollments />} />
-        <Route path="/watch/:courseId" element={<WatchWindow />} />
-        <Route path="/loading/:path" element={<Loading />} />
-        <Route path="*" element={<h1>404 Not Found</h1>} />
-        <Route path="/instructor" element={<Instructor />}>
-          <Route path="instructor" element={<Dashboard />} />
-          <Route path="add-course" element={<AddCourse />} />
-          <Route path="my-courses" element={<MyCourses />} />
-          <Route path="student-enrolled" element={<StudentEnrolled />} />
-        </Route>
-      </Routes>
+  {/* STUDENT ROUTES */}
+  <Route path="/" element={<Home />} />
+  <Route path="/signin" element={<SignIn />} />
+  <Route path="/signup" element={<SignUP />} />
+
+  <Route path="/course-list" element={<CourseList />} />
+  <Route path="/course-list/:input" element={<CourseList />} />
+  <Route path="/course/:id" element={<CourseDetails />} />
+  <Route path="/my-enrollments" element={<MyEnrollments />} />
+  <Route path="/watch/:courseId" element={<WatchWindow />} />
+  <Route path="/loading/:path" element={<Loading />} />
+
+  {/* INSTRUCTOR */}
+  <Route path="/instructor" element={<Instructor />}>
+    <Route path="instructor" element={<Dashboard />} />
+    <Route path="add-course" element={<AddCourse />} />
+    <Route path="my-courses" element={<MyCourses />} />
+    <Route path="student-enrolled" element={<StudentEnrolled />} />
+  </Route>
+
+  <Route path="*" element={<h1>404 Not Found</h1>} />
+</Routes>
     </div>
   );
 }
