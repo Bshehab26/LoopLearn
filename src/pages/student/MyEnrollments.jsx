@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../context/Appcontext';
+import Footer from '../../components/student/Footer';
 
 const MyEnrollments = () => {
   const { enrolledCourses, calculateCourseDuration, navigate } = useContext(AppContext);
@@ -38,6 +39,7 @@ const MyEnrollments = () => {
   }, [currentPage]);
 
   return (
+  <>
     <div className='md:px-36 px-4 py-10 bg-gray-50 min-h-screen'>
 
       {/* Header */}
@@ -184,8 +186,9 @@ const MyEnrollments = () => {
         </button>
 
       </div>
-
     </div>
+    <Footer/>
+  </>
   );
 };
 

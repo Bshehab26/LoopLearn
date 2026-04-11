@@ -34,20 +34,28 @@ const CoursesList = () => {
     <div className='relative md:px-36 px-6 pt-15 text-left'>
       
       <div className='flex md:flex-row flex-col gap-6 items-start justify-between w-full'>
-        <div>
-          <h1 className='text-4xl font-semibold text-gray-800'>
-            Courses List
-          </h1>
+        <div className='mb-6 md:mb-0 text-center sm:text-left'>
 
-          <p className='text-gray-500'>
-            <span
-              className='text-purple-600 cursor-pointer'
-              onClick={() => navigate('/')}
-            >
-              Home
-            </span> / <span>Courses List</span>
-          </p>
-        </div>
+  <h1 className='text-xl sm:text-2xl md:text-4xl font-semibold text-gray-800'>
+    Course List
+  </h1>
+
+  <p className='text-gray-500 mt-1 sm:mt-2 text-xs sm:text-sm flex items-center justify-center sm:justify-start flex-wrap'>
+    
+    <span
+      className='text-purple-600 cursor-pointer hover:underline'
+      onClick={() => navigate('/')}
+    >
+      Home
+    </span>
+
+    <span className='mx-2 text-gray-400'>/</span>
+
+    <span className='text-gray-600'>Course List</span>
+
+  </p>
+
+</div>
 
         <SearchBar />
       </div>

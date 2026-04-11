@@ -94,7 +94,7 @@ const toggleSection=(index)=>{
             </div>
       </div>
       {/* right column */}
-      <div className='max-w-card z-10 shadow-custom-card rounded-t md:rounded-none overflow-hidden bg-white min-w-[300px] sm:min-w-[420px]'>
+      <div className='max-w-card z-10 shadow-custom-card rounded-t md:rounded-none overflow-hidden bg-white min-w-[300px] sm:min-w-105'>
           {
               watchCourse ?
                 <YouTube videoId={watchCourse.videoId}  opts={{playerVars:{autoplay:1}}} iframeClassName='w-full aspect-video' onEnd={()=>setWatchCourse(null)}/>
