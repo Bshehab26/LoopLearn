@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { AppContext } from '../../context/Appcontext';
+import { AppContext } from '../../context/AppContext';
 import CourseCard from './CourseCard';
 import { useNavigate } from "react-router-dom";
 

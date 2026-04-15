@@ -1,62 +1,151 @@
-import React, { createContext, useState, useEffect } from 'react';
-import { dummyCourses } from '../assets/assets';
-import { useNavigate } from 'react-router-dom';
-import humanizeDuration from 'humanize-duration'; 
+import React, { createContext, useEffect, useState } from "react";
+import { dummyCourses } from "../assets/assets";
+import { useNavigate } from "react-router-dom";
+import humanizeDuration from "humanize-duration";
+
 export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
   const navigate = useNavigate();
-  const currency = import.meta.env.VITE_CURRENCY || '$';
-  const [allCourses, setAllCourses] = useState([]);
-  const [isInstructor, setIsInstructor] = useState(true);
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const currency = import.meta.env.VITE_CURRENCY || "$";
 
-  const fetchAllCourses = async () => {
+  /* =====================
+     USER ROLE
+  ====================== */
+  const [userRole, setUserRole] = useState("instructor");
+
+  const isStudent = userRole === "student";
+  const isInstructor = userRole === "instructor";
+  const isAdmin = userRole === "admin";
+
+  /* =====================
+     COURSE STATE
+  ====================== */
+  const [allCourses, setAllCourses] = useState([]);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [instructorCourses, setInstructorCourses] = useState([]);
+
+  /* =====================
+     FETCH
+  ====================== */
+  const fetchAllCourses = () => {
     setAllCourses(dummyCourses);
   };
 
+  const fetchEnrolledCourses = () => {
+    setEnrolledCourses(dummyCourses);
+  };
+
+  const fetchInstructorCourses = () => {
+    setInstructorCourses(
+      dummyCourses.filter(
+        (course) => course.instructorId === "instructor-1"
+      )
+    );
+  };
+
+  /* =====================
+     UPDATE COURSE (EDIT)
+  ====================== */
+const updateInstructorCourse = (courseId, updatedData) => {
+  setInstructorCourses((prev) =>
+    prev.map((course) =>
+      String(course._id) === String(courseId)
+        ? { ...course, ...updatedData }
+        : course
+    )
+  );
+};
+
+  /* =====================
+     CALCULATIONS
+  ====================== */
   const calculateRating = (course) => {
-    const ratings = course.courseRatings || []; 
-    if (ratings.length === 0) return 0;
+    const ratings = Array.isArray(course?.courseRatings)
+      ? course.courseRatings
+      : [];
 
-    let totalRating = 0;
-    ratings.forEach(r => (totalRating += r.rating));
-    return totalRating / ratings.length;
-  };
-  // Function to Calculate course chapter Time
-  const calculateChapterTime =(chapter)=>{
-    let time=0
-    chapter.chapterContent.map((lecture)=> time +=lecture.lectureDuration)
-    return humanizeDuration(time*60*1000,{units: ["h","m"]})
-  }
-  //function to Calculate course Duration
-  const calculateCourseDuration=(course)=>{
-      let time=0
-      course.courseContent.map((chapter)=>chapter.chapterContent.map((lecture)=> time +=lecture.lectureDuration))
-          return humanizeDuration(time*60*1000,{units: ["h","m"]})
+    if (!ratings.length) return 0;
 
-  }
+    const total = ratings.reduce(
+      (sum, r) => sum + Number(r.rating || 0),
+      0
+    );
 
-//function to Calculate Total Number of lecture in the course
-  const calculateNOfLectures=(course)=>{
-   let totalLectures=0;
-   course.courseContent.forEach(chapter=>{
-    if(Array.isArray(chapter.chapterContent)){
-      totalLectures += chapter.chapterContent.length;
-    }
-   });
-   return totalLectures;
-  } 
-  //fetch user enrolled courses
-  const fetchEnrolledCourses = async () => {
-   setEnrolledCourses(dummyCourses)
+    return Number((total / ratings.length).toFixed(1));
   };
 
+  const calculateChapterTime = (chapter) => {
+    let time = 0;
+    chapter.chapterContent.forEach(
+      (lecture) => (time += lecture.lectureDuration)
+    );
+
+    return humanizeDuration(time * 60 * 1000, {
+      units: ["h", "m"],
+    });
+  };
+
+  const calculateCourseDuration = (course) => {
+    let time = 0;
+
+    course.courseContent.forEach((chapter) =>
+      chapter.chapterContent.forEach(
+        (lecture) => (time += lecture.lectureDuration)
+      )
+    );
+
+    return humanizeDuration(time * 60 * 1000, {
+      units: ["h", "m"],
+    });
+  };
+
+  const calculateNOfLectures = (course) => {
+    let total = 0;
+    course.courseContent.forEach(
+      (chapter) => (total += chapter.chapterContent.length)
+    );
+    return total;
+  };
+
+  /* =====================
+     INIT
+  ====================== */
   useEffect(() => {
     fetchAllCourses();
-    fetchEnrolledCourses()
+    fetchEnrolledCourses();
+    fetchInstructorCourses();
   }, []);
 
-  const value = { currency, allCourses, calculateRating,isInstructor, setIsInstructor,navigate,calculateNOfLectures,calculateChapterTime,calculateCourseDuration,enrolledCourses,fetchEnrolledCourses };
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider
+      value={{
+        currency,
+        navigate,
+
+        // role
+        userRole,
+        setUserRole,
+        isStudent,
+        isInstructor,
+        isAdmin,
+
+        // courses
+        allCourses,
+        enrolledCourses,
+        instructorCourses,
+
+        // actions
+        updateInstructorCourse,
+
+        // utils
+        calculateRating,
+        calculateNOfLectures,
+        calculateChapterTime,
+        calculateCourseDuration,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
 };

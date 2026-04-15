@@ -1,7 +1,7 @@
 import humanizeDuration from "humanize-duration";
 import React, { useEffect, useState, useContext } from "react";
 import { assets } from "../../assets/assets";
-import { AppContext } from "../../context/Appcontext";
+import { AppContext } from "../../context/AppContext";
 import { useParams } from "react-router-dom";
 import YouTube from "react-youtube";
 import Footer from "../../components/student/Footer";

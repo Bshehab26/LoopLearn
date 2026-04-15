@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HiMenu, HiX } from "react-icons/hi";
 import { useClerk, UserButton, useUser } from "@clerk/react";
 import SearchBar from "./SearchBar";
-import { AppContext } from "../../context/Appcontext";
+import { AppContext } from "../../context/AppContext";
 
 const Navbar = () => {
   const { isInstructor } = useContext(AppContext);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { AppContext } from '../../context/Appcontext';
+import { AppContext } from '../../context/AppContext';
 import Footer from '../../components/student/Footer';
 
 const MyEnrollments = () => {
