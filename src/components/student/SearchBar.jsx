@@ -1,21 +1,31 @@
-import React, { useState } from 'react';
-import { RiSearch2Line } from 'react-icons/ri';
+import React, { useState } from "react";
+import { RiSearch2Line } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 
 const SearchBar = ({ onSearchComplete }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
+  // Normalize search text
+  const normalizeQuery = (text = "") =>
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " "); // collapse multiple spaces
+
   const handleSearch = (e) => {
     e.preventDefault();
 
-    if (searchQuery.trim()) {
-      navigate(`/course-list/${encodeURIComponent(searchQuery)}`);
-      setSearchQuery("");
+    const normalizedQuery = normalizeQuery(searchQuery);
 
-      if (onSearchComplete) {
-        onSearchComplete();
-      }
+    // prevent searching empty or only spaces
+    if (!normalizedQuery) return;
+
+    navigate(`/course-list/${encodeURIComponent(normalizedQuery)}`);
+    setSearchQuery("");
+
+    if (onSearchComplete) {
+      onSearchComplete();
     }
   };
 
@@ -31,7 +41,7 @@ const SearchBar = ({ onSearchComplete }) => {
 
       <button
         type="submit"
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 h-10 w-10 flex items-center justify-center text-purple-600 hover:text-purple-800 transition duration-300"
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 h-10 w-10 flex items-center justify-center text-purple-600 hover:text-purple-800 transition"
       >
         <RiSearch2Line size={22} />
       </button>

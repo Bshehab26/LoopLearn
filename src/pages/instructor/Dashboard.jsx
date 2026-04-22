@@ -4,70 +4,53 @@ import { AppContext } from "../../context/AppContext";
 const Dashboard = () => {
   const { allCourses, currency } = useContext(AppContext);
 
-  // Temporary stats (later connect to real instructor data)
   const totalCourses = allCourses.length;
-  const totalStudents = 128; // mock
-  const totalRevenue = 2450; // mock
+  const totalStudents = 128;
+  const totalRevenue = 2450;
 
   return (
     <div className="space-y-8">
-      {/* Page Title */}
-      <h1 className="text-2xl font-bold text-gray-800">
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
         Instructor Dashboard
       </h1>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow">
-          <p className="text-gray-500 text-sm">Total Courses</p>
-          <h2 className="text-3xl font-bold text-gray-800">
-            {totalCourses}
-          </h2>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow">
-          <p className="text-gray-500 text-sm">Total Students</p>
-          <h2 className="text-3xl font-bold text-gray-800">
-            {totalStudents}
-          </h2>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow">
-          <p className="text-gray-500 text-sm">Total Revenue</p>
-          <h2 className="text-3xl font-bold text-gray-800">
-            {currency}{totalRevenue}
-          </h2>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <Stat title="Total Courses" value={totalCourses} />
+        <Stat title="Total Students" value={totalStudents} />
+        <Stat title="Total Revenue" value={`${currency}${totalRevenue}`} />
       </div>
 
-      {/* Recent Courses */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h2 className="text-lg font-semibold mb-4 text-gray-800">
-          Recent Courses
-        </h2>
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow">
+        <div className="p-4 sm:p-6 border-b">
+          <h2 className="font-semibold text-gray-800">Recent Courses</h2>
+        </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b text-gray-500 text-sm">
-                <th className="py-3">Course</th>
-                <th>Students</th>
-                <th>Price</th>
-                <th>Status</th>
+          <table className="w-full min-w-[600px] text-sm">
+            <thead className="bg-gray-50 text-gray-500">
+              <tr>
+                <th className="px-6 py-4 text-left">Course</th>
+                <th className="px-6 py-4">Students</th>
+                <th className="px-6 py-4">Price</th>
+                <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody>
-              {allCourses.slice(0, 5).map((course,index) => (
-                <tr key={index} className="border-b last:border-0">
-                  <td className="py-3 font-medium text-gray-800">
+              {allCourses.slice(0, 5).map((course, index) => (
+                <tr key={index} className="border-t">
+                  <td className="px-6 py-4 font-medium">
                     {course.courseTitle}
                   </td>
-                  <td className="text-gray-600">—</td>
-                  <td className="text-gray-600">
+                  <td className="px-6 py-4 text-center">—</td>
+                  <td className="px-6 py-4 text-center">
                     {currency}{course.coursePrice}
                   </td>
-                  <td className="text-green-600 font-medium">
-                    Published
+                  <td className="px-6 py-4 text-center">
+                    <span className="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">
+                      Published
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -78,5 +61,12 @@ const Dashboard = () => {
     </div>
   );
 };
+
+const Stat = ({ title, value }) => (
+  <div className="bg-white rounded-xl p-6 shadow">
+    <p className="text-sm text-gray-500">{title}</p>
+    <h2 className="text-3xl font-bold text-gray-800 mt-1">{value}</h2>
+  </div>
+);
 
 export default Dashboard;

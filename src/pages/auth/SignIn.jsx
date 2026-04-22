@@ -1,112 +1,86 @@
-import React, { Component } from "react";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import AuthLayout from "../../layouts/AuthLayout";
 
-export class SignIn extends Component {
-  state = {
-    email: "",
-    password: "",
-    error: "",
-    loading: false,
+const SignIn = () => {
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // handle input change
-  handleChange = (e) => {
-    this.setState({
-      [e.target.name]: e.target.value,
-      error: "",
-    });
-  };
-
-  // handle submit
-  handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const { email, password } = this.state;
+    const email = form.email.trim();
+    const password = form.password.trim();
 
-    // basic validation
     if (!email || !password) {
-      return this.setState({ error: "All fields are required" });
+      alert("Please fill all fields");
+      return;
     }
 
-    this.setState({ loading: true });
+    setLoading(true);
 
-    // simulate API call
+    // Dummy API simulation
     setTimeout(() => {
       console.log("Login data:", { email, password });
-
-      this.setState({
-        loading: false,
-        email: "",
-        password: "",
-      });
+      setLoading(false);
     }, 1500);
   };
 
-  render() {
-    const { email, password, error, loading } = this.state;
+  return (
+    <AuthLayout
+      title="Welcome Back 👋"
+      subtitle="Sign in to continue learning"
+    >
+      <motion.form
+        onSubmit={handleSubmit}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="space-y-4"
+      >
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
+        />
 
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-        <form
-          onSubmit={this.handleSubmit}
-          className="bg-white p-8 rounded-lg shadow-md w-full max-w-md"
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
         >
-          <h2 className="text-2xl font-bold text-center mb-6">
-            Sign In
-          </h2>
-
-          {/* ERROR */}
-          {error && (
-            <p className="text-red-500 text-sm mb-4 text-center">
-              {error}
-            </p>
-          )}
-
-          {/* EMAIL */}
-          <div className="mb-4">
-            <label className="block text-sm mb-1">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={this.handleChange}
-              className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="Enter your email"
-            />
-          </div>
-
-          {/* PASSWORD */}
-          <div className="mb-6">
-            <label className="block text-sm mb-1">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={password}
-              onChange={this.handleChange}
-              className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="Enter your password"
-            />
-          </div>
-
-          {/* BUTTON */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700 transition"
+          {loading ? "Signing in..." : "Sign In"}
+        </button>
+        {/* FOOTER */}
+         <p className="text-sm text-center text-gray-600">
+          if you don't have an account!{" "}
+          <Link
+            to="/signup"
+            className="text-purple-600 font-medium hover:underline"
           >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-
-          {/* FOOTER */}
-          <p className="text-sm text-center mt-4">
-            Don’t have an account?{" "}
-            <span className="text-purple-600 cursor-pointer">
-              Sign Up
-            </span>
-          </p>
-        </form>
-      </div>
-    );
-  }
-}
+            Sign Up
+          </Link>
+        </p>
+      </motion.form>
+    </AuthLayout>
+  );
+};
 
 export default SignIn;
