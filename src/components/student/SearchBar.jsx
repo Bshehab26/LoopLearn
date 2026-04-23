@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { RiSearch2Line } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 
@@ -6,46 +6,44 @@ const SearchBar = ({ onSearchComplete }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  // Normalize search text
   const normalizeQuery = (text = "") =>
-    text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, " "); // collapse multiple spaces
+    text.toLowerCase().trim().replace(/\s+/g, " ");
 
   const handleSearch = (e) => {
     e.preventDefault();
-
     const normalizedQuery = normalizeQuery(searchQuery);
-
-    // prevent searching empty or only spaces
     if (!normalizedQuery) return;
-
     navigate(`/course-list/${encodeURIComponent(normalizedQuery)}`);
     setSearchQuery("");
-
-    if (onSearchComplete) {
-      onSearchComplete();
-    }
+    if (onSearchComplete) onSearchComplete();
   };
 
   return (
-    <form onSubmit={handleSearch} className="flex w-full max-w-xl relative">
-      <input
-        type="text"
-        placeholder="Search courses..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="border border-gray-300 text-gray-700 outline-none w-full p-4 pr-12 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-600 transition"
-      />
-
-      <button
-        type="submit"
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 h-10 w-10 flex items-center justify-center text-purple-600 hover:text-purple-800 transition"
+    <div className="hidden lg:flex flex-1 mx-8 max-w-md">
+      <form
+        onSubmit={handleSearch}
+        className="flex items-center gap-2 w-full px-4 rounded-full"
+        style={{
+          background: "#F1EFE8",
+          border: "0.5px solid rgba(0,0,0,0.08)",
+          height: "36px",
+        }}
       >
-        <RiSearch2Line size={22} />
-      </button>
-    </form>
+        <input
+          type="text"
+          placeholder="Search courses..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400 min-w-0"
+        />
+        <button
+          type="submit"
+          className="flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-purple-600 transition"
+        >
+          <RiSearch2Line size={16} />
+        </button>
+      </form>
+    </div>
   );
 };
 

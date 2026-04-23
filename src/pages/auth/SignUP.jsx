@@ -1,142 +1,140 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../../layouts/AuthLayout";
+import { register } from "../../services/api/auth.api";
 
 const SignUp = () => {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
-    name: "",
+    username: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
     email: "",
     gender: "",
+    birthDate: "",
     password: "",
     confirmPassword: "",
   });
 
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
     setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const name = form.name.trim();
-    const email = form.email.trim();
-    const gender = form.gender;
-    const password = form.password.trim();
-    const confirmPassword = form.confirmPassword.trim();
-
-    if (!name || !email || !gender || !password || !confirmPassword) {
+    // ✅ Validation
+    if (Object.values(form).some((v) => !v)) {
       setError("All fields are required");
       return;
     }
 
-    if (password.length < 6) {
+    if (!/^01[0-2,5]{1}[0-9]{8}$/.test(form.phone)) {
+      setError("Invalid Egyptian phone number");
+      return;
+    }
+
+    if (form.password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (form.password !== form.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    // 🔁 Dummy API (ready for backend)
-    console.log("Register data:", {
-      name,
-      email,
-      gender,
-      password,
-    });
+    // ✅ Clean camelCase payload (backend now supports it)
+    const payload = {
+      username: form.username,
+      fName: form.firstName,
+      lName: form.lastName,
+      phone: form.phone,
+      email: form.email,
+      gender: form.gender, // MUST be "Male" or "Female"
+      birthDate: form.birthDate,
+      password: form.password,
+      confirmPassword: form.confirmPassword,
+    };
+
+    try {
+      setLoading(true);
+
+      const res = await register(payload);
+
+      console.log("SUCCESS:", res.data);
+
+      navigate("/");
+    } catch (err) {
+      console.log("FULL ERROR:", err.response?.data);
+
+      const data = err.response?.data;
+
+      if (data?.errors) {
+        setError(Object.values(data.errors).flat().join(" | "));
+      } else if (data?.message) {
+        setError(data.message);
+      } else {
+        setError("Registration failed");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthLayout
-      title="Create Account ✨"
-      subtitle="Join and start learning today"
-    >
-      <motion.form
-        onSubmit={handleSubmit}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4"
-      >
-        {/* ERROR */}
-        {error && (
-          <p className="text-red-500 text-sm text-center">{error}</p>
-        )}
+   <AuthLayout title="Create account ✨" subtitle="Join and start learning today" mode="signup" >
+      <motion.form onSubmit={handleSubmit} className="space-y-4">
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-        {/* NAME */}
+        <input name="username" placeholder="Username" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+
+        <div className="grid grid-cols-2 gap-4">
+          <input name="firstName" placeholder="First Name" onChange={handleChange} className="p-3 border rounded-lg" />
+          <input name="lastName" placeholder="Last Name" onChange={handleChange} className="p-3 border rounded-lg" />
+        </div>
+
         <input
-          name="name"
-          placeholder="Full Name"
-          value={form.name}
-          onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
+          name="phone"
+          placeholder="01XXXXXXXXX"
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, "");
+            setForm((prev) => ({ ...prev, phone: value }));
+          }}
+          className="w-full p-3 border rounded-lg"
         />
 
-        {/* EMAIL */}
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
-        />
+        <input name="email" type="email" placeholder="Email" onChange={handleChange} className="w-full p-3 border rounded-lg" />
 
-        {/* GENDER */}
-        <select
-          name="gender"
-          value={form.gender}
-          onChange={handleChange}
-          className="w-full p-3 border rounded-lg bg-white focus:ring-2 focus:ring-purple-600 outline-none"
-        >
+        <select name="gender" onChange={handleChange} className="w-full p-3 border rounded-lg">
           <option value="">Select Gender</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-          <option value="prefer_not_to_say">Prefer not to say</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
         </select>
 
-        {/* PASSWORD */}
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
-        />
+        <input name="birthDate" type="date" onChange={handleChange} className="w-full p-3 border rounded-lg" />
 
-        {/* CONFIRM PASSWORD */}
-        <input
-          name="confirmPassword"
-          type="password"
-          placeholder="Confirm Password"
-          value={form.confirmPassword}
-          onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
-        />
+        <input name="password" type="password" placeholder="Password" onChange={handleChange} className="w-full p-3 border rounded-lg" />
 
-        {/* BUTTON */}
-        <button
-          type="submit"
-          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
-        >
-          Sign Up
+        <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+
+        <button disabled={loading} className="w-full bg-indigo-600 text-white py-3 rounded-lg">
+          {loading ? "Creating..." : "Sign Up"}
         </button>
 
-        {/* FOOTER */}
-        <p className="text-sm text-center text-gray-600">
-          Already have an account?{" "}
-          <Link
-            to="/signin"
-            className="text-purple-600 font-medium hover:underline"
-          >
-            Sign In
-          </Link>
+        <p className="text-center text-sm">
+          Already have an account? <Link to="/signin"  className="text-purple-600 font-medium hover:underline"
+          >Sign In</Link>
         </p>
       </motion.form>
     </AuthLayout>

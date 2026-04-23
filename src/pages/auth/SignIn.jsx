@@ -1,41 +1,80 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../../layouts/AuthLayout";
+import { login } from "../../services/api/auth.api";
 
 const SignIn = () => {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({
+    identifier: "", // username OR email
+    password: "",
+  });
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const email = form.email.trim();
+    const identifier = form.identifier.trim();
     const password = form.password.trim();
 
-    if (!email || !password) {
-      alert("Please fill all fields");
+    // ✅ Validation
+    if (!identifier || !password) {
+      setError("Please fill all fields");
       return;
     }
 
-    setLoading(true);
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
 
-    // Dummy API simulation
-    setTimeout(() => {
-      console.log("Login data:", { email, password });
+    // ✅ Detect if identifier is email or username
+    const isEmail = identifier.includes("@");
+
+    const payload = {
+      username: isEmail ? "" : identifier,
+      email: isEmail ? identifier : "",
+      password: password,
+    };
+
+    try {
+      setLoading(true);
+      const res = await login(payload);
+
+      // ✅ Save token to localStorage
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("role", res.data.role);
+      localStorage.setItem("username", res.data.username);
+
+      // ✅ Redirect based on role
+      const role = res.data.role?.toLowerCase();
+      if (role === "student") navigate("/");
+      else if (role === "instructor") navigate("/instructor");
+      else navigate("/");
+
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.message) {
+        setError(data.message);
+      } else {
+        setError("Login failed. Please check your credentials.");
+      }
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
-    <AuthLayout
-      title="Welcome Back 👋"
-      subtitle="Sign in to continue learning"
-    >
+   <AuthLayout title="Welcome back 👋" subtitle="Sign in to continue learning" mode="signin">
       <motion.form
         onSubmit={handleSubmit}
         initial={{ opacity: 0, y: 10 }}
@@ -43,15 +82,22 @@ const SignIn = () => {
         transition={{ delay: 0.2 }}
         className="space-y-4"
       >
+        {/* ERROR */}
+        {error && (
+          <p className="text-red-500 text-sm text-center">{error}</p>
+        )}
+
+        {/* USERNAME OR EMAIL */}
         <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={form.email}
+          type="text"
+          name="identifier"
+          placeholder="Username or Email"
+          value={form.identifier}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
         />
 
+        {/* PASSWORD */}
         <input
           type="password"
           name="password"
@@ -61,6 +107,7 @@ const SignIn = () => {
           className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
         />
 
+        {/* BUTTON */}
         <button
           type="submit"
           disabled={loading}
@@ -68,9 +115,10 @@ const SignIn = () => {
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>
+
         {/* FOOTER */}
-         <p className="text-sm text-center text-gray-600">
-          if you don't have an account!{" "}
+        <p className="text-sm text-center text-gray-600">
+          Don't have an account?{" "}
           <Link
             to="/signup"
             className="text-purple-600 font-medium hover:underline"

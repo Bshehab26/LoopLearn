@@ -1,31 +1,28 @@
-import React from 'react';
-import { assets } from '../../assets/assets';
+import React, { useContext } from "react";
+import { assets } from "../../assets/assets";
 import { useNavigate } from "react-router-dom";
-import SearchBar from './SearchBar';
+import SearchBar from "./SearchBar";
+import { AppContext } from "../../context/AppContext";
 
 const Hero = () => {
   const navigate = useNavigate();
+  const { isNavSearchVisible } = useContext(AppContext);
 
   const handleExploreCourses = () => {
     navigate("/course-list");
   };
 
   const handleLearnMore = () => {
-    // Option 1: scroll to a section (recommended)
     const section = document.getElementById("about");
     if (section) {
       section.scrollIntoView({ behavior: "smooth" });
     }
-
-    // Option 2 (alternative): navigate to another page
-    // navigate("/about");
   };
 
   return (
     <div className="w-full bg-linear-to-b from-purple-50 via-white to-white pt-28 md:pt-36 pb-16 px-6 text-center">
-      
-      <div className="max-w-4xl mx-auto space-y-6 ">
-        
+      <div className="max-w-4xl mx-auto space-y-6">
+
         {/* Heading */}
         <h1 className="text-3xl md:text-5xl font-extrabold text-gray-800 leading-tight relative">
           Empower Your Future With Courses Designed To{" "}
@@ -43,18 +40,24 @@ const Hero = () => {
         {/* Description */}
         <p className="text-gray-600 text-base md:text-lg max-w-2xl mx-auto">
           Learn from world-class instructors, explore interactive content,
-          and join a supportive community to achieve your personal and
-          professional goals.
+          and join a supportive community to achieve your goals.
         </p>
-            <div className="pt-4 flex justify-center">
-  <div className="w-full max-w-xl">
-    <SearchBar />
-  </div>
-</div>
+
+        {/* SEARCH (with hide/show animation) */}
+        <div
+          className={`pt-4 flex justify-center transition-all duration-300 ${
+            isNavSearchVisible
+              ? "opacity-0 pointer-events-none h-0 overflow-hidden"
+              : "opacity-100"
+          }`}
+        >
+          <div className="w-full max-w-xl">
+            <SearchBar variant="hero" />
+          </div>
+        </div>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          
           <button
             onClick={handleExploreCourses}
             className="bg-linear-to-r from-purple-600 to-purple-800 text-white px-8 py-3 rounded-full text-lg font-medium shadow-md hover:scale-105 transition duration-300"

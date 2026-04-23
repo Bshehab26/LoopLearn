@@ -19,6 +19,11 @@ export const AppContextProvider = ({ children }) => {
   const isAdmin = userRole === "admin";
 
   /* =====================
+     NAV SEARCH VISIBILITY
+  ====================== */
+  const [isNavSearchVisible, setIsNavSearchVisible] = useState(true);
+
+  /* =====================
      COURSE STATE
   ====================== */
   const [allCourses, setAllCourses] = useState([]);
@@ -28,34 +33,26 @@ export const AppContextProvider = ({ children }) => {
   /* =====================
      FETCH
   ====================== */
-  const fetchAllCourses = () => {
-    setAllCourses(dummyCourses);
-  };
-
-  const fetchEnrolledCourses = () => {
-    setEnrolledCourses(dummyCourses);
-  };
-
+  const fetchAllCourses = () => setAllCourses(dummyCourses);
+  const fetchEnrolledCourses = () => setEnrolledCourses(dummyCourses);
   const fetchInstructorCourses = () => {
     setInstructorCourses(
-      dummyCourses.filter(
-        (course) => course.instructorId === "instructor-1"
-      )
+      dummyCourses.filter((course) => course.instructorId === "instructor-1")
     );
   };
 
   /* =====================
      UPDATE COURSE (EDIT)
   ====================== */
-const updateInstructorCourse = (courseId, updatedData) => {
-  setInstructorCourses((prev) =>
-    prev.map((course) =>
-      String(course._id) === String(courseId)
-        ? { ...course, ...updatedData }
-        : course
-    )
-  );
-};
+  const updateInstructorCourse = (courseId, updatedData) => {
+    setInstructorCourses((prev) =>
+      prev.map((course) =>
+        String(course._id) === String(courseId)
+          ? { ...course, ...updatedData }
+          : course
+      )
+    );
+  };
 
   /* =====================
      CALCULATIONS
@@ -64,47 +61,28 @@ const updateInstructorCourse = (courseId, updatedData) => {
     const ratings = Array.isArray(course?.courseRatings)
       ? course.courseRatings
       : [];
-
     if (!ratings.length) return 0;
-
-    const total = ratings.reduce(
-      (sum, r) => sum + Number(r.rating || 0),
-      0
-    );
-
+    const total = ratings.reduce((sum, r) => sum + Number(r.rating || 0), 0);
     return Number((total / ratings.length).toFixed(1));
   };
 
   const calculateChapterTime = (chapter) => {
     let time = 0;
-    chapter.chapterContent.forEach(
-      (lecture) => (time += lecture.lectureDuration)
-    );
-
-    return humanizeDuration(time * 60 * 1000, {
-      units: ["h", "m"],
-    });
+    chapter.chapterContent.forEach((lecture) => (time += lecture.lectureDuration));
+    return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
   };
 
   const calculateCourseDuration = (course) => {
     let time = 0;
-
     course.courseContent.forEach((chapter) =>
-      chapter.chapterContent.forEach(
-        (lecture) => (time += lecture.lectureDuration)
-      )
+      chapter.chapterContent.forEach((lecture) => (time += lecture.lectureDuration))
     );
-
-    return humanizeDuration(time * 60 * 1000, {
-      units: ["h", "m"],
-    });
+    return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
   };
 
   const calculateNOfLectures = (course) => {
     let total = 0;
-    course.courseContent.forEach(
-      (chapter) => (total += chapter.chapterContent.length)
-    );
+    course.courseContent.forEach((chapter) => (total += chapter.chapterContent.length));
     return total;
   };
 
@@ -129,6 +107,10 @@ const updateInstructorCourse = (courseId, updatedData) => {
         isStudent,
         isInstructor,
         isAdmin,
+
+        // ✅ nav search visibility
+        isNavSearchVisible,
+        setIsNavSearchVisible,
 
         // courses
         allCourses,
