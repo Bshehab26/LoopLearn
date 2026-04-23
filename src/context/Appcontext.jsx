@@ -7,49 +7,72 @@ export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
   const navigate = useNavigate();
+
   const currency = import.meta.env.VITE_CURRENCY || "$";
 
   /* =====================
-     USER ROLE
+     AUTH STATE (SOURCE OF TRUTH)
   ====================== */
-  const [userRole, setUserRole] = useState("instructor");
+  const [user, setUser] = useState(null);
 
-  const isStudent = userRole === "student";
-  const isInstructor = userRole === "instructor";
-  const isAdmin = userRole === "admin";
+  // Load user from localStorage on refresh
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) setUser(JSON.parse(storedUser));
+  }, []);
+
+  const loginUser = (data) => {
+    const normalized = {
+      token: data.token,
+      username: data.username,
+      email: data.email,
+      role: data.role?.toLowerCase(),
+    };
+
+    setUser(normalized);
+    localStorage.setItem("user", JSON.stringify(normalized));
+  };
+
+  const logoutUser = () => {
+    setUser(null);
+    localStorage.removeItem("user");
+    navigate("/signin");
+  };
 
   /* =====================
-     NAV SEARCH VISIBILITY
+     ROLE HELPERS
+  ====================== */
+  const isStudent = user?.role === "student";
+  const isInstructor = user?.role === "instructor";
+  const isAdmin = user?.role === "admin";
+
+  /* =====================
+     NAV SEARCH
   ====================== */
   const [isNavSearchVisible, setIsNavSearchVisible] = useState(true);
 
   /* =====================
-     COURSE STATE
+     COURSES
   ====================== */
   const [allCourses, setAllCourses] = useState([]);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [instructorCourses, setInstructorCourses] = useState([]);
 
-  /* =====================
-     FETCH
-  ====================== */
   const fetchAllCourses = () => setAllCourses(dummyCourses);
   const fetchEnrolledCourses = () => setEnrolledCourses(dummyCourses);
+
   const fetchInstructorCourses = () => {
     setInstructorCourses(
-      dummyCourses.filter((course) => course.instructorId === "instructor-1")
+      dummyCourses.filter((c) => c.instructorId === "instructor-1")
     );
   };
 
-  /* =====================
-     UPDATE COURSE (EDIT)
-  ====================== */
   const updateInstructorCourse = (courseId, updatedData) => {
     setInstructorCourses((prev) =>
-      prev.map((course) =>
-        String(course._id) === String(courseId)
-          ? { ...course, ...updatedData }
-          : course
+      prev.map((c) =>
+        String(c._id) === String(courseId)
+          ? { ...c, ...updatedData }
+          : c
       )
     );
   };
@@ -58,37 +81,38 @@ export const AppContextProvider = ({ children }) => {
      CALCULATIONS
   ====================== */
   const calculateRating = (course) => {
-    const ratings = Array.isArray(course?.courseRatings)
-      ? course.courseRatings
-      : [];
+    const ratings = course?.courseRatings || [];
     if (!ratings.length) return 0;
-    const total = ratings.reduce((sum, r) => sum + Number(r.rating || 0), 0);
+    const total = ratings.reduce((sum, r) => sum + r.rating, 0);
     return Number((total / ratings.length).toFixed(1));
   };
 
   const calculateChapterTime = (chapter) => {
     let time = 0;
-    chapter.chapterContent.forEach((lecture) => (time += lecture.lectureDuration));
+    chapter.chapterContent.forEach(
+      (lecture) => (time += lecture.lectureDuration)
+    );
     return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
   };
 
   const calculateCourseDuration = (course) => {
     let time = 0;
     course.courseContent.forEach((chapter) =>
-      chapter.chapterContent.forEach((lecture) => (time += lecture.lectureDuration))
+      chapter.chapterContent.forEach(
+        (lecture) => (time += lecture.lectureDuration)
+      )
     );
     return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
   };
 
   const calculateNOfLectures = (course) => {
     let total = 0;
-    course.courseContent.forEach((chapter) => (total += chapter.chapterContent.length));
+    course.courseContent.forEach(
+      (chapter) => (total += chapter.chapterContent.length)
+    );
     return total;
   };
 
-  /* =====================
-     INIT
-  ====================== */
   useEffect(() => {
     fetchAllCourses();
     fetchEnrolledCourses();
@@ -101,30 +125,29 @@ export const AppContextProvider = ({ children }) => {
         currency,
         navigate,
 
-        // role
-        userRole,
-        setUserRole,
+        /* AUTH */
+        user,
+        loginUser,
+        logoutUser,
         isStudent,
         isInstructor,
         isAdmin,
 
-        // ✅ nav search visibility
+        /* UI */
         isNavSearchVisible,
         setIsNavSearchVisible,
 
-        // courses
+        /* COURSES */
         allCourses,
         enrolledCourses,
         instructorCourses,
-
-        // actions
         updateInstructorCourse,
 
-        // utils
+        /* CALCULATIONS */
         calculateRating,
-        calculateNOfLectures,
         calculateChapterTime,
         calculateCourseDuration,
+        calculateNOfLectures,
       }}
     >
       {children}

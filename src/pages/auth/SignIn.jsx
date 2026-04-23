@@ -1,34 +1,45 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../../layouts/AuthLayout";
 import { login } from "../../services/api/auth.api";
+import { AppContext } from "../../context/AppContext";
 
 const SignIn = () => {
   const navigate = useNavigate();
+  const { loginUser } = useContext(AppContext);
 
   const [form, setForm] = useState({
-    identifier: "", // username OR email
+    identifier: "",
     password: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ======================
+  // HANDLE INPUT CHANGE
+  // ======================
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
     setError("");
   };
 
+  // ======================
+  // HANDLE SUBMIT
+  // ======================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const identifier = form.identifier.trim();
     const password = form.password.trim();
 
-    // ✅ Validation
+    // validation
     if (!identifier || !password) {
-      setError("Please fill all fields");
+      setError("Username or Email and Password are required");
       return;
     }
 
@@ -37,44 +48,67 @@ const SignIn = () => {
       return;
     }
 
-    // ✅ Detect if identifier is email or username
     const isEmail = identifier.includes("@");
 
+    // ✅ backend expects username OR email + password
     const payload = {
       username: isEmail ? "" : identifier,
       email: isEmail ? identifier : "",
-      password: password,
+      password,
     };
 
     try {
       setLoading(true);
+
       const res = await login(payload);
+      const data = res.data;
 
-      // ✅ Save token to localStorage
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("role", res.data.role);
-      localStorage.setItem("username", res.data.username);
+      // ======================
+      // SAVE AUTH DATA
+      // ======================
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("username", data.username);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("email", data.email);
 
-      // ✅ Redirect based on role
-      const role = res.data.role?.toLowerCase();
+      // ======================
+      // UPDATE GLOBAL STATE (NAVBAR FIX)
+      // ======================
+      loginUser({
+        token: data.token,
+        username: data.username,
+        role: data.role,
+        email: data.email,
+      });
+
+      // ======================
+      // REDIRECT BY ROLE
+      // ======================
+      const role = data.role?.toLowerCase();
+
       if (role === "student") navigate("/");
       else if (role === "instructor") navigate("/instructor");
       else navigate("/");
 
     } catch (err) {
-      const data = err.response?.data;
-      if (data?.message) {
-        setError(data.message);
-      } else {
-        setError("Login failed. Please check your credentials.");
-      }
+      setError(
+        err.response?.data?.message ||
+        "Login failed. Please check your credentials."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ======================
+  // UI
+  // ======================
   return (
-   <AuthLayout title="Welcome back 👋" subtitle="Sign in to continue learning" mode="signin">
+    <AuthLayout
+      title="Welcome back 👋"
+      subtitle="Sign in to continue learning"
+      mode="signin"
+    >
       <motion.form
         onSubmit={handleSubmit}
         initial={{ opacity: 0, y: 10 }}
@@ -87,7 +121,7 @@ const SignIn = () => {
           <p className="text-red-500 text-sm text-center">{error}</p>
         )}
 
-        {/* USERNAME OR EMAIL */}
+        {/* EMAIL OR USERNAME */}
         <input
           type="text"
           name="identifier"

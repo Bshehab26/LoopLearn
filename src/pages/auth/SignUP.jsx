@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../../layouts/AuthLayout";
 import { register } from "../../services/api/auth.api";
+import { AppContext } from "../../context/AppContext";
 
 const SignUp = () => {
   const navigate = useNavigate();
+  const { loginUser } = useContext(AppContext);
 
   const [form, setForm] = useState({
     username: "",
@@ -33,7 +35,9 @@ const SignUp = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Validation
+    /* =====================
+       VALIDATION
+    ====================== */
     if (Object.values(form).some((v) => !v)) {
       setError("All fields are required");
       return;
@@ -54,14 +58,16 @@ const SignUp = () => {
       return;
     }
 
-    // ✅ Clean camelCase payload (backend now supports it)
+    /* =====================
+       PAYLOAD (BACKEND FORMAT)
+    ====================== */
     const payload = {
       username: form.username,
       fName: form.firstName,
       lName: form.lastName,
       phone: form.phone,
       email: form.email,
-      gender: form.gender, // MUST be "Male" or "Female"
+      gender: form.gender,
       birthDate: form.birthDate,
       password: form.password,
       confirmPassword: form.confirmPassword,
@@ -72,12 +78,21 @@ const SignUp = () => {
 
       const res = await register(payload);
 
-      console.log("SUCCESS:", res.data);
+      const data = res.data;
+
+      /* =====================
+         AUTO LOGIN AFTER SIGNUP
+      ====================== */
+      loginUser({
+        token: data.token,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+      });
 
       navigate("/");
-    } catch (err) {
-      console.log("FULL ERROR:", err.response?.data);
 
+    } catch (err) {
       const data = err.response?.data;
 
       if (data?.errors) {
@@ -93,15 +108,37 @@ const SignUp = () => {
   };
 
   return (
-   <AuthLayout title="Create account ✨" subtitle="Join and start learning today" mode="signup" >
+    <AuthLayout
+      title="Create account ✨"
+      subtitle="Join and start learning today"
+      mode="signup"
+    >
       <motion.form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-        <input name="username" placeholder="Username" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+        {error && (
+          <p className="text-red-500 text-sm text-center">{error}</p>
+        )}
+
+        <input
+          name="username"
+          placeholder="Username"
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg"
+        />
 
         <div className="grid grid-cols-2 gap-4">
-          <input name="firstName" placeholder="First Name" onChange={handleChange} className="p-3 border rounded-lg" />
-          <input name="lastName" placeholder="Last Name" onChange={handleChange} className="p-3 border rounded-lg" />
+          <input
+            name="firstName"
+            placeholder="First Name"
+            onChange={handleChange}
+            className="p-3 border rounded-lg"
+          />
+          <input
+            name="lastName"
+            placeholder="Last Name"
+            onChange={handleChange}
+            className="p-3 border rounded-lg"
+          />
         </div>
 
         <input
@@ -114,28 +151,64 @@ const SignUp = () => {
           className="w-full p-3 border rounded-lg"
         />
 
-        <input name="email" type="email" placeholder="Email" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+        <input
+          name="email"
+          type="email"
+          placeholder="Email"
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg"
+        />
 
-        <select name="gender" onChange={handleChange} className="w-full p-3 border rounded-lg">
+        <select
+          name="gender"
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg"
+        >
           <option value="">Select Gender</option>
           <option value="Male">Male</option>
           <option value="Female">Female</option>
         </select>
 
-        <input name="birthDate" type="date" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+        <input
+          name="birthDate"
+          type="date"
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg"
+        />
 
-        <input name="password" type="password" placeholder="Password" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg"
+        />
 
-        <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} className="w-full p-3 border rounded-lg" />
+        <input
+          name="confirmPassword"
+          type="password"
+          placeholder="Confirm Password"
+          onChange={handleChange}
+          className="w-full p-3 border rounded-lg"
+        />
 
-        <button disabled={loading} className="w-full bg-indigo-600 text-white py-3 rounded-lg">
+        <button
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white py-3 rounded-lg"
+        >
           {loading ? "Creating..." : "Sign Up"}
         </button>
 
         <p className="text-center text-sm">
-          Already have an account? <Link to="/signin"  className="text-purple-600 font-medium hover:underline"
-          >Sign In</Link>
+          Already have an account?{" "}
+          <Link
+            to="/signin"
+            className="text-purple-600 font-medium hover:underline"
+          >
+            Sign In
+          </Link>
         </p>
+
       </motion.form>
     </AuthLayout>
   );
