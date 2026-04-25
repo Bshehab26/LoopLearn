@@ -1,20 +1,22 @@
-import React from "react";
-import { Routes, Route, useMatch } from "react-router-dom";
+import { useState } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import "./App.css";
 
 import SignIn from "./pages/auth/SignIn";
 import SignUP from "./pages/auth/SignUP";
 
-// STUDENT
 import Home from "./pages/student/Home";
 import CourseList from "./pages/student/CoursesList";
 import CourseDetails from "./pages/student/CourseDetails";
 import MyEnrollments from "./pages/student/MyEnrollments";
 import WatchWindow from "./pages/student/WatchWindow";
 import Loading from "./components/student/Loading";
+
 import Navbar from "./components/student/Navbar";
 
-// INSTRUCTOR
+import ChatButton from "./components/chat/ChatButton";
+import ChatWindow from "./components/chat/ChatWindow";
+
 import Instructor from "./pages/instructor/Instructor";
 import Dashboard from "./pages/instructor/Dashboard";
 import AddCourse from "./pages/instructor/AddCourse";
@@ -23,18 +25,26 @@ import MyCourses from "./pages/instructor/MyCourses";
 import StudentEnrolled from "./pages/instructor/StudentEnrolled";
 
 function App() {
-  const isInstructorRoute = useMatch("/instructor/*");
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const location = useLocation();
+
+  const isAuthRoute =
+    location.pathname === "/signin" ||
+    location.pathname === "/signup";
+
+  const isInstructorRoute = location.pathname.startsWith("/instructor");
 
   return (
     <div className="App">
-      {!isInstructorRoute && <Navbar />}
+
+      {!isInstructorRoute && !isAuthRoute && <Navbar />}
 
       <Routes>
-        {/* STUDENT ROUTES */}
-        <Route path="/" element={<Home />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUP />} />
 
+        <Route path="/" element={<Home />} />
         <Route path="/course-list" element={<CourseList />} />
         <Route path="/course-list/:input" element={<CourseList />} />
         <Route path="/course/:id" element={<CourseDetails />} />
@@ -42,7 +52,6 @@ function App() {
         <Route path="/watch/:courseId" element={<WatchWindow />} />
         <Route path="/loading/:path" element={<Loading />} />
 
-        {/* INSTRUCTOR ROUTES */}
         <Route path="/instructor" element={<Instructor />}>
           <Route index element={<Dashboard />} />
           <Route path="add-course" element={<AddCourse />} />
@@ -53,6 +62,16 @@ function App() {
 
         <Route path="*" element={<h1>404 Not Found</h1>} />
       </Routes>
+
+      {!isInstructorRoute && !isAuthRoute && (
+        <>
+          {chatOpen && (
+            <ChatWindow onClose={() => setChatOpen(false)} />
+          )}
+          <ChatButton onClick={() => setChatOpen(true)} />
+        </>
+      )}
+
     </div>
   );
 }

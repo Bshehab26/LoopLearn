@@ -25,64 +25,83 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
+    if (loading) return; // prevent changes during submit
+
     setForm((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+
     setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    /* =====================
-       VALIDATION
-    ====================== */
-    if (Object.values(form).some((v) => !v)) {
+    const {
+      username,
+      firstName,
+      lastName,
+      phone,
+      email,
+      gender,
+      birthDate,
+      password,
+      confirmPassword,
+    } = form;
+
+    /* ================= VALIDATION ================= */
+
+    if (
+      !username ||
+      !firstName ||
+      !lastName ||
+      !phone ||
+      !email ||
+      !gender ||
+      !birthDate ||
+      !password ||
+      !confirmPassword
+    ) {
       setError("All fields are required");
       return;
     }
 
-    if (!/^01[0-2,5]{1}[0-9]{8}$/.test(form.phone)) {
+    if (!/^01[0-2,5]\d{8}$/.test(phone)) {
       setError("Invalid Egyptian phone number");
       return;
     }
 
-    if (form.password.length < 6) {
+    if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
 
-    if (form.password !== form.confirmPassword) {
+    if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    /* =====================
-       PAYLOAD (BACKEND FORMAT)
-    ====================== */
+    /* ================= PAYLOAD ================= */
+
     const payload = {
-      username: form.username,
-      fName: form.firstName,
-      lName: form.lastName,
-      phone: form.phone,
-      email: form.email,
-      gender: form.gender,
-      birthDate: form.birthDate,
-      password: form.password,
-      confirmPassword: form.confirmPassword,
+      username,
+      fName: firstName,
+      lName: lastName,
+      phone,
+      email,
+      gender,
+      birthDate,
+      password,
+      confirmPassword,
     };
 
     try {
       setLoading(true);
 
       const res = await register(payload);
-
       const data = res.data;
 
-      /* =====================
-         AUTO LOGIN AFTER SIGNUP
-      ====================== */
       loginUser({
         token: data.token,
         username: data.username,
@@ -90,18 +109,26 @@ const SignUp = () => {
         role: data.role,
       });
 
+      // reset form (IMPORTANT)
+      setForm({
+        username: "",
+        firstName: "",
+        lastName: "",
+        phone: "",
+        email: "",
+        gender: "",
+        birthDate: "",
+        password: "",
+        confirmPassword: "",
+      });
+
       navigate("/");
 
     } catch (err) {
-      const data = err.response?.data;
-
-      if (data?.errors) {
-        setError(Object.values(data.errors).flat().join(" | "));
-      } else if (data?.message) {
-        setError(data.message);
-      } else {
-        setError("Registration failed");
-      }
+      setError(
+        err.response?.data?.message ||
+        "Registration failed"
+      );
     } finally {
       setLoading(false);
     }
@@ -113,15 +140,23 @@ const SignUp = () => {
       subtitle="Join and start learning today"
       mode="signup"
     >
-      <motion.form onSubmit={handleSubmit} className="space-y-4">
+      <motion.form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
 
         {error && (
-          <p className="text-red-500 text-sm text-center">{error}</p>
+          <p className="text-red-500 text-sm text-center">
+            {error}
+          </p>
         )}
 
         <input
           name="username"
           placeholder="Username"
+          value={form.username}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         />
@@ -130,12 +165,14 @@ const SignUp = () => {
           <input
             name="firstName"
             placeholder="First Name"
+            value={form.firstName}
             onChange={handleChange}
             className="p-3 border rounded-lg"
           />
           <input
             name="lastName"
             placeholder="Last Name"
+            value={form.lastName}
             onChange={handleChange}
             className="p-3 border rounded-lg"
           />
@@ -144,9 +181,11 @@ const SignUp = () => {
         <input
           name="phone"
           placeholder="01XXXXXXXXX"
+          value={form.phone}
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, "");
             setForm((prev) => ({ ...prev, phone: value }));
+            setError("");
           }}
           className="w-full p-3 border rounded-lg"
         />
@@ -155,12 +194,14 @@ const SignUp = () => {
           name="email"
           type="email"
           placeholder="Email"
+          value={form.email}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         />
 
         <select
           name="gender"
+          value={form.gender}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         >
@@ -172,6 +213,7 @@ const SignUp = () => {
         <input
           name="birthDate"
           type="date"
+          value={form.birthDate}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         />
@@ -180,6 +222,7 @@ const SignUp = () => {
           name="password"
           type="password"
           placeholder="Password"
+          value={form.password}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         />
@@ -188,23 +231,21 @@ const SignUp = () => {
           name="confirmPassword"
           type="password"
           placeholder="Confirm Password"
+          value={form.confirmPassword}
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         />
 
         <button
           disabled={loading}
-          className="w-full bg-indigo-600 text-white py-3 rounded-lg"
+          className="w-full bg-indigo-600 text-white py-3 rounded-lg disabled:opacity-50"
         >
           {loading ? "Creating..." : "Sign Up"}
         </button>
 
         <p className="text-center text-sm">
           Already have an account?{" "}
-          <Link
-            to="/signin"
-            className="text-purple-600 font-medium hover:underline"
-          >
+          <Link to="/signin" className="text-purple-600 font-medium hover:underline">
             Sign In
           </Link>
         </p>

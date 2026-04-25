@@ -17,20 +17,19 @@ const SignIn = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ======================
-  // HANDLE INPUT CHANGE
-  // ======================
+  // ================= HANDLE CHANGE =================
   const handleChange = (e) => {
+    if (loading) return;
+
     setForm((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+
     setError("");
   };
 
-  // ======================
-  // HANDLE SUBMIT
-  // ======================
+  // ================= HANDLE SUBMIT =================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -50,7 +49,6 @@ const SignIn = () => {
 
     const isEmail = identifier.includes("@");
 
-    // ✅ backend expects username OR email + password
     const payload = {
       username: isEmail ? "" : identifier,
       email: isEmail ? identifier : "",
@@ -63,17 +61,13 @@ const SignIn = () => {
       const res = await login(payload);
       const data = res.data;
 
-      // ======================
-      // SAVE AUTH DATA
-      // ======================
+      // save auth
       localStorage.setItem("token", data.token);
       localStorage.setItem("username", data.username);
       localStorage.setItem("role", data.role);
       localStorage.setItem("email", data.email);
 
-      // ======================
-      // UPDATE GLOBAL STATE (NAVBAR FIX)
-      // ======================
+      // update context
       loginUser({
         token: data.token,
         username: data.username,
@@ -81,9 +75,13 @@ const SignIn = () => {
         email: data.email,
       });
 
-      // ======================
-      // REDIRECT BY ROLE
-      // ======================
+      // reset form
+      setForm({
+        identifier: "",
+        password: "",
+      });
+
+      // redirect
       const role = data.role?.toLowerCase();
 
       if (role === "student") navigate("/");
@@ -100,9 +98,7 @@ const SignIn = () => {
     }
   };
 
-  // ======================
-  // UI
-  // ======================
+  // ================= UI =================
   return (
     <AuthLayout
       title="Welcome back 👋"
@@ -111,34 +107,37 @@ const SignIn = () => {
     >
       <motion.form
         onSubmit={handleSubmit}
+        className="space-y-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="space-y-4"
       >
-        {/* ERROR */}
+
         {error && (
-          <p className="text-red-500 text-sm text-center">{error}</p>
+          <p className="text-red-500 text-sm text-center">
+            {error}
+          </p>
         )}
 
-        {/* EMAIL OR USERNAME */}
+        {/* USERNAME / EMAIL */}
         <input
-          type="text"
           name="identifier"
+          type="text"
           placeholder="Username or Email"
           value={form.identifier}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none disabled:opacity-50"
         />
 
         {/* PASSWORD */}
         <input
-          type="password"
           name="password"
+          type="password"
           placeholder="Password"
           value={form.password}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none disabled:opacity-50"
         />
 
         {/* BUTTON */}
@@ -160,6 +159,7 @@ const SignIn = () => {
             Sign Up
           </Link>
         </p>
+
       </motion.form>
     </AuthLayout>
   );
