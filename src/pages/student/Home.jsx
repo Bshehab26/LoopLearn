@@ -1,31 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
+import { AppContext } from "../../context/AppContext";
+import Loading from "../../components/student/Loading";
+
 import Hero from "../../components/student/Hero";
 import Companies from "../../components/student/Companies";
 import CoursesSection from "../../components/student/CourseSecton";
 import TestimonialSection from "../../components/student/TestimonialSection";
-import CallToAction from "../../components/student/CallToAction";
+import AboutSection from "../../components/student/AboutSection";
+import ContactSection from "../../components/student/ContactSection";
 import Footer from "../../components/student/Footer";
 
-// 🤖 Chatbot
 import ChatButton from "../../components/chat/ChatButton";
 import ChatWindow from "../../components/chat/ChatWindow";
 
 const Home = () => {
+  const { coursesLoading } = useContext(AppContext);
   const [chatOpen, setChatOpen] = useState(false);
+
+  // ✅ show skeleton while courses are loading
+  if (coursesLoading) return <Loading />;
 
   return (
     <>
-      {/* PAGE CONTENT */}
-      <div className="flex flex-col items-center space-y-7 text-center">
+      <div className="flex flex-col items-center w-full text-center">
         <Hero />
         <Companies />
         <CoursesSection />
         <TestimonialSection />
-        <CallToAction />
+        <AboutSection />
+        <ContactSection />
         <Footer />
       </div>
 
-      {/* 🤖 CHATBOT (OUTSIDE LAYOUT) */}
       {chatOpen && <ChatWindow onClose={() => setChatOpen(false)} />}
       <ChatButton onClick={() => setChatOpen(true)} />
     </>

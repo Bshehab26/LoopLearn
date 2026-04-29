@@ -10,6 +10,7 @@ import CourseList from "./pages/student/CoursesList";
 import CourseDetails from "./pages/student/CourseDetails";
 import MyEnrollments from "./pages/student/MyEnrollments";
 import WatchWindow from "./pages/student/WatchWindow";
+import Profile from "./pages/student/Profile";        // ✅ NEW
 import Loading from "./components/student/Loading";
 
 import Navbar from "./components/student/Navbar";
@@ -26,7 +27,6 @@ import StudentEnrolled from "./pages/instructor/StudentEnrolled";
 
 function App() {
   const [chatOpen, setChatOpen] = useState(false);
-
   const location = useLocation();
 
   const isAuthRoute =
@@ -51,6 +51,7 @@ function App() {
         <Route path="/my-enrollments" element={<MyEnrollments />} />
         <Route path="/watch/:courseId" element={<WatchWindow />} />
         <Route path="/loading/:path" element={<Loading />} />
+        <Route path="/profile" element={<Profile />} />  {/* ✅ NEW */}
 
         <Route path="/instructor" element={<Instructor />}>
           <Route index element={<Dashboard />} />
@@ -65,9 +66,7 @@ function App() {
 
       {!isInstructorRoute && !isAuthRoute && (
         <>
-          {chatOpen && (
-            <ChatWindow onClose={() => setChatOpen(false)} />
-          )}
+          {chatOpen && <ChatWindow onClose={() => setChatOpen(false)} />}
           <ChatButton onClick={() => setChatOpen(true)} />
         </>
       )}

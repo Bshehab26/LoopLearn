@@ -7,15 +7,13 @@ export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
   const navigate = useNavigate();
-
   const currency = import.meta.env.VITE_CURRENCY || "$";
 
   /* =====================
-     AUTH STATE (SOURCE OF TRUTH)
+     AUTH STATE
   ====================== */
   const [user, setUser] = useState(null);
 
-  // Load user from localStorage on refresh
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) setUser(JSON.parse(storedUser));
@@ -28,7 +26,6 @@ export const AppContextProvider = ({ children }) => {
       email: data.email,
       role: data.role?.toLowerCase(),
     };
-
     setUser(normalized);
     localStorage.setItem("user", JSON.stringify(normalized));
   };
@@ -52,27 +49,51 @@ export const AppContextProvider = ({ children }) => {
   const [isNavSearchVisible, setIsNavSearchVisible] = useState(true);
 
   /* =====================
+     LOADING STATES
+  ====================== */
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [enrolledLoading, setEnrolledLoading] = useState(true);
+  const [instructorLoading, setInstructorLoading] = useState(true);
+
+  /* =====================
      COURSES
   ====================== */
   const [allCourses, setAllCourses] = useState([]);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [instructorCourses, setInstructorCourses] = useState([]);
 
-  const fetchAllCourses = () => setAllCourses(dummyCourses);
-  const fetchEnrolledCourses = () => setEnrolledCourses(dummyCourses);
+  const fetchAllCourses = () => {
+    setCoursesLoading(true);
+    // simulate async — replace with real API call later:
+    // const res = await getAllCourses(); setAllCourses(res.data);
+    setTimeout(() => {
+      setAllCourses(dummyCourses);
+      setCoursesLoading(false);
+    }, 800);
+  };
+
+  const fetchEnrolledCourses = () => {
+    setEnrolledLoading(true);
+    setTimeout(() => {
+      setEnrolledCourses(dummyCourses);
+      setEnrolledLoading(false);
+    }, 800);
+  };
 
   const fetchInstructorCourses = () => {
-    setInstructorCourses(
-      dummyCourses.filter((c) => c.instructorId === "instructor-1")
-    );
+    setInstructorLoading(true);
+    setTimeout(() => {
+      setInstructorCourses(
+        dummyCourses.filter((c) => c.instructorId === "instructor-1")
+      );
+      setInstructorLoading(false);
+    }, 800);
   };
 
   const updateInstructorCourse = (courseId, updatedData) => {
     setInstructorCourses((prev) =>
       prev.map((c) =>
-        String(c._id) === String(courseId)
-          ? { ...c, ...updatedData }
-          : c
+        String(c._id) === String(courseId) ? { ...c, ...updatedData } : c
       )
     );
   };
@@ -89,30 +110,27 @@ export const AppContextProvider = ({ children }) => {
 
   const calculateChapterTime = (chapter) => {
     let time = 0;
-    chapter.chapterContent.forEach(
-      (lecture) => (time += lecture.lectureDuration)
-    );
+    chapter.chapterContent.forEach((l) => (time += l.lectureDuration));
     return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
   };
 
   const calculateCourseDuration = (course) => {
     let time = 0;
-    course.courseContent.forEach((chapter) =>
-      chapter.chapterContent.forEach(
-        (lecture) => (time += lecture.lectureDuration)
-      )
+    course.courseContent.forEach((ch) =>
+      ch.chapterContent.forEach((l) => (time += l.lectureDuration))
     );
     return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
   };
 
   const calculateNOfLectures = (course) => {
     let total = 0;
-    course.courseContent.forEach(
-      (chapter) => (total += chapter.chapterContent.length)
-    );
+    course.courseContent.forEach((ch) => (total += ch.chapterContent.length));
     return total;
   };
 
+  /* =====================
+     INIT
+  ====================== */
   useEffect(() => {
     fetchAllCourses();
     fetchEnrolledCourses();
@@ -136,6 +154,11 @@ export const AppContextProvider = ({ children }) => {
         /* UI */
         isNavSearchVisible,
         setIsNavSearchVisible,
+
+        /* LOADING */
+        coursesLoading,
+        enrolledLoading,
+        instructorLoading,
 
         /* COURSES */
         allCourses,

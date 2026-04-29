@@ -147,12 +147,6 @@ const SignUp = () => {
         animate={{ opacity: 1 }}
       >
 
-        {error && (
-          <p className="text-red-500 text-sm text-center">
-            {error}
-          </p>
-        )}
-
         <input
           name="username"
           placeholder="Username"
@@ -235,7 +229,11 @@ const SignUp = () => {
           onChange={handleChange}
           className="w-full p-3 border rounded-lg"
         />
-
+ {error && (
+          <p className="text-red-500 text-sm text-center">
+            {error}
+          </p>
+        )}
         <button
           disabled={loading}
           className="w-full bg-indigo-600 text-white py-3 rounded-lg disabled:opacity-50"
@@ -249,6 +247,8 @@ const SignUp = () => {
             Sign In
           </Link>
         </p>
+        
+       
 
       </motion.form>
     </AuthLayout>
