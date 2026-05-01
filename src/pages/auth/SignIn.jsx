@@ -36,7 +36,6 @@ const SignIn = () => {
     const identifier = form.identifier.trim();
     const password = form.password.trim();
 
-    // validation
     if (!identifier || !password) {
       setError("Username or Email and Password are required");
       return;
@@ -48,26 +47,15 @@ const SignIn = () => {
     }
 
     const isEmail = identifier.includes("@");
-
-    const payload = {
-      username: isEmail ? "" : identifier,
-      email: isEmail ? identifier : "",
-      password,
-    };
+   const payload = isEmail
+      ? { email: identifier, password }
+      : { username: identifier, password }
 
     try {
       setLoading(true);
 
       const res = await login(payload);
       const data = res.data;
-
-      // save auth
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("username", data.username);
-      localStorage.setItem("role", data.role);
-      localStorage.setItem("email", data.email);
-
-      // update context
       loginUser({
         token: data.token,
         username: data.username,
@@ -75,30 +63,22 @@ const SignIn = () => {
         email: data.email,
       });
 
-      // reset form
-      setForm({
-        identifier: "",
-        password: "",
-      });
+      setForm({ identifier: "", password: "" });
 
-      // redirect
       const role = data.role?.toLowerCase();
-
-      if (role === "student") navigate("/");
-      else if (role === "instructor") navigate("/instructor");
+      if (role === "instructor") navigate("/instructor");
       else navigate("/");
 
     } catch (err) {
       setError(
         err.response?.data?.message ||
+        err.response?.data?.Message ||
         "Login failed. Please check your credentials."
       );
     } finally {
       setLoading(false);
     }
   };
-
-  // ================= UI =================
   return (
     <AuthLayout
       title="Welcome back 👋"
@@ -111,14 +91,10 @@ const SignIn = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-
         {error && (
-          <p className="text-red-500 text-sm text-center">
-            {error}
-          </p>
+          <p className="text-red-500 text-sm text-center">{error}</p>
         )}
 
-        {/* USERNAME / EMAIL */}
         <input
           name="identifier"
           type="text"
@@ -129,7 +105,6 @@ const SignIn = () => {
           className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none disabled:opacity-50"
         />
 
-        {/* PASSWORD */}
         <input
           name="password"
           type="password"
@@ -140,7 +115,6 @@ const SignIn = () => {
           className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-600 outline-none disabled:opacity-50"
         />
 
-        {/* BUTTON */}
         <button
           type="submit"
           disabled={loading}
@@ -149,17 +123,12 @@ const SignIn = () => {
           {loading ? "Signing in..." : "Sign In"}
         </button>
 
-        {/* FOOTER */}
         <p className="text-sm text-center text-gray-600">
           Don't have an account?{" "}
-          <Link
-            to="/signup"
-            className="text-purple-600 font-medium hover:underline"
-          >
+          <Link to="/signup" className="text-purple-600 font-medium hover:underline">
             Sign Up
           </Link>
         </p>
-
       </motion.form>
     </AuthLayout>
   );

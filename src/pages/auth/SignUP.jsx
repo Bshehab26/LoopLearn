@@ -25,13 +25,8 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    if (loading) return; // prevent changes during submit
-
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-
+    if (loading) return;
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError("");
   };
 
@@ -39,35 +34,23 @@ const SignUp = () => {
     e.preventDefault();
 
     const {
-      username,
-      firstName,
-      lastName,
-      phone,
-      email,
-      gender,
-      birthDate,
-      password,
-      confirmPassword,
+      username, firstName, lastName, phone,
+      email, gender, birthDate, password, confirmPassword,
     } = form;
 
     /* ================= VALIDATION ================= */
-
-    if (
-      !username ||
-      !firstName ||
-      !lastName ||
-      !phone ||
-      !email ||
-      !gender ||
-      !birthDate ||
-      !password ||
-      !confirmPassword
-    ) {
+    if (!username || !firstName || !lastName || !phone ||
+        !email || !gender || !birthDate || !password || !confirmPassword) {
       setError("All fields are required");
       return;
     }
 
-    if (!/^01[0-2,5]\d{8}$/.test(phone)) {
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    if (!/^01[0125]\d{8}$/.test(phone)) {
       setError("Invalid Egyptian phone number");
       return;
     }
@@ -83,14 +66,20 @@ const SignUp = () => {
     }
 
     /* ================= PAYLOAD ================= */
-
     const payload = {
       username,
+      // ✅ FIX: Use fName / lName to match backend RegisterDTO field names
+      // ASP.NET camelCase serializer maps fName -> FName, lName -> LName
       fName: firstName,
       lName: lastName,
       phone,
       email,
+      // ✅ FIX: Send gender as the exact enum name string ("Male" / "Female")
+      // This works if your backend has AddJsonOptions(o => o.JsonSerializerOptions
+      // .Converters.Add(new JsonStringEnumConverter())) configured.
+      // If not, change the <select> values to 0 / 1 to send numeric enum instead.
       gender,
+      // ✅ FIX: Send birthDate as ISO 8601 string — ASP.NET DateTime binding parses this correctly
       birthDate,
       password,
       confirmPassword,
@@ -102,6 +91,7 @@ const SignUp = () => {
       const res = await register(payload);
       const data = res.data;
 
+      // Let loginUser handle saving to localStorage (AppContext)
       loginUser({
         token: data.token,
         username: data.username,
@@ -109,17 +99,9 @@ const SignUp = () => {
         role: data.role,
       });
 
-      // reset form (IMPORTANT)
       setForm({
-        username: "",
-        firstName: "",
-        lastName: "",
-        phone: "",
-        email: "",
-        gender: "",
-        birthDate: "",
-        password: "",
-        confirmPassword: "",
+        username: "", firstName: "", lastName: "", phone: "",
+        email: "", gender: "", birthDate: "", password: "", confirmPassword: "",
       });
 
       navigate("/");
@@ -127,7 +109,10 @@ const SignUp = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-        "Registration failed"
+        err.response?.data?.Message ||
+        err.response?.data?.errors
+          ? Object.values(err.response.data.errors).flat().join(" ")
+          : "Registration failed"
       );
     } finally {
       setLoading(false);
@@ -146,13 +131,17 @@ const SignUp = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
+        {error && (
+          <p className="text-red-500 text-sm text-center">{error}</p>
+        )}
 
         <input
           name="username"
           placeholder="Username"
           value={form.username}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
         />
 
         <div className="grid grid-cols-2 gap-4">
@@ -161,14 +150,16 @@ const SignUp = () => {
             placeholder="First Name"
             value={form.firstName}
             onChange={handleChange}
-            className="p-3 border rounded-lg"
+            disabled={loading}
+            className="p-3 border rounded-lg disabled:opacity-50"
           />
           <input
             name="lastName"
             placeholder="Last Name"
             value={form.lastName}
             onChange={handleChange}
-            className="p-3 border rounded-lg"
+            disabled={loading}
+            className="p-3 border rounded-lg disabled:opacity-50"
           />
         </div>
 
@@ -177,11 +168,13 @@ const SignUp = () => {
           placeholder="01XXXXXXXXX"
           value={form.phone}
           onChange={(e) => {
+            if (loading) return;
             const value = e.target.value.replace(/\D/g, "");
             setForm((prev) => ({ ...prev, phone: value }));
             setError("");
           }}
-          className="w-full p-3 border rounded-lg"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
         />
 
         <input
@@ -190,14 +183,17 @@ const SignUp = () => {
           placeholder="Email"
           value={form.email}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
         />
 
+        {/* ✅ FIX: Values are "Male" / "Female" matching the Gender enum names exactly */}
         <select
           name="gender"
           value={form.gender}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
         >
           <option value="">Select Gender</option>
           <option value="Male">Male</option>
@@ -209,7 +205,8 @@ const SignUp = () => {
           type="date"
           value={form.birthDate}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
         />
 
         <input
@@ -218,7 +215,8 @@ const SignUp = () => {
           placeholder="Password"
           value={form.password}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg"
+          disabled={loading}
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
         />
 
         <input
@@ -227,16 +225,14 @@ const SignUp = () => {
           placeholder="Confirm Password"
           value={form.confirmPassword}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg"
-        />
- {error && (
-          <p className="text-red-500 text-sm text-center">
-            {error}
-          </p>
-        )}
-        <button
           disabled={loading}
-          className="w-full bg-indigo-600 text-white py-3 rounded-lg disabled:opacity-50"
+          className="w-full p-3 border rounded-lg disabled:opacity-50"
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
         >
           {loading ? "Creating..." : "Sign Up"}
         </button>
@@ -247,9 +243,6 @@ const SignUp = () => {
             Sign In
           </Link>
         </p>
-        
-       
-
       </motion.form>
     </AuthLayout>
   );

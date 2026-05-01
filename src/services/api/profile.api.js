@@ -1,13 +1,48 @@
+// src/services/api/profile.api.js
+
 import api from "./axios";
 
-export const getProfile = () => api.get("/profile");
+/**
+ * GET /api/Student/Profile
+ */
+export const getProfile = () => api.get("/Student/Profile");
 
-export const updateProfile = (data) => api.put("/profile/update", data);
-
-export const uploadAvatar = (formData) =>
-  api.put("/profile/avatar", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+/**
+ * PUT /api/Student/Profile/update
+ * Backend expects: { firstName, lastName, email, phone }  ← PascalCase mapped by ASP.NET
+ */
+export const updateProfile = (data) =>
+  api.put("/Student/Profile/update", {
+    firstName: data.fName,
+    lastName:  data.lName,
+    email:     data.email,
+    phone:     data.phone,
   });
 
-export const changePassword = (data) =>
-  api.put("/profile/change-password", data);
+/**
+ * PUT /api/Student/Profile/password
+ * Body: { oldPassword, newPassword }
+ */
+export const changePassword = (data) => api.put("/Student/Profile/password", data);
+
+/**
+ * PUT /api/Student/Profile/avatar
+ * Converts File → base64 then sends { avatar: base64String }
+ */
+export const uploadAvatar = (formData) => {
+  const file = formData.get("avatar");
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result;
+        await api.put("/Student/Profile/avatar", { avatar: base64 });
+        resolve({ data: { avatar: base64 } });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
