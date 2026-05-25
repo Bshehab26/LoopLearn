@@ -1,42 +1,77 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
-@import "tailwindcss";
-*{
-    font-family: 'Outfit', sans-serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Global resets ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
-.scrollbar::-webkit-scrollbar{
-    width: 8px;
+
+html {
+  scroll-behavior: smooth;
 }
-.scrollbar::-webkit-scrollbar-track{
-    background: #939393;
-    border: 10px;  
-    border-radius: 10px;   
+
+body {
+  margin: 0;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #ffffff;
+  color: #2C2C2A;
 }
-.scrollbar::-webkit-scrollbar-thumb{
-    background: #6b36c1;
-    border-radius: 10px;  
+
+/* HIDE BROWSER NATIVE PASSWORD REVEAL BUTTON - FIXES DOUBLE EYE ISSUE */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-password-reveal-button,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
-.scrollbar::-webkit-scrollbar-thumb:hover{
-    background: #553c9a;   
+/* ── Shimmer animation (used in Loading.jsx skeletons) ──────────────── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
-@layer base{
-    html{
-        scroll-bahvior:smooth;
-    }
+
+/* ── Slide-in toast animation (used in Profile.jsx) ────────────────── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-::webkit-scrollbar{
-    display:none;
+
+.animate-slideIn {
+  animation: slideIn 0.25s ease forwards;
 }
-.rich-text {font-size: 15px; color:#7c7a7d}
-.rich-text p {margin-bottom:16px;}
-.rich-text h1 {font-size:36px;font-weight:800;color:#252525;margin:32px 0;}
-.rich-text h2 {font-size:22px;font-weight:700;color:#252525;margin:24px 0;}
-.rich-text h3 {font-size:18px;font-weight:600;color:#333333;margin:20px 0;}
-.rich-text h4 {font-size:36px;font-weight:500;color:#444444;margin:16px 0;}
-.rich-text h5 {font-size:36px;font-weight:400;color:#555555;margin:12px 0;}
-.rich-text h6 {font-size:36px;font-weight:400;color:#666666;margin:8px 0;}
-.rich-text strong {font-weight:700;}
-.rich-text ol {list-style-type:decimal; margin-left:30px ;}
-.rich-text ul {margin-left:30px ; list-style-type:disc;}
-.rich-text li {margin-bottom:8px ;}
-.course-card{width: 424px;}
-.custom-card{box-shadow: 0px 4px 15px 2px rgba(0,0,0.0.1) ;}
+
+/* ── Scrollbar styling (optional, makes the app feel more polished) ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(83, 74, 183, 0.25);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(83, 74, 183, 0.45);
+}
+.feature-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+}
+/* index.css */
+:root {
+  --primary: #534AB7;
+  --primary-dark: #3C3489;
+  --primary-light: #EEEDFE;
+}
