@@ -1,7 +1,7 @@
 // src/features/auth/hooks/useAuth.js
-import { useState, useContext, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppContext } from '../../../store/AppContext';
+import { useAuth as useAppAuth } from '../../../store/AppProvider';  // ✅ Changed: import from AppProvider
 import { login, register } from '../api/auth.api';
 
 // ============================================================================
@@ -69,9 +69,13 @@ const validateSignUp = (form) => {
 // Hook
 // ============================================================================
 
+/**
+ * useAuth - Authentication hook for sign in and sign up
+ * Uses the global auth context from AppProvider
+ */
 const useAuth = () => {
   const navigate = useNavigate();
-  const { loginUser } = useContext(AppContext);
+  const { login: appLogin } = useAppAuth();  // ✅ Changed: use the store's login method
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -100,15 +104,27 @@ const useAuth = () => {
       }
 
       const userData = response.data;
-      loginUser({
+      
+      // ✅ Changed: Use appLogin from store (expects { token, expiresOn, message })
+      const loginSuccess = appLogin({
         token: userData.token,
-        username: userData.username,
-        email: userData.email,
-        role: userData.role,
+        expiresOn: userData.expiresOn,
+        message: userData.message,
       });
+      
+      if (!loginSuccess) {
+        setError('Failed to authenticate. Please try again.');
+        return false;
+      }
 
-      const redirectPath = ROLE_REDIRECTS[userData.role?.toLowerCase()] || DEFAULT_REDIRECT;
-      navigate(redirectPath, { replace: true });
+      // Extract role from token (stored in user object after login)
+      // We need to wait a moment for the auth context to update
+      setTimeout(() => {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const role = storedUser?.role?.toLowerCase();
+        const redirectPath = ROLE_REDIRECTS[role] || DEFAULT_REDIRECT;
+        navigate(redirectPath, { replace: true });
+      }, 100);
       
       return true;
     } catch (err) {
@@ -117,7 +133,7 @@ const useAuth = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate, loginUser]);
+  }, [navigate, appLogin]);
 
   /**
    * Sign up user
@@ -141,12 +157,19 @@ const useAuth = () => {
       }
 
       const userData = response.data;
-      loginUser({
+      
+      // ✅ Changed: Use appLogin from store
+      const loginSuccess = appLogin({
         token: userData.token,
-        username: userData.username,
-        email: userData.email,
-        role: userData.role,
+        expiresOn: userData.expiresOn,
+        message: userData.message,
       });
+      
+      if (!loginSuccess) {
+        setError('Registration successful but login failed. Please sign in manually.');
+        navigate('/signin');
+        return false;
+      }
 
       navigate('/', { replace: true });
       return true;
@@ -156,7 +179,7 @@ const useAuth = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate, loginUser]);
+  }, [navigate, appLogin]);
 
   return { signIn, signUp, loading, error, clearError };
 };

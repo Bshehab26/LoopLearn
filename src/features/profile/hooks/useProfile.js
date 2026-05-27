@@ -29,7 +29,7 @@ const TOAST_DURATION = 3500;
  * useProfile - Manages user profile operations
  * @returns {Object} Profile state and handler functions
  */
-const useProfile = () => {
+export const useProfile= () => {
   const { isAuthenticated, user } = useAuth();
   
   // State

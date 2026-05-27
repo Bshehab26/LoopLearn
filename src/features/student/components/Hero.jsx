@@ -6,35 +6,22 @@
  * @module features/student/components/Hero
  */
 
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';  // ✅ Removed useContext
 import { assets } from '../../../assets/assets';
 import { useNavigate } from 'react-router-dom';
 import SearchBar from '../../courses/components/SearchBar';
-import { AppContext } from '../../../store/AppContext';
+import { useUI } from '../../../store/AppProvider';  // ✅ Changed: useUI instead of AppContext
 import { motion } from 'framer-motion';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-/** Statistics data for hero section */
 const STATS_DATA = [
   { value: '50K+', label: 'Active Students', color: '#534AB7' },
   { value: '500+', label: 'Expert Courses', color: '#534AB7' },
   { value: '95%', label: 'Success Rate', color: '#534AB7' },
 ];
-
-/** Animation variants for Framer Motion */
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
-  },
-};
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -58,9 +45,6 @@ const badgeVariants = {
 // Subcomponents
 // ============================================================================
 
-/**
- * Badge component for promotional messages
- */
 const PromoBadge = () => (
   <motion.div
     variants={badgeVariants}
@@ -72,9 +56,6 @@ const PromoBadge = () => (
   </motion.div>
 );
 
-/**
- * Main heading component with gradient text and underline animation
- */
 const MainHeading = () => (
   <motion.h1 
     variants={itemVariants}
@@ -93,9 +74,6 @@ const MainHeading = () => (
   </motion.h1>
 );
 
-/**
- * Description text component
- */
 const Description = () => (
   <motion.p 
     variants={itemVariants}
@@ -106,9 +84,6 @@ const Description = () => (
   </motion.p>
 );
 
-/**
- * CTA Buttons component
- */
 const CTAButtons = ({ onExplore, onLearnMore }) => (
   <motion.div 
     variants={itemVariants}
@@ -134,9 +109,6 @@ const CTAButtons = ({ onExplore, onLearnMore }) => (
   </motion.div>
 );
 
-/**
- * Stats row component
- */
 const StatsRow = () => (
   <motion.div 
     variants={itemVariants}
@@ -153,9 +125,6 @@ const StatsRow = () => (
   </motion.div>
 );
 
-/**
- * Floating sketch image component
- */
 const FloatingSketch = () => (
   <img
     src={assets.sketch}
@@ -168,17 +137,12 @@ const FloatingSketch = () => (
 // Main Component
 // ============================================================================
 
-/**
- * Hero - Hero section component
- * @returns {React.ReactElement} Hero section
- */
 const Hero = () => {
   const navigate = useNavigate();
-  const { isNavSearchVisible } = useContext(AppContext);
+  const { isNavSearchVisible } = useUI();  // ✅ Changed: from AppContext to useUI
   const sectionRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
 
-  // Scroll-triggered animation
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -213,7 +177,6 @@ const Hero = () => {
       ref={sectionRef}
       className='hero-section w-full overflow-hidden'
     >
-      {/* CSS Styles - Consistent with other components */}
       <style>{`
         .hero-section {
           background: linear-gradient(135deg, #f8f7ff 0%, #ffffff 50%, #ffffff 100%);
@@ -224,22 +187,6 @@ const Hero = () => {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-        }
-        
-        .btn-primary {
-          background: linear-gradient(135deg, #534AB7 0%, #3C3489 100%);
-          color: white;
-          padding: 12px 32px;
-          border-radius: 9999px;
-          font-size: 1rem;
-          font-weight: 500;
-          box-shadow: 0 4px 14px 0 rgba(83, 74, 183, 0.3);
-          transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-        }
-        
-        .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px -5px rgba(83, 74, 183, 0.4);
         }
         
         .btn-secondary {
@@ -261,15 +208,6 @@ const Hero = () => {
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-10px); }
-        }
-        
-        @keyframes pulse-subtle {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.02); }
-        }
-        
-        .hero-badge:hover { 
-          animation: pulse-subtle 0.5s ease-in-out; 
         }
         
         .floating-sketch {
@@ -300,23 +238,19 @@ const Hero = () => {
       `}</style>
 
       <div className='max-w-6xl mx-auto px-6 py-16 md:py-20 lg:py-24 text-center'>
-        {/* Floating Sketch - Positioned absolutely relative to container */}
         <div className='relative'>
           <FloatingSketch />
         </div>
 
         <div className='space-y-6 md:space-y-8'>
-          {/* Promo Badge */}
           <div className={isVisible ? 'visible' : ''}>
             <PromoBadge />
           </div>
 
-          {/* Main Heading */}
           <div className={`fade-up ${isVisible ? 'visible' : ''} stagger-1`}>
             <MainHeading />
           </div>
 
-          {/* Description */}
           <div className={`fade-up ${isVisible ? 'visible' : ''} stagger-2`}>
             <Description />
           </div>
@@ -334,7 +268,6 @@ const Hero = () => {
             </div>
           </div>
 
-          {/* CTA Buttons */}
           <div className={`fade-up ${isVisible ? 'visible' : ''} stagger-3`}>
             <CTAButtons 
               onExplore={handleExploreCourses}
@@ -342,7 +275,6 @@ const Hero = () => {
             />
           </div>
 
-          {/* Stats Row */}
           <div className={`fade-up ${isVisible ? 'visible' : ''} stagger-4`}>
             <StatsRow />
           </div>

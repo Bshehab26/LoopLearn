@@ -1,6 +1,6 @@
 // src/features/profile/pages/Profile.jsx
 import { useState } from 'react';
-import { useProfile } from '../hooks/useProfile';
+import useProfile from '../hooks/useProfile';
 import ProfileHeader from '../components/ProfileHeader';
 import ProfileInfo from '../components/ProfileInfo';
 import ChangePasswordModal from '../components/ChangePasswordModal';

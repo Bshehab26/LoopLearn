@@ -6,13 +6,18 @@
  * @module features/courses/pages/WatchWindow
  */
 
-import humanizeDuration from 'humanize-duration';
-import React, { useEffect, useState, useContext, useCallback, useMemo } from 'react';
-import { assets } from '../../../assets/assets';
-import { AppContext } from '../../../store/AppContext';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth, useUI } from '../../../store/AppProvider';
+import { getCourseById } from '../api/course.api';
 import YouTube from 'react-youtube';
 import Comments from '../components/Comments';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  HiOutlineCheckCircle, HiOutlinePlay, HiOutlineClock, 
+  HiOutlineChevronDown, HiOutlineChevronUp, HiOutlineFlag,
+  HiOutlineBookOpen, HiOutlineUserGroup, HiOutlineChartBar
+} from 'react-icons/hi';
 
 // ============================================================================
 // Constants
@@ -20,6 +25,47 @@ import Comments from '../components/Comments';
 
 /** YouTube URL regex patterns */
 const YOUTUBE_REGEX = /(?:youtube\.com\/(?:.*v=|.*\/)|youtu\.be\/)([^"&?\/\s]{11})/;
+
+/** Mock course data for development (remove when backend is ready) */
+const MOCK_COURSE_DATA = {
+  id: 1,
+  title: 'React Masterclass: From Zero to Hero',
+  description: 'Learn React.js from scratch with hands-on projects and real-world examples.',
+  instructorName: 'Jane Smith',
+  instructorAvatar: null,
+  sections: [
+    {
+      id: 1,
+      title: 'Getting Started with React',
+      order: 1,
+      lessons: [
+        { id: 1, title: 'Introduction to React', duration: '12:30', isPreview: true, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Welcome to the course! In this lesson, we\'ll cover what React is and why you should learn it.' },
+        { id: 2, title: 'Setting Up Development Environment', duration: '15:45', isPreview: true, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Learn how to set up Node.js, npm, and your favorite code editor.' },
+        { id: 3, title: 'Your First React Component', duration: '18:20', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Create your first React component and understand the basics.' },
+      ]
+    },
+    {
+      id: 2,
+      title: 'React Fundamentals',
+      order: 2,
+      lessons: [
+        { id: 4, title: 'JSX Deep Dive', duration: '22:15', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Understand JSX syntax and how it works behind the scenes.' },
+        { id: 5, title: 'Components & Props', duration: '25:30', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Learn about component composition and passing data with props.' },
+        { id: 6, title: 'State Management', duration: '30:00', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Master useState hook and manage component state.' },
+      ]
+    },
+    {
+      id: 3,
+      title: 'Advanced Concepts',
+      order: 3,
+      lessons: [
+        { id: 7, title: 'useEffect Hook', duration: '28:45', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Handle side effects with the useEffect hook.' },
+        { id: 8, title: 'Context API', duration: '35:20', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Manage global state with Context API.' },
+        { id: 9, title: 'React Router', duration: '42:10', isPreview: false, videoUrl: 'https://youtu.be/dQw4w9WgXcQ', description: 'Implement navigation with React Router.' },
+      ]
+    }
+  ]
+};
 
 /** Animation durations */
 const ANIMATION_DURATION = {
@@ -44,21 +90,49 @@ const getYouTubeId = (url) => {
 };
 
 /**
- * Formats duration in minutes to human readable string
- * @param {number} minutes - Duration in minutes
+ * Formats duration in seconds or minutes to human readable string
+ * @param {string|number} duration - Duration value
  * @returns {string} Formatted duration
  */
-const formatDuration = (minutes) => {
-  return humanizeDuration(minutes * 60 * 1000, { units: ['h', 'm'] });
+const formatDuration = (duration) => {
+  if (!duration) return '—';
+  
+  // If it's a string like "12:30" (MM:SS)
+  if (typeof duration === 'string' && duration.includes(':')) {
+    return duration;
+  }
+  
+  // If it's minutes
+  if (typeof duration === 'number' && duration < 120) {
+    return `${duration} min`;
+  }
+  
+  // If it's minutes > 120 (convert to hours)
+  if (typeof duration === 'number' && duration >= 120) {
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  
+  return duration;
 };
 
 /**
- * Calculates total lectures count from course content
- * @param {Array} courseContent - Course chapters content
- * @returns {number} Total lecture count
+ * Calculates total progress percentage
+ * @param {Set} completedLectures - Set of completed lecture IDs
+ * @param {Array} sections - Course sections
+ * @returns {number} Progress percentage
  */
-const getTotalLectures = (courseContent) => {
-  return courseContent?.reduce((sum, chapter) => sum + (chapter.chapterContent?.length || 0), 0) || 0;
+const calculateProgress = (completedLectures, sections) => {
+  if (!sections?.length) return 0;
+  
+  let totalLessons = 0;
+  sections.forEach(section => {
+    totalLessons += section.lessons?.length || 0;
+  });
+  
+  if (totalLessons === 0) return 0;
+  return Math.round((completedLectures.size / totalLessons) * 100);
 };
 
 // ============================================================================
@@ -77,29 +151,40 @@ const Shimmer = ({ style = {} }) => (
 );
 
 const WatchWindowSkeleton = () => (
-  <div className='p-4 sm:p-10 grid md:grid-cols-2 gap-10 md:px-36'>
+  <div className='min-h-screen bg-gray-50'>
     <style>{`@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }`}</style>
     
-    {/* Left side skeleton - Course content list */}
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <Shimmer style={{ height: 24, width: 180, marginBottom: 8 }} />
-      {[...Array(4)].map((_, i) => (
-        <div key={i} style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flex: 1 }}>
-            <Shimmer style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0 }} />
-            <Shimmer style={{ height: 14, flex: 1, maxWidth: 200 }} />
-          </div>
-          <Shimmer style={{ height: 13, width: 100 }} />
-        </div>
-      ))}
+    {/* Progress Bar Skeleton */}
+    <div className='sticky top-16 z-40 bg-white border-b border-gray-100 px-6 md:px-10 py-3'>
+      <div className='flex items-center justify-between'>
+        <Shimmer style={{ height: 20, width: 200 }} />
+        <Shimmer style={{ height: 16, width: 100 }} />
+      </div>
     </div>
     
-    {/* Right side skeleton - Video player */}
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
-      <Shimmer style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12 }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Shimmer style={{ height: 16, width: '55%' }} />
-        <Shimmer style={{ height: 14, width: 120 }} />
+    <div className='grid lg:grid-cols-[1fr_380px]'>
+      {/* Left side skeleton - Video player */}
+      <div className='p-6 md:p-10'>
+        <Shimmer style={{ width: '100%', aspectRatio: '16/9', borderRadius: 16 }} />
+        <div className='mt-6'>
+          <Shimmer style={{ height: 24, width: '70%', marginBottom: 12 }} />
+          <Shimmer style={{ height: 16, width: '40%', marginBottom: 20 }} />
+          <Shimmer style={{ height: 80, width: '100%' }} />
+        </div>
+      </div>
+      
+      {/* Right side skeleton - Course content */}
+      <div className='bg-white border-l border-gray-100 p-6'>
+        <Shimmer style={{ height: 24, width: 150, marginBottom: 20 }} />
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className='mb-4'>
+            <Shimmer style={{ height: 48, width: '100%', borderRadius: 12, marginBottom: 8 }} />
+            <div className='pl-6 space-y-2'>
+              <Shimmer style={{ height: 40, width: '90%', borderRadius: 8 }} />
+              <Shimmer style={{ height: 40, width: '90%', borderRadius: 8 }} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   </div>
@@ -110,167 +195,313 @@ const WatchWindowSkeleton = () => (
 // ============================================================================
 
 /**
- * Progress bar component
+ * Progress Bar Component
  */
-const ProgressBar = ({ courseTitle, completed, totalLectures }) => {
-  const progressPercent = Math.round((completed.size / totalLectures) * 100);
-  
-  return (
-    <div className='sticky top-16 z-40 px-6 md:px-10 py-3 flex items-center gap-4' style={{ background: 'white', borderBottom: '0.5px solid rgba(0,0,0,0.07)' }}>
+const ProgressBar = ({ courseTitle, progress, completedCount, totalCount }) => (
+  <div className='sticky top-16 z-40 bg-white border-b border-gray-100 px-6 md:px-10 py-3'>
+    <div className='flex items-center justify-between gap-4 flex-wrap'>
       <p className='text-sm font-medium text-gray-700 truncate flex-1'>{courseTitle}</p>
       <div className='flex items-center gap-3 flex-shrink-0'>
-        <div className='w-32 h-1.5 rounded-full overflow-hidden' style={{ background: '#EEEDFE' }}>
+        <div className='w-48 h-1.5 rounded-full overflow-hidden bg-gray-100'>
           <div 
             className='h-full rounded-full transition-all duration-500' 
-            style={{ width: `${progressPercent}%`, background: '#534AB7' }} 
+            style={{ width: `${progress}%`, background: '#534AB7' }} 
           />
         </div>
-        <span className='text-xs font-medium' style={{ color: '#534AB7' }}>
-          {completed.size}/{totalLectures}
+        <span className='text-xs font-medium text-purple-600'>
+          {completedCount}/{totalCount} • {progress}%
         </span>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 /**
- * Video player component
+ * Video Player Component
  */
-const VideoPlayer = ({ watchCourse, onMarkComplete, isCompleted }) => {
-  const videoId = getYouTubeId(watchCourse?.lectureUrl);
+const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext }) => {
+  const [player, setPlayer] = useState(null);
+  const [showNext, setShowNext] = useState(false);
+  
+  const videoId = lecture?.videoUrl ? getYouTubeId(lecture.videoUrl) : null;
+  
+  const handleReady = (event) => {
+    setPlayer(event.target);
+  };
+  
+  const handleStateChange = (event) => {
+    // Video ended
+    if (event.data === 0 && !isCompleted) {
+      setShowNext(true);
+    }
+  };
+  
+  const handleMarkComplete = () => {
+    onComplete();
+    setShowNext(false);
+  };
+  
+  if (!lecture) {
+    return (
+      <div className='rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 mb-6'>
+        <div className='w-full aspect-video flex items-center justify-center'>
+          <div className='text-center'>
+            <HiOutlinePlay size={48} className='text-gray-600 mx-auto mb-4' />
+            <p className='text-gray-400 text-sm'>Select a lecture to start learning</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!videoId) {
+    return (
+      <div className='rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 mb-6'>
+        <div className='w-full aspect-video flex items-center justify-center'>
+          <div className='text-center'>
+            <HiOutlineFlag size={48} className='text-gray-600 mx-auto mb-4' />
+            <p className='text-gray-400 text-sm'>Video content coming soon</p>
+            <p className='text-gray-500 text-xs mt-2'>{lecture.title}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   return (
-    <>
-      <div className='rounded-2xl overflow-hidden mb-5' style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
-        {watchCourse && videoId ? (
-          <YouTube 
-            videoId={videoId} 
-            iframeClassName='w-full aspect-video' 
-            opts={{ playerVars: { autoplay: 1 } }} 
-          />
-        ) : (
-          <div className='w-full aspect-video flex items-center justify-center' style={{ background: '#1a1a2e' }}>
-            <p className='text-white/50 text-sm'>Select a lecture to start</p>
+    <div>
+      <div className='rounded-2xl overflow-hidden shadow-xl mb-6'>
+        <YouTube 
+          videoId={videoId}
+          iframeClassName='w-full aspect-video'
+          opts={{
+            playerVars: {
+              autoplay: 1,
+              modestbranding: 1,
+              rel: 0,
+              controls: 1,
+            }
+          }}
+          onReady={handleReady}
+          onStateChange={handleStateChange}
+        />
+      </div>
+      
+      {/* Lecture Info & Actions */}
+      <div className='mb-8'>
+        <h2 className='text-xl font-semibold text-gray-800 mb-2'>{lecture.title}</h2>
+        {lecture.duration && (
+          <div className='flex items-center gap-2 text-sm text-gray-500 mb-4'>
+            <HiOutlineClock size={16} />
+            <span>{formatDuration(lecture.duration)}</span>
           </div>
+        )}
+        {lecture.description && (
+          <p className='text-gray-600 leading-relaxed'>{lecture.description}</p>
         )}
       </div>
       
-      {watchCourse && (
-        <div className='flex items-start justify-between gap-4 mb-8 p-4 rounded-xl' style={{ background: '#FAFAFA', border: '0.5px solid rgba(0,0,0,0.07)' }}>
-          <div>
-            <p className='font-semibold text-gray-800 mb-1'>
-              {watchCourse.chapter}.{watchCourse.lecture} {watchCourse.lectureTitle}
-            </p>
-            <p className='text-xs text-gray-400'>{formatDuration(watchCourse.lectureDuration)}</p>
-          </div>
+      {/* Action Buttons */}
+      <div className='flex items-center gap-3'>
+        {!isCompleted && (
           <button
-            onClick={onMarkComplete}
-            disabled={isCompleted}
-            className='complete-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition'
-            style={isCompleted
-              ? { background: '#D1FAE5', color: '#065F46', border: '0.5px solid #6EE7B7' }
-              : { border: '0.5px solid #534AB7', color: '#534AB7' }
-            }
+            onClick={handleMarkComplete}
+            className='flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90'
+            style={{ background: 'linear-gradient(135deg, #534AB7 0%, #3C3489 100%)' }}
           >
-            {isCompleted ? '✓ Completed' : 'Mark as Complete'}
+            <HiOutlineCheckCircle size={16} />
+            Mark as Complete
+          </button>
+        )}
+        
+        {isCompleted && (
+          <span className='flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-green-50 text-green-700'>
+            <HiOutlineCheckCircle size={16} />
+            Completed ✓
+          </span>
+        )}
+        
+        {showNext && onNext && (
+          <button
+            onClick={onNext}
+            className='flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border border-purple-600 text-purple-600 hover:bg-purple-50 transition'
+          >
+            Next Lecture →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Section Component
+ */
+const Section = ({ section, index, isOpen, onToggle, lectures, currentLectureId, onLectureSelect, completedLectures }) => {
+  const lessons = section.lessons || lectures || [];
+  const completedInSection = lessons.filter(l => completedLectures.has(l.id)).length;
+  const sectionProgress = lessons.length > 0 ? (completedInSection / lessons.length) * 100 : 0;
+  
+  return (
+    <div className='mb-2 border border-gray-100 rounded-xl overflow-hidden bg-white'>
+      <button
+        onClick={() => onToggle(index)}
+        className='w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition'
+      >
+        <div className='flex items-center gap-3 flex-1'>
+          <div className='w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-purple-100 text-purple-600'>
+            {isOpen ? <HiOutlineChevronUp size={16} /> : <HiOutlineChevronDown size={16} />}
+          </div>
+          <div className='flex-1'>
+            <p className='text-sm font-semibold text-gray-800'>{section.title}</p>
+            <p className='text-xs text-gray-400 mt-0.5'>{lessons.length} lessons • {completedInSection} completed</p>
+          </div>
+          <div className='flex items-center gap-2'>
+            {sectionProgress > 0 && (
+              <div className='w-16 h-1 rounded-full bg-gray-100 overflow-hidden'>
+                <div className='h-full bg-purple-500 rounded-full' style={{ width: `${sectionProgress}%` }} />
+              </div>
+            )}
+          </div>
+        </div>
+      </button>
+      
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className='border-t border-gray-100'
+          >
+            <div className='py-2'>
+              {lessons.map((lesson, idx) => {
+                const isActive = currentLectureId === lesson.id;
+                const isCompleted = completedLectures.has(lesson.id);
+                
+                return (
+                  <button
+                    key={lesson.id}
+                    onClick={() => onLectureSelect(lesson, index, idx)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
+                      isActive 
+                        ? 'bg-purple-50' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isCompleted 
+                        ? 'bg-green-100 text-green-600' 
+                        : isActive 
+                          ? 'bg-purple-100 text-purple-600' 
+                          : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {isCompleted ? (
+                        <HiOutlineCheckCircle size={12} />
+                      ) : (
+                        <span className='text-xs'>{idx + 1}</span>
+                      )}
+                    </div>
+                    <div className='flex-1'>
+                      <p className={`text-sm ${isActive ? 'text-purple-600 font-medium' : 'text-gray-700'}`}>
+                        {lesson.title}
+                      </p>
+                      {lesson.duration && (
+                        <p className='text-xs text-gray-400 mt-0.5'>{formatDuration(lesson.duration)}</p>
+                      )}
+                    </div>
+                    {lesson.isPreview && (
+                      <span className='text-xs text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full'>Preview</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/**
+ * Course Content Sidebar Component
+ */
+const CourseContentSidebar = ({ 
+  sections, 
+  openSections, 
+  onToggleSection, 
+  onLectureSelect, 
+  currentLectureId, 
+  completedLectures 
+}) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  if (!sections?.length) {
+    return (
+      <div className='bg-white border-l border-gray-100 p-6'>
+        <p className='text-center text-gray-500 py-12'>No course content available</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className={`bg-white border-l border-gray-100 transition-all duration-300 ${isCollapsed ? 'w-16' : ''}`}>
+      <div className='sticky top-32'>
+        {/* Header */}
+        <div className='flex items-center justify-between p-4 border-b border-gray-100'>
+          {!isCollapsed && (
+            <h3 className='font-semibold text-gray-800'>Course Content</h3>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className='p-1 rounded-lg hover:bg-gray-100 transition'
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <HiOutlineChevronDown className={`transform transition-transform ${isCollapsed ? 'rotate-90' : '-rotate-90'}`} />
           </button>
         </div>
-      )}
-    </>
-  );
-};
-
-/**
- * Chapter section component
- */
-const ChapterSection = ({ chapter, index, isOpen, onToggle, onLectureSelect, currentLecture, completedLectures }) => {
-  return (
-    <div className='mb-1'>
-      <div 
-        className='chapter-header flex items-center justify-between px-3 py-2.5 rounded-lg select-none hover:bg-gray-50 transition cursor-pointer' 
-        onClick={() => onToggle(index)}
-      >
-        <div className='flex items-center gap-2 flex-1 min-w-0'>
-          <img 
-            className={`w-3 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
-            src={assets.down_arrow_icon} 
-            alt='' 
-          />
-          <p className='text-xs font-semibold text-gray-700 truncate'>{chapter.chapterTitle}</p>
-        </div>
-        <span className='text-xs text-gray-400 flex-shrink-0 ml-2'>{chapter.chapterContent?.length || 0}</span>
-      </div>
-      
-      <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-screen' : 'max-h-0'}`}>
-        <div className='pl-4 pr-2 pb-2 flex flex-col gap-0.5'>
-          {chapter.chapterContent?.map((lecture, i) => {
-            const isActive = currentLecture?.lectureTitle === lecture.lectureTitle;
-            const isDone = completedLectures.has(lecture.lectureTitle);
-            
-            return (
-              <div
-                key={i}
-                onClick={() => onLectureSelect({ ...lecture, chapter: index + 1, lecture: i + 1 })}
-                className={`lecture-item flex items-start gap-2 px-2 py-2 rounded-lg cursor-pointer transition ${
-                  isActive ? 'active bg-purple-50' : 'hover:bg-gray-50'
-                }`}
-              >
-                <div
-                  className='w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5'
-                  style={{ 
-                    background: isDone ? '#D1FAE5' : isActive ? '#EEEDFE' : '#F1F0F0', 
-                    border: isActive ? '1.5px solid #534AB7' : 'none' 
-                  }}
-                >
-                  <span style={{ color: isDone ? '#065F46' : isActive ? '#534AB7' : '#B4B2A9', fontSize: 7 }}>
-                    {isDone ? '✓' : '▶'}
-                  </span>
-                </div>
-                <div className='flex-1 min-w-0'>
-                  <p className='text-xs leading-relaxed' style={{ 
-                    color: isActive ? '#534AB7' : isDone ? '#888780' : '#444441', 
-                    fontWeight: isActive ? 500 : 400 
-                  }}>
-                    {lecture.lectureTitle}
-                  </p>
-                  <p className='text-xs mt-0.5' style={{ color: '#B4B2A9' }}>
-                    {formatDuration(lecture.lectureDuration)}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/**
- * Course content sidebar component
- */
-const CourseContentSidebar = ({ courseContent, openSections, onToggleSection, onLectureSelect, currentLecture, completedLectures }) => {
-  return (
-    <div className='hidden md:block overflow-y-auto bg-white' style={{ maxHeight: 'calc(100vh - 120px)', position: 'sticky', top: '120px', borderLeft: '0.5px solid rgba(0,0,0,0.07)' }}>
-      <div className='p-4'>
-        <h3 className='text-sm font-semibold text-gray-800 mb-4 px-2'>Course Content</h3>
         
-        {courseContent?.map((chapter, index) => (
-          <ChapterSection
-            key={index}
-            chapter={chapter}
-            index={index}
-            isOpen={openSections[index]}
-            onToggle={onToggleSection}
-            onLectureSelect={onLectureSelect}
-            currentLecture={currentLecture}
-            completedLectures={completedLectures}
-          />
-        ))}
+        {/* Content */}
+        <div className={`p-4 space-y-2 ${isCollapsed ? 'hidden' : ''}`}>
+          {sections.map((section, idx) => (
+            <Section
+              key={section.id || idx}
+              section={section}
+              index={idx}
+              isOpen={openSections[idx]}
+              onToggle={onToggleSection}
+              currentLectureId={currentLectureId}
+              onLectureSelect={onLectureSelect}
+              completedLectures={completedLectures}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
 };
+
+/**
+ * Empty State Component
+ */
+const EmptyState = ({ onBrowseCourses }) => (
+  <div className='min-h-screen flex items-center justify-center'>
+    <div className='text-center'>
+      <div className='w-24 h-24 mx-auto mb-6 rounded-full bg-purple-100 flex items-center justify-center'>
+        <span className='text-4xl'>📚</span>
+      </div>
+      <h3 className='text-xl font-semibold text-gray-800 mb-2'>Course not found</h3>
+      <p className='text-gray-500 mb-6'>The course you're looking for doesn't exist or you haven't enrolled yet.</p>
+      <button
+        onClick={onBrowseCourses}
+        className='px-6 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition'
+      >
+        Browse Courses
+      </button>
+    </div>
+  </div>
+);
 
 // ============================================================================
 // Main Component
@@ -281,40 +512,101 @@ const CourseContentSidebar = ({ courseContent, openSections, onToggleSection, on
  * @returns {React.ReactElement} Watch window page
  */
 const WatchWindow = () => {
-  const { enrolledCourses, enrolledLoading } = useContext(AppContext);
   const { courseId } = useParams();
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   
   // State
-  const [courseDetails, setCourseDetails] = useState(null);
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [openSections, setOpenSections] = useState({});
   const [currentLecture, setCurrentLecture] = useState(null);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [completedLectures, setCompletedLectures] = useState(new Set());
   const [isVisible, setIsVisible] = useState(false);
   
-  // Find course from enrolled courses
-  useEffect(() => {
-    const course = enrolledCourses.find((c) => c._id === courseId);
-    setCourseDetails(course || null);
-  }, [courseId, enrolledCourses]);
+  // Use mock data flag (set to false when backend is ready)
+  const USE_MOCK_DATA = true;
   
-  // Initialize first lecture and open first section
+  // Fetch course data
   useEffect(() => {
-    if (courseDetails?.courseContent?.length > 0) {
-      const firstChapter = courseDetails.courseContent[0];
-      const firstLecture = firstChapter.chapterContent[0];
-      
-      if (firstLecture) {
-        setCurrentLecture({ ...firstLecture, chapter: 1, lecture: 1 });
-        setOpenSections({ 0: true });
-        setTimeout(() => setIsVisible(true), 50);
+    const fetchCourse = async () => {
+      if (!courseId) {
+        setError('Invalid course ID');
+        setLoading(false);
+        return;
       }
-    }
-  }, [courseDetails]);
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        let courseData;
+        
+        if (USE_MOCK_DATA) {
+          // Use mock data for development
+          await new Promise(resolve => setTimeout(resolve, 800));
+          courseData = { ...MOCK_COURSE_DATA, id: parseInt(courseId) || 1 };
+        } else {
+          // Real API call when backend is ready
+          const response = await getCourseById(courseId);
+          if (response.success) {
+            courseData = response.data;
+          } else {
+            throw new Error(response.message);
+          }
+        }
+        
+        setCourse(courseData);
+        
+        // Initialize first lecture
+        if (courseData.sections?.length > 0) {
+          const firstSection = courseData.sections[0];
+          if (firstSection.lessons?.length > 0) {
+            setCurrentLecture(firstSection.lessons[0]);
+            setCurrentSectionIndex(0);
+            setCurrentLessonIndex(0);
+            setOpenSections({ 0: true });
+          }
+        }
+        
+        // Load completed lectures from localStorage (mock persistence)
+        const savedProgress = localStorage.getItem(`course_progress_${courseId}`);
+        if (savedProgress) {
+          const completedIds = new Set(JSON.parse(savedProgress));
+          setCompletedLectures(completedIds);
+        }
+        
+        setTimeout(() => setIsVisible(true), 100);
+      } catch (err) {
+        console.error('Error fetching course:', err);
+        setError(err.message || 'Failed to load course');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCourse();
+  }, [courseId]);
   
-  // Memoized values
-  const totalLectures = useMemo(() => 
-    getTotalLectures(courseDetails?.courseContent), 
-    [courseDetails]
+  // Save progress to localStorage when completed lectures change
+  useEffect(() => {
+    if (courseId && completedLectures.size > 0) {
+      localStorage.setItem(`course_progress_${courseId}`, JSON.stringify([...completedLectures]));
+    }
+  }, [completedLectures, courseId]);
+  
+  // Calculate progress
+  const totalLessons = useMemo(() => {
+    if (!course?.sections) return 0;
+    return course.sections.reduce((total, section) => total + (section.lessons?.length || 0), 0);
+  }, [course]);
+  
+  const progress = useMemo(() => 
+    calculateProgress(completedLectures, course?.sections), 
+    [completedLectures, course]
   );
   
   // Toggle section open/close
@@ -322,34 +614,109 @@ const WatchWindow = () => {
     setOpenSections(prev => ({ ...prev, [index]: !prev[index] }));
   }, []);
   
+  // Select lecture
+  const selectLecture = useCallback((lecture, sectionIdx, lessonIdx) => {
+    setCurrentLecture(lecture);
+    setCurrentSectionIndex(sectionIdx);
+    setCurrentLessonIndex(lessonIdx);
+    
+    // Auto-expand the section containing the selected lecture
+    if (!openSections[sectionIdx]) {
+      setOpenSections(prev => ({ ...prev, [sectionIdx]: true }));
+    }
+    
+    // Scroll to top on mobile
+    if (window.innerWidth < 1024) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [openSections]);
+  
   // Mark current lecture as complete
   const markComplete = useCallback(() => {
-    if (currentLecture) {
-      setCompletedLectures(prev => new Set([...prev, currentLecture.lectureTitle]));
-    }
+    if (!currentLecture) return;
+    
+    setCompletedLectures(prev => {
+      const newSet = new Set(prev);
+      newSet.add(currentLecture.id);
+      return newSet;
+    });
   }, [currentLecture]);
+  
+  // Go to next lecture
+  const goToNextLecture = useCallback(() => {
+    if (!course?.sections) return;
+    
+    const sections = course.sections;
+    const currentSection = sections[currentSectionIndex];
+    const nextLessonIndex = currentLessonIndex + 1;
+    
+    // Next lesson in same section
+    if (nextLessonIndex < currentSection.lessons.length) {
+      const nextLecture = currentSection.lessons[nextLessonIndex];
+      setCurrentLecture(nextLecture);
+      setCurrentLessonIndex(nextLessonIndex);
+    } else {
+      // Move to next section
+      const nextSectionIndex = currentSectionIndex + 1;
+      if (nextSectionIndex < sections.length) {
+        const nextSection = sections[nextSectionIndex];
+        if (nextSection.lessons?.length > 0) {
+          setCurrentLecture(nextSection.lessons[0]);
+          setCurrentSectionIndex(nextSectionIndex);
+          setCurrentLessonIndex(0);
+          setOpenSections(prev => ({ ...prev, [nextSectionIndex]: true }));
+        }
+      }
+    }
+  }, [course, currentSectionIndex, currentLessonIndex]);
   
   // Check if current lecture is completed
   const isCurrentLectureCompleted = useMemo(() => 
-    currentLecture ? completedLectures.has(currentLecture.lectureTitle) : false,
+    currentLecture ? completedLectures.has(currentLecture.id) : false,
     [currentLecture, completedLectures]
   );
   
-  // Loading state
-  if (enrolledLoading) return <WatchWindowSkeleton />;
+  // Handle mark complete with auto-next
+  const handleMarkComplete = useCallback(() => {
+    markComplete();
+    // Auto-advance to next lecture after marking complete (optional)
+    setTimeout(() => {
+      goToNextLecture();
+    }, 500);
+  }, [markComplete, goToNextLecture]);
   
-  // Course not found
-  if (!courseDetails) {
+  // Browse courses handler
+  const handleBrowseCourses = useCallback(() => {
+    navigate('/courses');
+  }, [navigate]);
+  
+  // Loading state
+  if (loading) {
+    return <WatchWindowSkeleton />;
+  }
+  
+  // Error or no course state
+  if (error || !course) {
+    return <EmptyState onBrowseCourses={handleBrowseCourses} />;
+  }
+  
+  // Check enrollment (for real implementation, check API)
+  const isEnrolled = true; // TODO: Check enrollment from API
+  
+  if (!isEnrolled && !USE_MOCK_DATA) {
     return (
       <div className='min-h-screen flex items-center justify-center'>
         <div className='text-center'>
-          <p className='text-6xl mb-4'>📚</p>
-          <p className='text-gray-500'>Course not found or not enrolled.</p>
-          <button 
-            onClick={() => window.history.back()}
-            className='mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition'
+          <div className='w-24 h-24 mx-auto mb-6 rounded-full bg-yellow-100 flex items-center justify-center'>
+            <span className='text-4xl'>🔒</span>
+          </div>
+          <h3 className='text-xl font-semibold text-gray-800 mb-2'>Access Restricted</h3>
+          <p className='text-gray-500 mb-6'>Please enroll in this course to access the content.</p>
+          <button
+            onClick={() => navigate(`/course/${courseId}`)}
+            className='px-6 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition'
           >
-            Go Back
+            View Course Details
           </button>
         </div>
       </div>
@@ -359,56 +726,44 @@ const WatchWindow = () => {
   return (
     <>
       <style>{`
-        .watch-container { 
-          opacity: 0; 
-          transition: opacity ${ANIMATION_DURATION.CONTAINER_FADE}ms ease; 
-        }
-        .watch-container.visible { 
-          opacity: 1; 
-        }
-        .lecture-item { 
-          transition: background 0.15s ease, border 0.15s ease; 
-        }
-        .chapter-header { 
-          transition: background 0.15s ease; 
-        }
-        .complete-btn { 
-          transition: all 0.2s ease; 
-        }
-        .complete-btn:hover:not(:disabled) { 
-          background: #534AB7; 
-          color: white; 
-          transform: translateY(-1px);
-        }
+        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        .watch-container { opacity: 0; transition: opacity ${ANIMATION_DURATION.CONTAINER_FADE}ms ease; }
+        .watch-container.visible { opacity: 1; }
       `}</style>
       
-      <div className={`watch-container ${isVisible ? 'visible' : ''}`}>
+      <div className={`watch-container ${isVisible ? 'visible' : ''} min-h-screen bg-gray-50`}>
         {/* Progress Bar */}
         <ProgressBar 
-          courseTitle={courseDetails.courseTitle}
-          completed={completedLectures}
-          totalLectures={totalLectures}
+          courseTitle={course.title}
+          progress={progress}
+          completedCount={completedLectures.size}
+          totalCount={totalLessons}
         />
         
         {/* Main Layout */}
-        <div className='grid md:grid-cols-[1fr_320px]'>
+        <div className='grid lg:grid-cols-[1fr_420px]'>
           {/* Left Column - Video Player & Comments */}
-          <div className='p-6 md:p-10 border-r' style={{ borderColor: 'rgba(0,0,0,0.07)' }}>
+          <div className='p-6 md:p-10'>
             <VideoPlayer 
-              watchCourse={currentLecture}
-              onMarkComplete={markComplete}
+              lecture={currentLecture}
+              onComplete={handleMarkComplete}
               isCompleted={isCurrentLectureCompleted}
+              onNext={goToNextLecture}
             />
-            <Comments courseId={courseId} />
+            
+            {/* Comments Section */}
+            <div className='mt-10 pt-6 border-t border-gray-200'>
+              <Comments courseId={course.id} />
+            </div>
           </div>
           
           {/* Right Column - Course Content Sidebar */}
           <CourseContentSidebar 
-            courseContent={courseDetails.courseContent}
+            sections={course.sections || []}
             openSections={openSections}
             onToggleSection={toggleSection}
-            onLectureSelect={setCurrentLecture}
-            currentLecture={currentLecture}
+            onLectureSelect={selectLecture}
+            currentLectureId={currentLecture?.id}
             completedLectures={completedLectures}
           />
         </div>

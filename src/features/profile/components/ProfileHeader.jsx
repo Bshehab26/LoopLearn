@@ -10,25 +10,22 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
   const avatarUrl = profile?.avatar;
   const fullName = `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim();
   const initials = getInitials(profile?.username || profile?.firstName || 'U');
-  const role = profile?.role || profile?.userRole || 'Student';
+  const role = profile?.role || 'Student';
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
       return;
     }
     
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Image must be less than 5MB');
       return;
     }
     
-    // Create local preview URL
     const previewUrl = URL.createObjectURL(file);
     onAvatarChange(previewUrl, file);
   };
@@ -47,10 +44,8 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
 
   return (
     <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-purple-600 to-purple-800">
-      {/* Cover Image Placeholder */}
       <div className="h-32 bg-gradient-to-r from-purple-500 to-indigo-600" />
       
-      {/* Avatar Section */}
       <div className="px-6 pb-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
           {/* Avatar */}
@@ -73,7 +68,6 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
               )}
             </div>
             
-            {/* Camera Overlay */}
             {isHovering && !saving && (
               <button
                 onClick={() => fileInputRef.current?.click()}

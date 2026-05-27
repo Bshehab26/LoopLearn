@@ -1,6 +1,6 @@
 // src/features/profile/components/ProfileInfo.jsx
 import { useState, useCallback, useEffect } from 'react';
-import { HiPencil, HiCheck, HiX, HiEnvelope, HiPhone, HiCalendar, HiUser } from 'react-icons/hi2';
+import { HiPencil, HiCheck, HiX, HiOutlineMail, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser } from 'react-icons/hi';
 import { validateEmail, validateEgyptianPhone } from '../../../shared/utils/validators';
 
 const ProfileInfo = ({ profile, onSave, saving }) => {
@@ -126,11 +126,11 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
       {!isEditing ? (
         // View Mode
         <div className="space-y-1">
-          <InfoRow icon={HiUser} label="Full Name" value={`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()} />
-          <InfoRow icon={HiEnvelope} label="Email Address" value={profile?.email} />
-          <InfoRow icon={HiPhone} label="Phone Number" value={profile?.phone} />
+          <InfoRow icon={HiOutlineUser} label="Full Name" value={`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()} />
+          <InfoRow icon={HiOutlineMail} label="Email Address" value={profile?.email} />
+          <InfoRow icon={HiOutlinePhone} label="Phone Number" value={profile?.phone} />
           {profile?.birthDate && (
-            <InfoRow icon={HiCalendar} label="Birth Date" value={new Date(profile.birthDate).toLocaleDateString()} />
+            <InfoRow icon={HiOutlineCalendar} label="Birth Date" value={new Date(profile.birthDate).toLocaleDateString()} />
           )}
         </div>
       ) : (
@@ -138,7 +138,7 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">First Name</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">First Name *</label>
               <input
                 type="text"
                 name="firstName"
@@ -147,11 +147,12 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
                 className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                   errors.firstName ? 'border-red-500' : 'border-gray-200'
                 }`}
+                placeholder="Enter first name"
               />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Last Name</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Last Name *</label>
               <input
                 type="text"
                 name="lastName"
@@ -160,13 +161,14 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
                 className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                   errors.lastName ? 'border-red-500' : 'border-gray-200'
                 }`}
+                placeholder="Enter last name"
               />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
             </div>
           </div>
           
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Email Address</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Email Address *</label>
             <input
               type="email"
               name="email"
@@ -175,6 +177,7 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
               className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                 errors.email ? 'border-red-500' : 'border-gray-200'
               }`}
+              placeholder="Enter email address"
             />
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -192,6 +195,7 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
               }`}
             />
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
+            <p className="text-xs text-gray-400 mt-1">Egyptian phone number starting with 010, 011, 012, or 015</p>
           </div>
         </div>
       )}

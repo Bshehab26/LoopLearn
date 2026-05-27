@@ -6,9 +6,9 @@
  * @module features/courses/pages/CourseDetails
  */
 
-import React, { useState, useContext, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AppContext } from '../../../store/AppContext';
+import { useAuth, useUI } from '../../../store/AppProvider';
 import Loading from '../../../shared/components/Loading';
 import Comments from '../components/Comments';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -76,32 +76,6 @@ const Shimmer = ({ style = {} }) => (
 );
 
 /**
- * Stars rating component
- */
-const Stars = ({ rating, size = 14 }) => (
-  <div className='flex gap-0.5'>
-    {[1, 2, 3, 4, 5].map((s) => (
-      <svg key={s} width={size} height={size} viewBox='0 0 24 24' fill={s <= Math.floor(rating) ? '#F59E0B' : 'none'} stroke='#F59E0B' strokeWidth='2'>
-        <polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' />
-      </svg>
-    ))}
-  </div>
-);
-
-/**
- * Time ago formatter
- */
-const timeAgo = (dateStr) => {
-  if (!dateStr) return '';
-  const diff = Math.floor((Date.now() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  if (diff < 30) return `${diff} days ago`;
-  if (diff < 365) return `${Math.floor(diff / 30)} months ago`;
-  return `${Math.floor(diff / 365)} years ago`;
-};
-
-/**
  * Course Details Skeleton Loader
  */
 const CourseDetailsSkeleton = () => (
@@ -124,6 +98,19 @@ const CourseDetailsSkeleton = () => (
         <Shimmer style={{ height: 400, width: 320, borderRadius: 16 }} />
       </div>
     </div>
+  </div>
+);
+
+/**
+ * Stars rating component
+ */
+const Stars = ({ rating, size = 14 }) => (
+  <div className='flex gap-0.5'>
+    {[1, 2, 3, 4, 5].map((s) => (
+      <svg key={s} width={size} height={size} viewBox='0 0 24 24' fill={s <= Math.floor(rating) ? '#F59E0B' : 'none'} stroke='#F59E0B' strokeWidth='2'>
+        <polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' />
+      </svg>
+    ))}
   </div>
 );
 
@@ -151,7 +138,7 @@ const LessonItem = ({ lesson, index }) => {
           <div className='flex-1'>
             <p className='text-sm font-medium text-gray-800'>{lesson.title || lesson.name}</p>
             {lesson.duration && (
-              <p className='text-xs text-gray-400 mt-0.5'>Duration: {lesson.duration} min</p>
+              <p className='text-xs text-gray-400 mt-0.5'>Duration: {typeof lesson.duration === 'number' ? `${lesson.duration} min` : lesson.duration}</p>
             )}
           </div>
           <div className='flex items-center gap-2'>
@@ -190,7 +177,7 @@ const ErrorState = ({ error, onRetry }) => (
       className='text-center'
     >
       <p className='text-6xl mb-4'>😕</p>
-      <p className='text-gray-500 mb-4'>{error}</p>
+      <p className='text-gray-500 mb-4'>{error || 'Course not found'}</p>
       <button
         onClick={onRetry}
         className='px-6 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition'
@@ -208,7 +195,7 @@ const Breadcrumb = ({ courseTitle, navigate }) => (
   <div className='flex items-center gap-2 text-sm text-gray-500 mb-4 flex-wrap'>
     <button onClick={() => navigate('/')} className='hover:text-purple-600 transition'>Home</button>
     <span>/</span>
-    <button onClick={() => navigate('/course-list')} className='hover:text-purple-600 transition'>Courses</button>
+    <button onClick={() => navigate('/courses')} className='hover:text-purple-600 transition'>Courses</button>
     <span>/</span>
     <span className='text-purple-600'>{courseTitle?.slice(0, 50)}</span>
   </div>
@@ -280,11 +267,11 @@ const PurchaseCard = ({ course, currency, isEnrolled, isSaved, onEnroll, onSave,
   const [showShareMenu, setShowShareMenu] = useState(false);
   
   return (
-    <div className='rounded-2xl overflow-hidden bg-white shadow-xl border border-gray-100'>
+    <div className='rounded-2xl overflow-hidden bg-white shadow-xl border border-gray-100 sticky top-24'>
       {/* Image */}
       <div className='relative w-full aspect-video overflow-hidden bg-gradient-to-br from-purple-100 to-purple-50'>
-        {course.avatar ? (
-          <img src={course.avatar} alt={course.title} className='w-full h-full object-cover' />
+        {course.thumbnailUrl || course.avatar ? (
+          <img src={course.thumbnailUrl || course.avatar} alt={course.title} className='w-full h-full object-cover' />
         ) : (
           <div className='w-full h-full flex items-center justify-center text-6xl'>📚</div>
         )}
@@ -299,7 +286,9 @@ const PurchaseCard = ({ course, currency, isEnrolled, isSaved, onEnroll, onSave,
       <div className='p-5'>
         {/* Price */}
         <div className='mb-4'>
-          <span className='text-3xl font-bold text-purple-600'>{currency}{course.price?.toFixed(2)}</span>
+          <span className='text-3xl font-bold text-purple-600'>
+            {course.isFree ? 'Free' : `${currency}${course.price?.toFixed(2) || '0.00'}`}
+          </span>
           {course.originalPrice && course.originalPrice > course.price && (
             <>
               <span className='text-lg text-gray-400 line-through ml-2'>{currency}{course.originalPrice?.toFixed(2)}</span>
@@ -401,7 +390,9 @@ const StickyMobileCTA = ({ course, currency, isVisible, onEnroll }) => (
       >
         <div className='flex items-center justify-between max-w-md mx-auto'>
           <div>
-            <span className='text-2xl font-bold text-purple-600'>{currency}{course.price?.toFixed(2)}</span>
+            <span className='text-2xl font-bold text-purple-600'>
+              {course.isFree ? 'Free' : `${currency}${course.price?.toFixed(2) || '0.00'}`}
+            </span>
             {course.originalPrice && course.originalPrice > course.price && (
               <span className='text-xs text-gray-400 line-through ml-2'>{currency}{course.originalPrice?.toFixed(2)}</span>
             )}
@@ -451,15 +442,15 @@ const OverviewTab = ({ course }) => (
     exit={{ opacity: 0, y: -20 }}
     className='space-y-8'
   >
-    {/* What you'll learn */}
-    {course.learningObjectives?.length > 0 && (
+    {/* What you'll learn / Learning Outcomes */}
+    {(course.learningOutcomes?.length > 0 || course.learningObjectives?.length > 0) && (
       <div>
         <h2 className='text-xl font-semibold text-gray-800 mb-4'>What you'll learn</h2>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-          {course.learningObjectives.map((objective, idx) => (
+          {(course.learningOutcomes || course.learningObjectives || []).map((item, idx) => (
             <div key={idx} className='flex items-start gap-2'>
               <HiOutlineCheckCircle className='text-purple-500 flex-shrink-0 mt-0.5' size={16} />
-              <span className='text-sm text-gray-600'>{objective}</span>
+              <span className='text-sm text-gray-600'>{item}</span>
             </div>
           ))}
         </div>
@@ -469,8 +460,20 @@ const OverviewTab = ({ course }) => (
     {/* Description */}
     <div>
       <h2 className='text-xl font-semibold text-gray-800 mb-4'>Description</h2>
-      <p className='text-gray-600 leading-relaxed'>{course.description}</p>
+      <p className='text-gray-600 leading-relaxed whitespace-pre-wrap'>{course.description}</p>
     </div>
+
+    {/* Requirements */}
+    {course.requirements?.length > 0 && (
+      <div>
+        <h2 className='text-xl font-semibold text-gray-800 mb-4'>Requirements</h2>
+        <ul className='list-disc list-inside space-y-1 text-gray-600'>
+          {course.requirements.map((req, idx) => (
+            <li key={idx} className='text-sm'>{req}</li>
+          ))}
+        </ul>
+      </div>
+    )}
 
     {/* Instructor Bio */}
     <div>
@@ -497,30 +500,55 @@ const OverviewTab = ({ course }) => (
 /**
  * Curriculum Tab Component
  */
-const CurriculumTab = ({ course }) => (
-  <motion.div
-    key='curriculum'
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    className='space-y-4'
-  >
-    <h2 className='text-xl font-semibold text-gray-800 mb-4'>
-      Course Curriculum
-      <span className='ml-2 text-sm font-normal text-gray-400'>({course.lessons?.length || 0} lessons)</span>
-    </h2>
-    
-    {course.lessons?.length > 0 ? (
-      <div className='space-y-3'>
-        {course.lessons.map((lesson, idx) => (
-          <LessonItem key={idx} lesson={lesson} index={idx} />
-        ))}
-      </div>
-    ) : (
-      <p className='text-center text-gray-500 py-12'>No lessons available yet.</p>
-    )}
-  </motion.div>
-);
+const CurriculumTab = ({ course }) => {
+  const sections = course.sections || [];
+  const lessons = course.lessons || [];
+  
+  // Use sections if available, otherwise use lessons
+  const hasSections = sections.length > 0;
+  const totalItems = hasSections ? sections.length : lessons.length;
+  
+  return (
+    <motion.div
+      key='curriculum'
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className='space-y-4'
+    >
+      <h2 className='text-xl font-semibold text-gray-800 mb-4'>
+        Course Curriculum
+        <span className='ml-2 text-sm font-normal text-gray-400'>({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>
+      </h2>
+      
+      {hasSections ? (
+        <div className='space-y-4'>
+          {sections.map((section, idx) => (
+            <div key={idx} className='border border-gray-100 rounded-xl overflow-hidden'>
+              <div className='bg-gray-50 px-4 py-3 border-b border-gray-100'>
+                <h3 className='font-medium text-gray-800'>{section.title}</h3>
+                <p className='text-xs text-gray-400 mt-1'>{section.lessons?.length || 0} lessons</p>
+              </div>
+              <div className='divide-y divide-gray-100'>
+                {(section.lessons || []).map((lesson, lessonIdx) => (
+                  <LessonItem key={lessonIdx} lesson={lesson} index={lessonIdx} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : lessons.length > 0 ? (
+        <div className='space-y-3'>
+          {lessons.map((lesson, idx) => (
+            <LessonItem key={idx} lesson={lesson} index={idx} />
+          ))}
+        </div>
+      ) : (
+        <p className='text-center text-gray-500 py-12'>No curriculum available yet.</p>
+      )}
+    </motion.div>
+  );
+};
 
 /**
  * Reviews Tab Component
@@ -547,7 +575,8 @@ const ReviewsTab = ({ courseId }) => (
 const CourseDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currency } = useContext(AppContext);
+  const { currency } = useUI();  // ✅ Fixed: using useUI instead of AppContext
+  const { user, isAuthenticated } = useAuth();  // ✅ Added for enrollment checks
   const { course, loading, error, refetch } = useCourseDetails(id);
   
   // State
@@ -560,18 +589,25 @@ const CourseDetails = () => {
   const heroRef = useRef(null);
   
   // Derived values
-  const levelLabel = typeof course?.level === 'number' 
-    ? (LEVEL_LABELS[course.level] ?? 'Unknown') 
-    : (course?.level ?? 'Unknown');
-  const levelStyle = LEVEL_COLORS[levelLabel] || { bg: '#EEEDFE', color: '#534AB7', icon: '📚' };
+  const level = course?.level;
+  const levelLabel = typeof level === 'number' 
+    ? (LEVEL_LABELS[level] ?? 'Unknown') 
+    : (typeof level === 'string' ? level : (course?.levelName || 'Beginner'));
+  const levelStyle = LEVEL_COLORS[levelLabel] || LEVEL_COLORS['Beginner'] || { bg: '#EEEDFE', color: '#534AB7', icon: '📚' };
   
   // Course stats
-  const stats = useMemo(() => [
-    { label: 'Duration', value: course?.duration ? `${Math.floor(course.duration / 60)}h ${course.duration % 60}m` : '—', icon: HiOutlineClock },
-    { label: 'Lessons', value: `${course?.lessons?.length || 0} lessons`, icon: HiOutlineBookOpen },
-    { label: 'Students', value: course?.students?.toLocaleString() || '0', icon: HiOutlineUserGroup },
-    { label: 'Level', value: levelLabel, icon: HiOutlineChartBar, customStyle: levelStyle },
-  ], [course, levelLabel, levelStyle]);
+  const stats = useMemo(() => {
+    const duration = course?.totalDuration || course?.duration;
+    const lessonsCount = course?.totalLessons || course?.lessons?.length || 0;
+    const sectionsCount = course?.sections?.length || 0;
+    
+    return [
+      { label: 'Duration', value: duration || (course?.duration ? `${Math.floor(course.duration / 60)}h ${course.duration % 60}m` : '—'), icon: HiOutlineClock },
+      { label: 'Content', value: sectionsCount > 0 ? `${sectionsCount} sections • ${lessonsCount} lessons` : `${lessonsCount} lessons`, icon: HiOutlineBookOpen },
+      { label: 'Students', value: course?.enrollmentCount?.toLocaleString() || course?.students?.toLocaleString() || '0', icon: HiOutlineUserGroup },
+      { label: 'Level', value: levelLabel, icon: HiOutlineChartBar, customStyle: levelStyle },
+    ];
+  }, [course, levelLabel, levelStyle]);
   
   const shareUrl = useMemo(() => window.location.href, []);
   
@@ -589,24 +625,45 @@ const CourseDetails = () => {
   
   // Handlers
   const handleRetry = useCallback(() => {
-    navigate('/course-list');
+    navigate('/courses');
   }, [navigate]);
   
   const handleEnroll = useCallback(() => {
+    if (!isAuthenticated) {
+      navigate('/signin', { state: { from: `/course/${id}` } });
+      return;
+    }
     setIsEnrolled(true);
-    // TODO: Implement enrollment API call
-  }, []);
+    // TODO: Implement enrollment API call when backend is ready
+    console.log('[CourseDetails] Enroll in course:', id);
+  }, [isAuthenticated, navigate, id]);
   
   const handleSave = useCallback(() => {
+    if (!isAuthenticated) {
+      navigate('/signin', { state: { from: `/course/${id}` } });
+      return;
+    }
     setIsSaved(prev => !prev);
     // TODO: Implement save to wishlist API call
-  }, []);
+    console.log('[CourseDetails] Save course:', id, !isSaved);
+  }, [isAuthenticated, navigate, id, isSaved]);
+  
+  const handleShare = useCallback(() => {
+    console.log('[CourseDetails] Course shared:', id);
+  }, [id]);
   
   // Loading state
-  if (loading) return <CourseDetailsSkeleton />;
+  if (loading) {
+    return <CourseDetailsSkeleton />;
+  }
   
   // Error state
-  if (error || !course) return <ErrorState error={error} onRetry={handleRetry} />;
+  if (error || !course) {
+    return <ErrorState error={error} onRetry={handleRetry} />;
+  }
+  
+  // Check if user is enrolled (from API or local state)
+  const isUserEnrolled = isEnrolled || course.isEnrolled || false;
   
   return (
     <>
@@ -630,7 +687,7 @@ const CourseDetails = () => {
             <motion.div {...HERO_ANIMATION} className='flex-1 max-w-3xl'>
               <Breadcrumb courseTitle={course.title} navigate={navigate} />
               <Badges 
-                category={course.category} 
+                category={course.categoryName || course.category} 
                 levelLabel={levelLabel} 
                 levelStyle={levelStyle} 
                 featured={course.featured} 
@@ -651,7 +708,7 @@ const CourseDetails = () => {
                 transition={{ delay: 0.3 }}
                 className='text-base text-gray-600 mb-6 leading-relaxed'
               >
-                {course.description}
+                {course.subtitle || course.description?.slice(0, 200)}
               </motion.p>
 
               <motion.div 
@@ -661,15 +718,15 @@ const CourseDetails = () => {
                 className='flex items-center gap-3 mb-6 flex-wrap'
               >
                 <div className='flex items-center gap-2'>
-                  <span className='text-2xl font-bold text-gray-800'>{course.rating?.toFixed(1) || '0.0'}</span>
-                  <Stars rating={course.rating || 0} size={18} />
+                  <span className='text-2xl font-bold text-gray-800'>{course.averageRating?.toFixed(1) || '0.0'}</span>
+                  <Stars rating={course.averageRating || 0} size={18} />
                 </div>
                 <span className='text-sm text-purple-600 font-medium'>
-                  {course.comments?.length || 0} reviews
+                  {course.totalRatings || course.reviews?.length || 0} reviews
                 </span>
                 <span className='text-gray-300'>|</span>
                 <span className='text-sm text-gray-500'>
-                  {course.students?.toLocaleString() || 0} students enrolled
+                  {course.enrollmentCount || course.students || 0} students enrolled
                 </span>
               </motion.div>
 
@@ -696,14 +753,15 @@ const CourseDetails = () => {
             </motion.div>
 
             {/* Right Card - Purchase */}
-            <motion.div {...CARD_ANIMATION} className='w-full lg:w-96 flex-shrink-0 sticky top-24'>
+            <motion.div {...CARD_ANIMATION} className='w-full lg:w-96 flex-shrink-0'>
               <PurchaseCard 
                 course={course}
                 currency={currency}
-                isEnrolled={isEnrolled}
+                isEnrolled={isUserEnrolled}
                 isSaved={isSaved}
                 onEnroll={handleEnroll}
                 onSave={handleSave}
+                onShare={handleShare}
                 shareUrl={shareUrl}
               />
             </motion.div>
@@ -715,7 +773,7 @@ const CourseDetails = () => {
       <StickyMobileCTA 
         course={course}
         currency={currency}
-        isVisible={isSticky}
+        isVisible={isSticky && !isUserEnrolled}
         onEnroll={handleEnroll}
       />
 
