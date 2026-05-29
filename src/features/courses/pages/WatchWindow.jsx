@@ -528,8 +528,8 @@ const WatchWindow = () => {
   const [isVisible, setIsVisible] = useState(false);
   
   // Use mock data flag (set to false when backend is ready)
-  const USE_MOCK_DATA = true;
-  
+// When backend is ready, change this line (around line 245)
+const USE_MOCK_DATA = false;  // ✅ Change to false when backend ready  
   // Fetch course data
   useEffect(() => {
     const fetchCourse = async () => {

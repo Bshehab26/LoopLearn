@@ -28,9 +28,19 @@ const Dashboard = () => {
         <p className="text-gray-500 mt-1">Overview of platform statistics</p>
       </div>
 
+      {/* ✅ Fixed: No spread operator on props */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {statCards.map((card, index) => (
-          <StatsCard key={card.title} {...card} delay={index * 0.1} />
+          <StatsCard
+            key={index}
+            title={card.title}
+            value={card.value}
+            icon={card.icon}
+            color={card.color}
+            trend={card.trend}
+            trendValue={card.trendValue}
+            delay={index * 0.1}
+          />
         ))}
       </div>
 

@@ -9,7 +9,7 @@ import { handleApiError } from '../../../services/api/errorHandler';
 const COURSE_ENDPOINTS = {
   ALL: '/Course/all',
   BY_ID: (id) => `/Course/${id}`,
-  SEARCH: '/Course/search',
+  SEARCH: (term) => `/Course/search/${encodeURIComponent(term)}`,
   BY_CATEGORIES: '/Course/categories',
 };
 
@@ -20,38 +20,32 @@ const DEFAULT_PAGE_SIZE = 12;
 // Helper Functions
 // ============================================================================
 
-/**
- * Extracts pagination headers from response
- * Backend sends: Total-Count, Page, PageSize
- */
 const extractPaginationHeaders = (headers) => ({
   total: parseInt(headers['total-count'] || 0, 10),
   page: parseInt(headers['page'] || DEFAULT_PAGE, 10),
   pageSize: parseInt(headers['pagesize'] || DEFAULT_PAGE_SIZE, 10),
-  totalPages: Math.ceil((parseInt(headers['total-count'] || 0, 10)) / (parseInt(headers['pagesize'] || DEFAULT_PAGE_SIZE, 10))),
+  totalPages: Math.ceil(
+    (parseInt(headers['total-count'] || 0, 10)) / 
+    (parseInt(headers['pagesize'] || DEFAULT_PAGE_SIZE, 10))
+  ),
 });
 
 // ============================================================================
 // API Functions
 // ============================================================================
 
-/**
- * Get all courses with pagination
- * GET /Course/all?page=1&pageSize=10
- */
 export const getAllCourses = async (page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE) => {
   try {
     const response = await api.get(COURSE_ENDPOINTS.ALL, {
       params: { page, pageSize }
     });
     
-    // Backend returns: { success, message, data: [...] }
     const pagination = extractPaginationHeaders(response.headers);
     
     return {
       success: response.data.success || true,
       message: response.data.message || 'Courses retrieved successfully',
-      data: response.data.data || response.data,
+      data: response.data.data || [],
       pagination,
     };
   } catch (error) {
@@ -60,10 +54,6 @@ export const getAllCourses = async (page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE
   }
 };
 
-/**
- * Get course by ID
- * GET /Course/{courseId}
- */
 export const getCourseById = async (courseId) => {
   try {
     if (!courseId || courseId < 1) {
@@ -72,11 +62,10 @@ export const getCourseById = async (courseId) => {
     
     const response = await api.get(COURSE_ENDPOINTS.BY_ID(courseId));
     
-    // Backend returns: { success, message, data: CourseDetailDTO }
     return {
       success: response.data.success || true,
       message: response.data.message || 'Course details retrieved successfully',
-      data: response.data.data || response.data,
+      data: response.data.data,
     };
   } catch (error) {
     console.error(`❌ getCourseById(${courseId}) error:`, error);
@@ -84,10 +73,6 @@ export const getCourseById = async (courseId) => {
   }
 };
 
-/**
- * Search courses by term
- * GET /Course/search?searchTerm=react&page=1&pageSize=10
- */
 export const searchCourses = async (searchTerm, page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE) => {
   try {
     if (!searchTerm?.trim()) {
@@ -99,16 +84,22 @@ export const searchCourses = async (searchTerm, page = DEFAULT_PAGE, pageSize = 
       };
     }
     
-    const response = await api.get(COURSE_ENDPOINTS.SEARCH, {
-      params: { searchTerm: searchTerm.trim(), page, pageSize }
+    const response = await api.get(COURSE_ENDPOINTS.SEARCH(searchTerm), {
+      params: { page, pageSize }
     });
     
     const pagination = extractPaginationHeaders(response.headers);
     
+    // Handle search response format (may have nested course objects)
+    let courses = response.data.data || [];
+    if (courses.length > 0 && courses[0].course) {
+      courses = courses.map(item => item.course);
+    }
+    
     return {
       success: response.data.success || true,
-      message: response.data.message || `Found ${response.data.data?.length || 0} courses`,
-      data: response.data.data || [],
+      message: response.data.message || `Found ${courses.length} courses`,
+      data: courses,
       pagination,
     };
   } catch (error) {
@@ -117,10 +108,6 @@ export const searchCourses = async (searchTerm, page = DEFAULT_PAGE, pageSize = 
   }
 };
 
-/**
- * Get courses by categories
- * GET /Course/categories?categories[]=Programming&categories[]=Design&page=1&pageSize=10
- */
 export const getCoursesByCategories = async (categories, page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE) => {
   try {
     if (!categories || categories.length === 0) {
@@ -132,14 +119,12 @@ export const getCoursesByCategories = async (categories, page = DEFAULT_PAGE, pa
       };
     }
     
-    // Backend expects categories as array query param
     const params = new URLSearchParams();
     categories.forEach(cat => params.append('categories', cat));
     params.append('page', page);
     params.append('pageSize', pageSize);
     
     const response = await api.get(`${COURSE_ENDPOINTS.BY_CATEGORIES}?${params.toString()}`);
-    
     const pagination = extractPaginationHeaders(response.headers);
     
     return {
@@ -154,10 +139,6 @@ export const getCoursesByCategories = async (categories, page = DEFAULT_PAGE, pa
   }
 };
 
-/**
- * Get courses with filters (combined)
- * Helper function that combines search, category, and pagination
- */
 export const getFilteredCourses = async (filters = {}) => {
   const {
     searchTerm,
@@ -166,7 +147,6 @@ export const getFilteredCourses = async (filters = {}) => {
     pageSize = DEFAULT_PAGE_SIZE,
   } = filters;
   
-  // Priority: search > categories > all
   if (searchTerm?.trim()) {
     return searchCourses(searchTerm, page, pageSize);
   }
@@ -179,14 +159,9 @@ export const getFilteredCourses = async (filters = {}) => {
 };
 
 // ============================================================================
-// Course Details Helper Functions
+// Helper Functions
 // ============================================================================
 
-/**
- * Calculate total course duration from sections
- * @param {Array} sections - Course sections with lessons
- * @returns {string} Formatted duration (e.g., "2h 30m")
- */
 export const calculateTotalDuration = (sections) => {
   if (!sections?.length) return '0m';
   
@@ -195,7 +170,6 @@ export const calculateTotalDuration = (sections) => {
   sections.forEach(section => {
     section.lessons?.forEach(lesson => {
       if (lesson.duration) {
-        // Duration is TimeSpan from backend - can be string like "01:30:00" or object
         if (typeof lesson.duration === 'string') {
           const parts = lesson.duration.split(':');
           if (parts.length === 3) {
@@ -219,28 +193,18 @@ export const calculateTotalDuration = (sections) => {
   return `${minutes}m`;
 };
 
-/**
- * Calculate total lessons count from sections
- */
 export const calculateTotalLessons = (sections) => {
   if (!sections?.length) return 0;
-  
   return sections.reduce((total, section) => {
     return total + (section.lessons?.length || 0);
   }, 0);
 };
 
-/**
- * Format price with currency
- */
 export const formatPrice = (price, isFree, currency = '$') => {
   if (isFree) return 'Free';
   return `${currency}${price?.toFixed(2) || '0.00'}`;
 };
 
-/**
- * Get course level badge color
- */
 export const getLevelColor = (level) => {
   const levels = {
     'Beginner': { bg: '#E6F7E6', text: '#2E7D32' },

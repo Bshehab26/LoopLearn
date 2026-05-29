@@ -164,7 +164,7 @@ const Hero = () => {
   }, []);
 
   const handleExploreCourses = () => {
-    navigate('/course-list');
+    navigate('/courses');
   };
 
   const handleLearnMore = () => {

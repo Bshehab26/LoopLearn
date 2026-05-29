@@ -12,7 +12,8 @@ import {
   getProfile, 
   updateProfile, 
   changePassword, 
-  updateAvatar 
+  updateAvatar,
+  updateProfileAvatar
 } from '../api/profile.api';
 
 // ============================================================================
@@ -25,11 +26,7 @@ const TOAST_DURATION = 3500;
 // Hook
 // ============================================================================
 
-/**
- * useProfile - Manages user profile operations
- * @returns {Object} Profile state and handler functions
- */
-export const useProfile= () => {
+const useProfile = () => {
   const { isAuthenticated, user } = useAuth();
   
   // State
@@ -70,7 +67,7 @@ export const useProfile= () => {
     }
   }, [isAuthenticated]);
 
-  // Update profile
+  // Update profile (basic info)
   const updateUserProfile = useCallback(async (updates) => {
     try {
       setSaving(true);
@@ -123,16 +120,28 @@ export const useProfile= () => {
     }
   }, [showToast]);
 
-  // Update avatar
-  const updateUserAvatar = useCallback(async (avatarUrl) => {
+  // Update avatar - handles both File upload and direct URL update
+  const updateUserAvatar = useCallback(async (avatarInput) => {
     try {
       setSaving(true);
       setError(null);
       
-      const response = await updateAvatar(avatarUrl);
+      let response;
+      
+      // Check if input is a File object or a URL string
+      if (avatarInput instanceof File) {
+        // It's a File - upload it
+        response = await updateAvatar(avatarInput);
+      } else if (typeof avatarInput === 'string' && avatarInput.startsWith('http')) {
+        // It's a URL string - update profile directly
+        response = await updateProfileAvatar(avatarInput);
+      } else {
+        throw new Error('Invalid input: expected File or URL string');
+      }
       
       if (response.success) {
-        setProfile(response.data);
+        // Refresh profile data to get the latest avatar
+        await fetchProfile();
         showToast(response.message || 'Avatar updated successfully');
         return { success: true, data: response.data };
       }
@@ -148,7 +157,7 @@ export const useProfile= () => {
     } finally {
       setSaving(false);
     }
-  }, [showToast]);
+  }, [showToast, fetchProfile]);
 
   // Load profile on mount
   useEffect(() => {

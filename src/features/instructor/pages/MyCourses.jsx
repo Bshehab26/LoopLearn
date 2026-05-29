@@ -1,53 +1,104 @@
 /**
  * MyCourses.jsx
- * List of instructor's courses with draft and published status
+ * List of instructor's courses with all statuses: draft, pending, published, rejected
+ * Fixed - no AppContext, uses new hooks
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlus, HiTrash, HiPencil, HiEye, HiDocumentAdd } from 'react-icons/hi';
+import { 
+  HiPlus, HiTrash, HiPencil, HiEye, HiDocumentAdd, 
+  HiClock, HiCheckCircle, HiPaperAirplane, HiXCircle
+} from 'react-icons/hi';
 import { useInstructorCourses } from '../hooks/useInstructorCourses';
+import { submitForReview } from '../api/instructor.api';
 import CourseCard from '../components/CourseCard';
 import EmptyState from '../components/EmptyState';
+import SubmitForReviewModal from '../components/SubmitForReviewModal';
 
 const MyCourses = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { courses, loading, deleteCourse, publishCourse, fetchCourses } = useInstructorCourses();
+  const { courses, loading, deleteCourse, fetchCourses } = useInstructorCourses();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showSubmitModal, setShowSubmitModal] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(location.state?.success || null);
 
   // Filter courses by status
   const drafts = courses.filter(c => c.status === 'draft');
+  const pending = courses.filter(c => c.status === 'pending');
   const published = courses.filter(c => c.status === 'published');
+  const rejected = courses.filter(c => c.status === 'rejected');
 
   const handleDelete = async (courseId) => {
     const success = await deleteCourse(courseId);
     if (success) {
       setShowDeleteConfirm(null);
+      setSuccessMessage('Course deleted successfully');
+      setTimeout(() => setSuccessMessage(null), 3000);
     }
   };
 
   const handleEdit = (courseId) => {
-    navigate(`/instructor/edit-course/${courseId}`);
+    navigate(`/instructor/courses/edit/${courseId}`);
   };
 
-  const handlePublish = async (courseId) => {
-    await publishCourse(courseId);
+  const handleView = (courseId) => {
+    navigate(`/course/${courseId}`);
+  };
+
+  const handleSubmitForReview = async (courseId) => {
+    setSubmitting(true);
+    const response = await submitForReview(courseId);
+    if (response.success) {
+      await fetchCourses();
+      setShowSubmitModal(null);
+      setSuccessMessage('Course submitted for review! You will be notified once approved.');
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+    setSubmitting(false);
   };
 
   const handleCreateNew = () => {
-    navigate('/instructor/add-course');
+    navigate('/instructor/courses/add');
   };
 
   // Clear success message after 5 seconds
-  React.useEffect(() => {
+  useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => setSuccessMessage(null), 5000);
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
+
+  const renderSection = (title, coursesList, badgeColor, emptyMessage, showSubmit = false) => {
+    if (coursesList.length === 0) return null;
+
+    return (
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
+          <div className={`w-2 h-6 ${badgeColor} rounded-full`} />
+          <h2 className="text-lg font-semibold text-gray-800">
+            {title} ({coursesList.length})
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {coursesList.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              onEdit={() => handleEdit(course.id)}
+              onDelete={() => setShowDeleteConfirm(course.id)}
+              onSubmit={() => setShowSubmitModal(course.id)}
+              onView={() => handleView(course.id)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -63,7 +114,7 @@ const MyCourses = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">My Courses</h1>
-          <p className="text-gray-500 mt-1">Manage your courses and drafts</p>
+          <p className="text-gray-500 mt-1">Manage your courses across all stages</p>
         </div>
         <button
           onClick={handleCreateNew}
@@ -81,57 +132,44 @@ const MyCourses = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700"
+            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm"
           >
             {successMessage}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Drafts Section */}
-      {drafts.length > 0 && (
-        <div className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-6 bg-amber-500 rounded-full" />
-            <h2 className="text-lg font-semibold text-gray-800">Drafts ({drafts.length})</h2>
-            <span className="text-xs text-gray-400">Complete these to publish</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {drafts.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                type="draft"
-                onEdit={() => handleEdit(course.id)}
-                onDelete={() => setShowDeleteConfirm(course.id)}
-                onPublish={() => handlePublish(course.id)}
-              />
-            ))}
-          </div>
+      {/* Status Legend */}
+      <div className="flex flex-wrap gap-4 mb-6 p-3 bg-gray-50 rounded-xl">
+        <div className="flex items-center gap-1.5 text-xs">
+          <div className="w-3 h-3 rounded-full bg-amber-500" />
+          <span className="text-gray-600">Draft</span>
         </div>
-      )}
+        <div className="flex items-center gap-1.5 text-xs">
+          <div className="w-3 h-3 rounded-full bg-yellow-500" />
+          <span className="text-gray-600">Pending Review</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs">
+          <div className="w-3 h-3 rounded-full bg-green-500" />
+          <span className="text-gray-600">Published</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs">
+          <div className="w-3 h-3 rounded-full bg-red-500" />
+          <span className="text-gray-600">Rejected</span>
+        </div>
+      </div>
 
-      {/* Published Courses Section */}
-      {published.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-6 bg-green-500 rounded-full" />
-            <h2 className="text-lg font-semibold text-gray-800">Published ({published.length})</h2>
-            <span className="text-xs text-gray-400">Live on the platform</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {published.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                type="published"
-                onEdit={() => handleEdit(course.id)}
-                onDelete={() => setShowDeleteConfirm(course.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Drafts Section */}
+      {renderSection('Drafts', drafts, 'bg-amber-500', 'No drafts yet')}
+
+      {/* Pending Review Section */}
+      {renderSection('Pending Review', pending, 'bg-yellow-500', 'No courses pending review')}
+
+      {/* Published Section */}
+      {renderSection('Published', published, 'bg-green-500', 'No published courses yet')}
+
+      {/* Rejected Section */}
+      {renderSection('Rejected', rejected, 'bg-red-500', 'No rejected courses')}
 
       {/* Empty State */}
       {courses.length === 0 && (
@@ -186,6 +224,19 @@ const MyCourses = () => {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Submit for Review Modal */}
+      <AnimatePresence>
+        {showSubmitModal && (
+          <SubmitForReviewModal
+            isOpen={true}
+            onClose={() => setShowSubmitModal(null)}
+            onSubmit={() => handleSubmitForReview(showSubmitModal)}
+            courseTitle={courses.find(c => c.id === showSubmitModal)?.title || ''}
+            submitting={submitting}
+          />
         )}
       </AnimatePresence>
     </div>

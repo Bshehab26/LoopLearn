@@ -1,26 +1,24 @@
 /**
  * StudentEnrolled.jsx
  * Instructor page for viewing enrolled students across courses.
- * Features course filtering, student search, progress tracking, and export functionality.
- * 
- * @module features/instructor/pages/StudentEnrolled
+ * Features course filtering, student search, progress tracking.
+ * Fixed - no AppContext, uses new hooks
  */
 
-import React, { useContext, useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   HiOutlineSearch, HiOutlineUserGroup, HiOutlineMail, 
-  HiOutlineChartBar, HiOutlineDownload, HiOutlineFilter,
-  HiOutlineChevronDown, HiOutlineChevronUp, HiOutlineAcademicCap,
-  HiOutlineTrophy, HiOutlineCalendar
+  HiOutlineChartBar, HiOutlineDownload, HiOutlineChevronDown, 
+  HiOutlineChevronUp, HiOutlineTrophy
 } from 'react-icons/hi';
-import { AppContext } from '../../../store/AppContext';
+import { useInstructorCourses } from '../hooks/useInstructorCourses';
+import { getEnrolledStudents } from '../api/instructor.api';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-/** Animation variants */
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -38,9 +36,6 @@ const itemVariants = {
 // Helper Functions
 // ============================================================================
 
-/**
- * Formats date to readable string
- */
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A';
   return new Date(dateStr).toLocaleDateString('en-US', { 
@@ -50,9 +45,6 @@ const formatDate = (dateStr) => {
   });
 };
 
-/**
- * Gets progress color based on percentage
- */
 const getProgressColor = (progress) => {
   if (progress >= 75) return 'bg-green-500';
   if (progress >= 50) return 'bg-blue-500';
@@ -64,12 +56,9 @@ const getProgressColor = (progress) => {
 // Subcomponents
 // ============================================================================
 
-/**
- * Course selector component
- */
 const CourseSelector = ({ courses, selectedCourseId, onSelectCourse }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const selectedCourse = courses.find(c => (c.id || c._id) === selectedCourseId);
+  const selectedCourse = courses.find(c => c.id === selectedCourseId);
 
   return (
     <div className='relative'>
@@ -78,7 +67,7 @@ const CourseSelector = ({ courses, selectedCourseId, onSelectCourse }) => {
         className='flex items-center justify-between w-full sm:w-64 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500'
       >
         <span className='truncate'>
-          {selectedCourse ? (selectedCourse.title || selectedCourse.courseTitle) : 'All Courses'}
+          {selectedCourse ? selectedCourse.title : 'All Courses'}
         </span>
         <HiOutlineChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -102,24 +91,20 @@ const CourseSelector = ({ courses, selectedCourseId, onSelectCourse }) => {
             >
               All Courses
             </button>
-            {courses.map((course) => {
-              const courseId = course.id || course._id;
-              const courseTitle = course.title || course.courseTitle;
-              return (
-                <button
-                  key={courseId}
-                  onClick={() => {
-                    onSelectCourse(courseId);
-                    setIsOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-purple-50 transition ${
-                    selectedCourseId === courseId ? 'bg-purple-50 text-purple-600 font-medium' : 'text-gray-700'
-                  }`}
-                >
-                  {courseTitle}
-                </button>
-              );
-            })}
+            {courses.map((course) => (
+              <button
+                key={course.id}
+                onClick={() => {
+                  onSelectCourse(course.id);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-purple-50 transition ${
+                  selectedCourseId === course.id ? 'bg-purple-50 text-purple-600 font-medium' : 'text-gray-700'
+                }`}
+              >
+                {course.title}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -127,9 +112,6 @@ const CourseSelector = ({ courses, selectedCourseId, onSelectCourse }) => {
   );
 };
 
-/**
- * Search bar component
- */
 const SearchBar = ({ searchTerm, onSearchChange }) => (
   <div className='relative flex-1'>
     <HiOutlineSearch className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
@@ -143,9 +125,6 @@ const SearchBar = ({ searchTerm, onSearchChange }) => (
   </div>
 );
 
-/**
- * Stats summary component
- */
 const StatsSummary = ({ totalStudents, averageProgress, completedCourses }) => (
   <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
     <div className='bg-white rounded-xl p-4 shadow-sm border border-gray-100'>
@@ -184,9 +163,6 @@ const StatsSummary = ({ totalStudents, averageProgress, completedCourses }) => (
   </div>
 );
 
-/**
- * Student table row component
- */
 const StudentRow = ({ student, index }) => {
   const [expanded, setExpanded] = useState(false);
   const progress = student.progress || 0;
@@ -256,8 +232,8 @@ const StudentRow = ({ student, index }) => {
                   <p className='text-sm text-gray-700'>{formatDate(student.lastActive)}</p>
                 </div>
                 <div>
-                  <p className='text-xs text-gray-500 mb-1'>Completed Lessons</p>
-                  <p className='text-sm text-gray-700'>{student.completedLessons || 0} / {student.totalLessons || 0}</p>
+                  <p className='text-xs text-gray-500 mb-1'>Course</p>
+                  <p className='text-sm text-gray-700'>{student.courseTitle || 'N/A'}</p>
                 </div>
               </div>
             </td>
@@ -268,9 +244,6 @@ const StudentRow = ({ student, index }) => {
   );
 };
 
-/**
- * Empty state component
- */
 const EmptyState = ({ hasCourses, onClearFilters }) => (
   <div className='text-center py-12 bg-white rounded-xl'>
     <div className='w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center'>
@@ -300,61 +273,35 @@ const EmptyState = ({ hasCourses, onClearFilters }) => (
 // Main Component
 // ============================================================================
 
-/**
- * StudentEnrolled - Instructor's enrolled students page
- * @returns {React.ReactElement} Student enrolled page
- */
 const StudentEnrolled = () => {
-  const { allCourses } = useContext(AppContext);
+  const { courses, loading: coursesLoading } = useInstructorCourses();
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [students, setStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
 
-  // Mock enrolled students data (replace with real API data)
-  const coursesWithStudents = useMemo(() => {
-    return allCourses.map(course => ({
-      ...course,
-      id: course.id || course._id,
-      title: course.title || course.courseTitle,
-      enrolledStudents: course.enrolledStudents || [
-        { id: 1, name: 'Ahmed Hassan', email: 'ahmed@example.com', progress: 75, enrolledAt: '2024-01-15', lastActive: '2024-03-20', completedLessons: 15, totalLessons: 20 },
-        { id: 2, name: 'Sara Mohamed', email: 'sara@example.com', progress: 45, enrolledAt: '2024-02-01', lastActive: '2024-03-18', completedLessons: 9, totalLessons: 20 },
-        { id: 3, name: 'Omar Ali', email: 'omar@example.com', progress: 90, enrolledAt: '2024-01-10', lastActive: '2024-03-21', completedLessons: 18, totalLessons: 20 },
-      ]
-    }));
-  }, [allCourses]);
-
-  // Filter courses
-  const filteredCourses = useMemo(() => {
-    if (!selectedCourseId) return coursesWithStudents;
-    return coursesWithStudents.filter(c => c.id === selectedCourseId);
-  }, [coursesWithStudents, selectedCourseId]);
-
-  // Get all students from filtered courses
-  const allStudents = useMemo(() => {
-    const students = [];
-    filteredCourses.forEach(course => {
-      if (course.enrolledStudents) {
-        course.enrolledStudents.forEach(student => {
-          students.push({
-            ...student,
-            courseTitle: course.title,
-            courseId: course.id,
-          });
-        });
+  // Fetch students when course selection changes
+  useEffect(() => {
+    const fetchStudents = async () => {
+      setStudentsLoading(true);
+      const response = await getEnrolledStudents(selectedCourseId);
+      if (response.success) {
+        setStudents(response.data);
       }
-    });
-    return students;
-  }, [filteredCourses]);
+      setStudentsLoading(false);
+    };
+    fetchStudents();
+  }, [selectedCourseId]);
 
   // Filter students by search term
   const filteredStudents = useMemo(() => {
-    if (!searchTerm.trim()) return allStudents;
+    if (!searchTerm.trim()) return students;
     const term = searchTerm.toLowerCase();
-    return allStudents.filter(student => 
+    return students.filter(student => 
       student.name.toLowerCase().includes(term) ||
       student.email.toLowerCase().includes(term)
     );
-  }, [allStudents, searchTerm]);
+  }, [students, searchTerm]);
 
   // Calculate statistics
   const totalStudents = filteredStudents.length;
@@ -368,7 +315,15 @@ const StudentEnrolled = () => {
     setSearchTerm('');
   };
 
-  const hasCourses = coursesWithStudents.length > 0;
+  const hasCourses = courses.length > 0;
+
+  if (coursesLoading || studentsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -403,7 +358,7 @@ const StudentEnrolled = () => {
       {/* Filters Bar */}
       <motion.div variants={itemVariants} className='flex flex-col sm:flex-row gap-4'>
         <CourseSelector
-          courses={coursesWithStudents}
+          courses={courses}
           selectedCourseId={selectedCourseId}
           onSelectCourse={setSelectedCourseId}
         />

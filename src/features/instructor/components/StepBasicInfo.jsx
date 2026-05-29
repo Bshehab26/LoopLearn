@@ -1,6 +1,6 @@
 /**
  * StepBasicInfo.jsx
- * Step 1: Course title input with character counter and live validation
+ * Step 1: Course title input only
  */
 
 import React from 'react';
@@ -28,7 +28,6 @@ const StepBasicInfo = ({ title, onTitleChange, error }) => {
   const progress = Math.min((currentLength / maxLength) * 100, 100);
   const isValid = currentLength >= minLength && currentLength <= maxLength;
   
-  // Generate preview of how title will appear
   const getPreviewTitle = () => {
     if (!title) return 'Your Course Title Will Appear Here';
     if (title.length > 60) return title.substring(0, 60) + '...';
@@ -42,7 +41,6 @@ const StepBasicInfo = ({ title, onTitleChange, error }) => {
       exit={{ opacity: 0, x: -20 }}
       className="space-y-6"
     >
-      {/* Header */}
       <div className="text-center mb-8">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-100 flex items-center justify-center">
           <HiOutlineBookOpen size={32} className="text-purple-600" />
@@ -53,7 +51,6 @@ const StepBasicInfo = ({ title, onTitleChange, error }) => {
         </p>
       </div>
       
-      {/* Input Field */}
       <div className="max-w-2xl mx-auto">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Course Title <span className="text-red-500">*</span>
@@ -71,7 +68,6 @@ const StepBasicInfo = ({ title, onTitleChange, error }) => {
           `}
         />
         
-        {/* Character Counter with Progress Bar */}
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-3">
@@ -98,7 +94,6 @@ const StepBasicInfo = ({ title, onTitleChange, error }) => {
             )}
           </div>
           
-          {/* Progress Bar */}
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
@@ -109,32 +104,23 @@ const StepBasicInfo = ({ title, onTitleChange, error }) => {
           </div>
         </div>
         
-        {/* Live Preview */}
         <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-100">
           <p className="text-xs text-purple-600 font-medium mb-2">📺 Course Title Preview</p>
-          <p className="text-lg font-semibold text-gray-800">
-            {getPreviewTitle()}
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            This is how your title will appear to students
-          </p>
+          <p className="text-lg font-semibold text-gray-800">{getPreviewTitle()}</p>
         </div>
         
-        {/* Tips */}
         <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-sm text-blue-700 font-medium mb-2">💡 Tips for a great title:</p>
           <ul className="text-xs text-blue-600 space-y-1">
             <li>• Include keywords students might search for</li>
             <li>• Highlight the main skill or technology</li>
-            <li>• Keep it clear and specific</li>
+            <li>• Keep it clear and specific (10-100 characters)</li>
             <li>• Avoid all caps and excessive punctuation</li>
             <li>• Make it action-oriented (e.g., "Master...", "Learn...", "Build...")</li>
           </ul>
         </div>
         
-        {error && (
-          <p className="text-red-500 text-sm mt-2">{error}</p>
-        )}
+        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
       </div>
     </motion.div>
   );

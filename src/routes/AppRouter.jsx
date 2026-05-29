@@ -5,59 +5,88 @@ import { useAuth } from '../store/AppProvider';
 import StudentLayout from '../layouts/StudentLayout';
 import InstructorLayout from '../layouts/InstructorLayout';
 import AdminLayout from '../layouts/AdminLayout';
-import ProtectedRoute from './ProtectedRoute ';
+import ProtectedRoute from './ProtectedRoute';  // ✅ Fixed: removed space
 
-// Lazy imports
+// ============================================================================
+// Lazy Imports
+// ============================================================================
+
+// Auth
 const SignIn = lazy(() => import('../features/auth/pages/SignIn'));
 const SignUp = lazy(() => import('../features/auth/pages/SignUp'));
+
+// Student
 const Home = lazy(() => import('../features/student/pages/Home'));
-const Profile = lazy(() => import('../features/profile/pages/Profile'));  // ✅ FIXED
 const MyEnrollments = lazy(() => import('../features/student/pages/MyEnrollments'));
+
+// Profile (unified - works for all roles)
+const Profile = lazy(() => import('../features/profile/pages/Profile'));
+
+// Courses
 const CoursesList = lazy(() => import('../features/courses/pages/CoursesList'));
 const CourseDetails = lazy(() => import('../features/courses/pages/CourseDetails'));
 const WatchWindow = lazy(() => import('../features/courses/pages/WatchWindow'));
+
+// Chat
 const Chat = lazy(() => import('../features/chat/pages/Chat'));
 
+// Instructor
 const InstructorDashboard = lazy(() => import('../features/instructor/pages/Dashboard'));
 const InstructorAddCourse = lazy(() => import('../features/instructor/pages/AddCourseWizard'));
 const InstructorEditCourse = lazy(() => import('../features/instructor/pages/EditCourse'));
 const InstructorMyCourses = lazy(() => import('../features/instructor/pages/MyCourses'));
 const InstructorStudentEnrolled = lazy(() => import('../features/instructor/pages/StudentEnrolled'));
-const InstructorProfile = lazy(() => import('../features/instructor/pages/Profile'));
 
+// Admin
 const AdminDashboard = lazy(() => import('../features/admin/pages/Dashboard'));
 const AdminUsers = lazy(() => import('../features/admin/pages/Users'));
 const AdminCourses = lazy(() => import('../features/admin/pages/Courses'));
 const AdminCategories = lazy(() => import('../features/admin/pages/Categories'));
 const AdminReports = lazy(() => import('../features/admin/pages/Reports'));
 
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
-  </div>
-);
+// ============================================================================
+// Constants
+// ============================================================================
 
 export const ROUTES = {
+  // Public
   HOME: '/',
   COURSE_LIST: '/courses',
+  COURSE_DETAILS: '/course/:id',  // ✅ ADD THIS LINE
   SIGN_IN: '/signin',
   SIGN_UP: '/signup',
+  
+  // Student
   MY_ENROLLMENTS: '/my-enrollments',
   PROFILE: '/profile',
   CHAT: '/chat',
   WATCH: (courseId) => `/watch/${courseId}`,
+  
+  // Instructor
   INSTRUCTOR_DASHBOARD: '/instructor',
   INSTRUCTOR_COURSES: '/instructor/courses',
   INSTRUCTOR_ADD: '/instructor/courses/add',
   INSTRUCTOR_EDIT: (id) => `/instructor/courses/edit/${id}`,
   INSTRUCTOR_STUDENTS: '/instructor/students',
   INSTRUCTOR_PROFILE: '/instructor/profile',
+  
+  // Admin
   ADMIN_DASHBOARD: '/admin',
   ADMIN_USERS: '/admin/users',
   ADMIN_COURSES: '/admin/courses',
   ADMIN_CATEGORIES: '/admin/categories',
   ADMIN_REPORTS: '/admin/reports',
 };
+
+// ============================================================================
+// Components
+// ============================================================================
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const AuthGuard = ({ children }) => {
   const { isAuthenticated, isStudent, isInstructor, isAdmin, loading } = useAuth();
@@ -91,22 +120,32 @@ const NotFound = () => (
   </div>
 );
 
+// ============================================================================
+// Main Router
+// ============================================================================
+
 const AppRouter = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        {/* Auth Routes */}
         <Route path={ROUTES.SIGN_IN} element={<AuthGuard><SignIn /></AuthGuard>} />
         <Route path={ROUTES.SIGN_UP} element={<AuthGuard><SignUp /></AuthGuard>} />
 
+        {/* Student Layout - Public + Student Routes */}
         <Route element={<StudentLayout />}>
+          {/* Public */}
           <Route path={ROUTES.HOME} element={<Home />} />
           <Route path={ROUTES.COURSE_LIST} element={<CoursesList />} />
+          {/* ✅ Now ROUTES.COURSE_DETAILS exists */}
           <Route path={ROUTES.COURSE_DETAILS} element={<CourseDetails />} />
           
+          {/* Any authenticated user */}
           <Route element={<ProtectedRoute allowedRoles={['Student', 'Instructor', 'Admin', 'SuperAdmin']} />}>
             <Route path={ROUTES.CHAT} element={<Chat />} />
           </Route>
           
+          {/* Student only */}
           <Route element={<ProtectedRoute allowedRoles={['Student']} />}>
             <Route path={ROUTES.MY_ENROLLMENTS} element={<MyEnrollments />} />
             <Route path={ROUTES.PROFILE} element={<Profile />} />
@@ -114,6 +153,7 @@ const AppRouter = () => {
           </Route>
         </Route>
 
+        {/* Instructor Layout */}
         <Route element={<ProtectedRoute allowedRoles={['Instructor', 'Admin', 'SuperAdmin']} />}>
           <Route element={<InstructorLayout />}>
             <Route path={ROUTES.INSTRUCTOR_DASHBOARD} element={<InstructorDashboard />} />
@@ -121,10 +161,11 @@ const AppRouter = () => {
             <Route path={ROUTES.INSTRUCTOR_ADD} element={<InstructorAddCourse />} />
             <Route path={ROUTES.INSTRUCTOR_EDIT(':id')} element={<InstructorEditCourse />} />
             <Route path={ROUTES.INSTRUCTOR_STUDENTS} element={<InstructorStudentEnrolled />} />
-            <Route path={ROUTES.INSTRUCTOR_PROFILE} element={<InstructorProfile />} />
+            <Route path={ROUTES.INSTRUCTOR_PROFILE} element={<Profile />} />
           </Route>
         </Route>
 
+        {/* Admin Layout */}
         <Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
           <Route element={<AdminLayout />}>
             <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
@@ -135,6 +176,7 @@ const AppRouter = () => {
           </Route>
         </Route>
 
+        {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

@@ -1,22 +1,29 @@
-/**
- * useInstructorCourses.js
- * Hook for managing instructor courses with localStorage
- */
+// src/features/instructor/hooks/useInstructorCourses.js
 
 import { useState, useEffect, useCallback } from 'react';
-import { getAllCourses, deleteCourse, updateCourse, publishCourse } from '../utils/courseStorage';
+import { 
+  getInstructorCourses, 
+  deleteCourse, 
+  publishCourse,
+  submitForReview 
+} from '../api/instructor.api';
 
 export const useInstructorCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchCourses = useCallback(() => {
+  const fetchCourses = useCallback(async () => {
     try {
       setLoading(true);
-      const allCourses = getAllCourses();
-      setCourses(allCourses);
-      setError(null);
+      const response = await getInstructorCourses();
+      
+      if (response.success) {
+        setCourses(response.data || []);
+        setError(null);
+      } else {
+        setError(response.message);
+      }
     } catch (err) {
       setError('Failed to load courses');
       console.error(err);
@@ -25,24 +32,51 @@ export const useInstructorCourses = () => {
     }
   }, []);
 
-  const handleDeleteCourse = useCallback((courseId) => {
+  const handleDeleteCourse = useCallback(async (courseId) => {
     try {
-      deleteCourse(courseId);
-      setCourses(prev => prev.filter(c => c.id !== courseId));
-      return true;
+      const response = await deleteCourse(courseId);
+      if (response.success) {
+        setCourses(prev => prev.filter(c => c.id !== courseId));
+        return true;
+      }
+      setError(response.message);
+      return false;
     } catch (err) {
       setError('Failed to delete course');
       return false;
     }
   }, []);
 
-  const handlePublishCourse = useCallback((courseId) => {
+  const handlePublishCourse = useCallback(async (courseId) => {
     try {
-      const updated = publishCourse(courseId);
-      setCourses(prev => prev.map(c => c.id === courseId ? updated : c));
-      return true;
+      const response = await publishCourse(courseId);
+      if (response.success) {
+        setCourses(prev => prev.map(c => 
+          c.id === courseId ? { ...c, status: 'published' } : c
+        ));
+        return true;
+      }
+      setError(response.message);
+      return false;
     } catch (err) {
       setError('Failed to publish course');
+      return false;
+    }
+  }, []);
+
+  const handleSubmitForReview = useCallback(async (courseId) => {
+    try {
+      const response = await submitForReview(courseId);
+      if (response.success) {
+        setCourses(prev => prev.map(c => 
+          c.id === courseId ? { ...c, status: 'pending' } : c
+        ));
+        return true;
+      }
+      setError(response.message);
+      return false;
+    } catch (err) {
+      setError('Failed to submit for review');
       return false;
     }
   }, []);
@@ -58,6 +92,7 @@ export const useInstructorCourses = () => {
     fetchCourses,
     deleteCourse: handleDeleteCourse,
     publishCourse: handlePublishCourse,
+    submitForReview: handleSubmitForReview,
   };
 };
 

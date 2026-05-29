@@ -17,6 +17,7 @@ import Navbar from '../shared/components/Navbar';
 import Footer from '../shared/components/Footer';
 import { ROUTES } from '../shared/constants/routes';
 
+// In InstructorLayout.jsx - SIDEBAR_ITEMS
 const SIDEBAR_ITEMS = [
   { path: ROUTES.INSTRUCTOR_DASHBOARD, label: 'Dashboard', icon: HiChartBar },
   { path: ROUTES.INSTRUCTOR_COURSES, label: 'My Courses', icon: HiBookOpen },
