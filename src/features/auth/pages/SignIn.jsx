@@ -4,8 +4,9 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthLayout from '../../../layouts/AuthLayout';
 import { useAuth } from '../../../store/AppProvider';
-import { Login } from '../api/auth.api';
-import { getUser } from '../../../services/utils/tokenUtils';
+import { login } from '../api/auth.api';
+import { getProfile } from '../../profile/api/profile.api';
+import { getUser, updateStoredAvatar, saveUser } from '../../../services/utils/tokenUtils';
 import { ErrorAlert, AuthInput, PasswordInput, AuthButton } from '../components/AuthComponents';
 
 const FORM_ANIMATION = {
@@ -24,7 +25,7 @@ const UserIcon = () => (
 const SignIn = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login: appLogin, updateUser } = useAuth();
   const [form, setForm] = useState({ emailOrUsername: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -50,6 +51,37 @@ const SignIn = () => {
     clearError();
   }, [clearError]);
 
+  const fetchAndUpdateProfile = useCallback(async () => {
+    try {
+      console.log('🔍 Fetching profile after login...');
+      const profileData = await getProfile();
+      console.log('📥 Profile data:', profileData);
+      
+      if (profileData) {
+        if (profileData.avatar) {
+          console.log('✅ Found avatar URL:', profileData.avatar);
+          updateUser({ avatar: profileData.avatar });
+          updateStoredAvatar(profileData.avatar);
+          
+          // Also save the full user with avatar
+          const currentUser = getUser();
+          if (currentUser) {
+            saveUser({ ...currentUser, avatar: profileData.avatar });
+          }
+          
+          console.log('✅ Avatar saved to storage');
+          return true;
+        } else {
+          console.log('⚠️ No avatar found in profile data');
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error('❌ Failed to fetch profile after login:', err);
+      return false;
+    }
+  }, [updateUser]);
+
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     clearError();
@@ -59,22 +91,37 @@ const SignIn = () => {
 
     setLoading(true);
     try {
-      const result = await Login(form);
+      const result = await login(form);
+      console.log('📥 Login result:', result);
+      
       if (!result.isAuthenticated) {
         setError(result.message || 'Login failed.');
         return;
       }
       
-      // Save token and update context
-      login(result.token, result.expiresOn);
+      console.log('✅ Login successful');
       
-      // Wait a tick for the cookie to be set and context to update
+      // Save token and update context
+      appLogin(result.token, result.expiresOn);
+      
+      // Wait for context to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Fetch profile to get avatar
+      console.log('📡 Fetching profile...');
+      await fetchAndUpdateProfile();
+      
+      // Wait again for storage to update
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      const user = getUser();
-      const role = user?.role;
+      const userData = getUser();
+      console.log('👤 Final user data:', userData);
+      console.log('🖼️ Avatar in user data:', userData?.avatar);
+      
+      const role = userData?.role;
+      console.log('🎭 User role:', role);
 
-      // ✅ Role-based redirect
+      // Role-based redirect
       if (from) {
         navigate(from, { replace: true });
       } else if (role === 'Admin' || role === 'SuperAdmin') {
@@ -90,7 +137,7 @@ const SignIn = () => {
     } finally {
       setLoading(false);
     }
-  }, [form, login, navigate, from, clearError]);
+  }, [form, appLogin, fetchAndUpdateProfile, navigate, from, clearError]);
 
   return (
     <AuthLayout title='Welcome back 👋' subtitle='Sign in to continue learning' mode='signin'>
@@ -121,7 +168,7 @@ const SignIn = () => {
         />
 
         <div className='flex justify-end -mt-1'>
-          <button type='button' onClick={() => { /* TODO: Forgot password */ }} className='text-xs transition hover:opacity-70' style={{ color: '#534AB7' }}>
+          <button type='button' onClick={() => {}} className='text-xs transition hover:opacity-70' style={{ color: '#534AB7' }}>
             Forgot password?
           </button>
         </div>

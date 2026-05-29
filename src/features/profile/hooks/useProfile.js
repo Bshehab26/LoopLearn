@@ -29,38 +29,41 @@ export const useProfile = () => {
     toastTimeoutRef.current = setTimeout(() => setToast(null), TOAST_DURATION);
   }, []);
 
-  const fetchProfile = useCallback(async () => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
+ // In useProfile.js, update the fetchProfile function:
+
+const fetchProfile = useCallback(async () => {
+  if (!isAuthenticated) {
+    setLoading(false);
+    return;
+  }
+  if (abortRef.current) abortRef.current.abort();
+  const controller = new AbortController();
+  abortRef.current = controller;
+  setLoading(true);
+  setError(null);
+  try {
+    const data = await getProfile();
+    console.log('📥 Profile data in hook:', data);
+    setProfile(data);
+    
+    // ✅ Update user context with avatar from profile
+    if (data?.avatar && updateUser) {
+      updateUser({ avatar: data.avatar });
+      updateStoredAvatar(data.avatar);
     }
-    if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getProfile({ signal: controller.signal });
-      setProfile(data);
-      
-      // ✅ Update user context with avatar from profile
-      if (data?.avatar && updateUser) {
-        updateUser({ avatar: data.avatar });
-        updateStoredAvatar(data.avatar);
-      }
-      
-      return data;
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setError(err.message || 'Failed to load profile');
-        showToast(err.message || 'Failed to load profile', 'error');
-      }
-      throw err;
-    } finally {
-      setLoading(false);
-      abortRef.current = null;
+    
+    return data;
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setError(err.message || 'Failed to load profile');
+      showToast(err.message || 'Failed to load profile', 'error');
     }
-  }, [isAuthenticated, showToast, updateUser]);
+    throw err;
+  } finally {
+    setLoading(false);
+    abortRef.current = null;
+  }
+}, [isAuthenticated, showToast, updateUser]);
 
   useEffect(() => {
     fetchProfile().catch(() => {});

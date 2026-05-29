@@ -338,7 +338,7 @@ const ExpandableSearch = () => {
 };
 
 // ============================================================================
-// Mobile Menu Component
+// Mobile Menu Component (FIXED - No duplicate buttons)
 // ============================================================================
 
 const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, location }) => {
@@ -421,11 +421,11 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
             {isLoggedIn && user && (
               <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-gray-50">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                  {user.username?.slice(0, 2).toUpperCase() || 'U'}
+                  {user.username?.slice(0, 2).toUpperCase() || user.email?.slice(0, 2).toUpperCase() || 'U'}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">{user.username}</p>
-                  <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                  <p className="text-sm font-semibold text-gray-800">{user.username || user.email?.split('@')[0]}</p>
+                  <p className="text-xs text-gray-500 capitalize">{user.role || 'User'}</p>
                 </div>
               </div>
             )}
@@ -451,7 +451,7 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
               })}
             </nav>
             
-            {/* Footer - Auth Buttons for Visitors */}
+            {/* ✅ FIXED: Only show auth buttons when NOT logged in */}
             {!isLoggedIn && (
               <div className="p-4 border-t border-gray-100 space-y-2">
                 <button
@@ -471,7 +471,7 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
               </div>
             )}
             
-            {/* Footer - Logout for Logged-in Users */}
+            {/* ✅ FIXED: Only show logout when logged in */}
             {isLoggedIn && (
               <div className="p-4 border-t border-gray-100">
                 <button
@@ -532,15 +532,19 @@ const Navbar = () => {
             <div className="flex items-center gap-2">
               {isNavSearchVisible && <ExpandableSearch />}
               
+              {/* ✅ Desktop auth buttons OR user menu */}
               {!isLoggedIn ? (
-                <AuthButtons 
-                  onSignIn={() => navigate(ROUTES.SIGN_IN)} 
-                  onSignUp={() => navigate(ROUTES.SIGN_UP)} 
-                />
+                <div className="hidden sm:block">
+                  <AuthButtons 
+                    onSignIn={() => navigate(ROUTES.SIGN_IN)} 
+                    onSignUp={() => navigate(ROUTES.SIGN_UP)} 
+                  />
+                </div>
               ) : (
                 <UserMenu user={user} onLogout={handleLogout} navigate={navigate} />
               )}
               
+              {/* Mobile menu button */}
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition"
