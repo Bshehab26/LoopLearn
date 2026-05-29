@@ -1,6 +1,7 @@
+// src/store/contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { ROLES } from '../../shared/constants/roles';
-import { getToken, getUser, saveToken, removeToken } from '../../services/utils/tokenUtils';
+import { getToken, getUser, saveToken, removeToken, saveUser, clearUser, getUserFromStorage } from '../../services/utils/tokenUtils';
 
 // Helper: check if token exists and not expired
 const isTokenValid = () => {
@@ -29,16 +30,27 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback((token, expiresOn) => {
     saveToken(token, expiresOn);
     // Force user state update by reading from token
-    setUser(getUser());
+    const userData = getUser();
+    setUser(userData);
+    // Save to localStorage for avatar persistence
+    if (userData) {
+      saveUser(userData);
+    }
   }, []);
 
   const logout = useCallback(() => {
     removeToken();
+    clearUser();
     setUser(null);
   }, []);
 
   const updateUser = useCallback((updatedData) => {
-    setUser(prev => ({ ...prev, ...updatedData }));
+    setUser(prev => {
+      const updated = { ...prev, ...updatedData };
+      // Also update localStorage
+      saveUser(updated);
+      return updated;
+    });
   }, []);
 
   // Derived authentication status: user exists AND token is not expired
@@ -49,15 +61,7 @@ export const AuthProvider = ({ children }) => {
   const isInstructor = role === ROLES.INSTRUCTOR;
   const isAdmin = role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
 
-  // Listen for cookie changes (e.g., logout from another tab)
   useEffect(() => {
-    const handleCookieChange = () => {
-      setUser(getUser());
-    };
-    // Polling is not ideal, but storage events don't work for cookies.
-    // A better approach is to use a custom event. For simplicity, we'll rely on
-    // the fact that login/logout happen in the same tab and trigger re-renders.
-    // This effect ensures initial loading is done.
     setLoading(false);
   }, []);
 

@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../../store/AppProvider';
 import { getProfile, updateProfile, changePassword, updateAvatar } from '../api/profile.api';
 import { uploadAvatar } from '../../../shared/api/upload.api';
+import { updateStoredAvatar, getUserFromStorage } from '../../../services/utils/tokenUtils';
 
 const TOAST_DURATION = 3500;
 
@@ -10,11 +11,7 @@ const TOAST_DURATION = 3500;
 // Hook
 // ============================================================================
 
-/**
- * useProfile - Manages user profile operations
- * @returns {Object} Profile state and handler functions
- */
-export const useProfile= () => {
+export const useProfile = () => {
   const { isAuthenticated, user, updateUser } = useAuth();
 
   // State
@@ -45,6 +42,13 @@ export const useProfile= () => {
     try {
       const data = await getProfile({ signal: controller.signal });
       setProfile(data);
+      
+      // ✅ Update user context with avatar from profile
+      if (data?.avatar && updateUser) {
+        updateUser({ avatar: data.avatar });
+        updateStoredAvatar(data.avatar);
+      }
+      
       return data;
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -56,7 +60,7 @@ export const useProfile= () => {
       setLoading(false);
       abortRef.current = null;
     }
-  }, [isAuthenticated, showToast]);
+  }, [isAuthenticated, showToast, updateUser]);
 
   useEffect(() => {
     fetchProfile().catch(() => {});
@@ -67,44 +71,56 @@ export const useProfile= () => {
   }, [fetchProfile]);
 
   // Update profile – expects { firstName, lastName, email, phone }
- const updateUserProfile = useCallback(async (formData) => {
-  setSaving(true);
-  setError(null);
-  try {
-    const updated = await updateProfile(formData);
-    setProfile(updated);
-    if (updateUser) updateUser(updated); // now defined
-    showToast('Profile updated successfully');
-    return { success: true, data: updated };
-  } catch (err) {
-    const message = err.message || 'Failed to update profile';
-    setError(message);
-    showToast(message, 'error');
-    return { success: false, error: message };
-  } finally {
-    setSaving(false);
-  }
-}, [updateUser, showToast]);
+  const updateUserProfile = useCallback(async (formData) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateProfile(formData);
+      setProfile(updated);
+      if (updateUser) updateUser(updated);
+      showToast('Profile updated successfully');
+      return { success: true, data: updated };
+    } catch (err) {
+      const message = err.message || 'Failed to update profile';
+      setError(message);
+      showToast(message, 'error');
+      return { success: false, error: message };
+    } finally {
+      setSaving(false);
+    }
+  }, [updateUser, showToast]);
 
-const updateUserAvatar = useCallback(async (file) => {
-  setSaving(true);
-  setError(null);
-  try {
-    const imageUrl = await uploadAvatar(file);
-    const updated = await updateAvatar(imageUrl);
-    setProfile(updated);
-    if (updateUser) updateUser(updated);
-    showToast('Profile photo updated');
-    return { success: true, data: updated };
-  } catch (err) {
-    const message = err.message || 'Failed to update avatar';
-    setError(message);
-    showToast(message, 'error');
-    return { success: false, error: message };
-  } finally {
-    setSaving(false);
-  }
-}, [updateUser, showToast]);
+  // Update avatar - upload file, then update profile with URL
+  const updateUserAvatar = useCallback(async (file) => {
+    setSaving(true);
+    setError(null);
+    try {
+      // Step 1: Upload image to server
+      const imageUrl = await uploadAvatar(file);
+      
+      // Step 2: Update profile with new avatar URL
+      const updated = await updateAvatar(imageUrl);
+      setProfile(updated);
+      
+      // ✅ Update user context with new avatar
+      if (updateUser) {
+        updateUser({ avatar: imageUrl });
+      }
+      
+      // ✅ Store avatar in localStorage for persistence
+      updateStoredAvatar(imageUrl);
+      
+      showToast('Profile photo updated');
+      return { success: true, data: updated };
+    } catch (err) {
+      const message = err.message || 'Failed to update avatar';
+      setError(message);
+      showToast(message, 'error');
+      return { success: false, error: message };
+    } finally {
+      setSaving(false);
+    }
+  }, [updateUser, showToast]);
 
   // Change password – expects { oldPassword, newPassword }
   const updatePassword = useCallback(async (passwordData) => {

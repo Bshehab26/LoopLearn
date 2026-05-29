@@ -1,7 +1,6 @@
 /**
  * Navbar.jsx
  * Main navigation component - Responsive with mobile menu.
- * Features: Logo, search (expandable on mobile), auth buttons, mobile menu.
  * 
  * @module shared/components/Navbar
  */
@@ -11,8 +10,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   HiMenu, HiX, HiUser, HiBookOpen, HiAcademicCap, HiLogout, 
   HiChevronDown, HiHome, HiSearch, HiChartBar, HiUsers, 
-  HiPlusCircle, HiShoppingBag, HiChatAlt2, HiCog, HiShieldCheck,
-  HiOutlineCreditCard, HiOutlineDocumentText, HiOutlineUserGroup
+  HiPlusCircle, HiShoppingBag, HiChatAlt2, HiShieldCheck
 } from 'react-icons/hi';
 import { useAuth, useUI } from '../../store/AppProvider';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,7 +49,30 @@ const UserMenu = ({ user, onLogout, navigate }) => {
   
   const username = user?.username || user?.email?.split('@')[0] || 'User';
   const role = user?.role?.toLowerCase();
+  const avatarUrl = user?.avatar;
   const initials = username.slice(0, 2).toUpperCase();
+  
+  // Get avatar display (image or initials)
+  const getAvatarDisplay = () => {
+    if (avatarUrl) {
+      return (
+        <img 
+          src={avatarUrl} 
+          alt={username}
+          className="w-8 h-8 rounded-full object-cover"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = `<div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">${initials}</div>`;
+          }}
+        />
+      );
+    }
+    return (
+      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+        {initials}
+      </div>
+    );
+  };
   
   const isStudent = role === ROLES.STUDENT?.toLowerCase();
   const isInstructor = role === ROLES.INSTRUCTOR?.toLowerCase();
@@ -79,128 +100,85 @@ const UserMenu = ({ user, onLogout, navigate }) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  // Memoize menu items to prevent re-renders
-  const getMenuItems = useCallback(() => {
+  // Handle navigation and close dropdown
+  const handleNavigation = useCallback((path) => {
+    setIsOpen(false);
+    setTimeout(() => {
+      navigate(path);
+    }, 50);
+  }, [navigate]);
+
+  // Get menu items based on role
+  const getMenuItems = () => {
     const items = [];
     
-    // Profile - always show
+    // My Profile - ALL roles
     items.push({
       label: 'My Profile',
       icon: HiUser,
-      onClick: () => navigate(ROUTES.PROFILE),
-      divider: false,
+      onClick: () => handleNavigation(ROUTES.PROFILE),
     });
     
-    // Student specific
+    // STUDENT only
     if (isStudent) {
       items.push({
         label: 'My Enrollments',
         icon: HiShoppingBag,
-        onClick: () => navigate(ROUTES.MY_ENROLLMENTS),
-        divider: false,
+        onClick: () => handleNavigation(ROUTES.MY_ENROLLMENTS),
       });
       items.push({
         label: 'Chat Support',
         icon: HiChatAlt2,
-        onClick: () => navigate(ROUTES.CHAT),
-        divider: false,
-      });
-      items.push({
-        label: 'Payment History',
-        icon: HiOutlineCreditCard,
-        onClick: () => navigate('/payments'),
-        divider: false,
+        onClick: () => handleNavigation(ROUTES.CHAT),
       });
     }
     
-    // Instructor specific
+    // INSTRUCTOR only
     if (isInstructor) {
-      items.push({ divider: true, label: 'TEACHING' });
       items.push({
         label: 'Dashboard',
         icon: HiChartBar,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_DASHBOARD),
-        divider: false,
+        onClick: () => handleNavigation(ROUTES.INSTRUCTOR_DASHBOARD),
       });
       items.push({
-        label: 'My Courses',
-        icon: HiBookOpen,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_COURSES),
-        divider: false,
+        label: 'My Enrollments',
+        icon: HiShoppingBag,
+        onClick: () => handleNavigation(ROUTES.MY_ENROLLMENTS),
       });
       items.push({
-        label: 'Add Course',
-        icon: HiPlusCircle,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_ADD),
-        divider: false,
-      });
-      items.push({
-        label: 'My Students',
-        icon: HiUsers,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_STUDENTS),
-        divider: false,
-      });
-      items.push({
-        label: 'Earnings',
-        icon: HiOutlineCurrencyDollar,
-        onClick: () => navigate('/instructor/earnings'),
-        divider: false,
+        label: 'Chat Support',
+        icon: HiChatAlt2,
+        onClick: () => handleNavigation(ROUTES.CHAT),
       });
     }
     
-    // Admin specific
+    // ADMIN only
     if (isAdmin) {
-      items.push({ divider: true, label: 'ADMIN' });
       items.push({
-        label: 'Dashboard',
-        icon: HiChartBar,
-        onClick: () => navigate(ROUTES.ADMIN_DASHBOARD),
-        divider: false,
-      });
-      items.push({
-        label: 'Users',
-        icon: HiOutlineUserGroup,
-        onClick: () => navigate(ROUTES.ADMIN_USERS),
-        divider: false,
-      });
-      items.push({
-        label: 'Courses',
-        icon: HiBookOpen,
-        onClick: () => navigate(ROUTES.ADMIN_COURSES),
-        divider: false,
-      });
-      items.push({
-        label: 'Categories',
+        label: 'Admin Dashboard',
         icon: HiShieldCheck,
-        onClick: () => navigate(ROUTES.ADMIN_CATEGORIES),
-        divider: false,
+        onClick: () => handleNavigation(ROUTES.ADMIN_DASHBOARD),
       });
       items.push({
-        label: 'Reports',
-        icon: HiOutlineDocumentText,
-        onClick: () => navigate(ROUTES.ADMIN_REPORTS),
-        divider: false,
+        label: 'Instructor Dashboard',
+        icon: HiAcademicCap,
+        onClick: () => handleNavigation(ROUTES.INSTRUCTOR_DASHBOARD),
       });
     }
     
-    // Settings & Logout
-    items.push({ divider: true });
-    items.push({
-      label: 'Settings',
-      icon: HiCog,
-      onClick: () => navigate('/settings'),
-      divider: false,
-    });
+    // Logout - ALL roles
     items.push({
       label: 'Logout',
       icon: HiLogout,
-      onClick: onLogout,
-      divider: false,
+      onClick: () => {
+        setIsOpen(false);
+        onLogout();
+      },
       danger: true,
     });
     
     return items;
-  }, [isStudent, isInstructor, isAdmin, navigate, onLogout]);
+  };
 
   const menuItems = getMenuItems();
 
@@ -213,9 +191,7 @@ const UserMenu = ({ user, onLogout, navigate }) => {
         aria-label="User menu"
         aria-expanded={isOpen}
       >
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-          {initials}
-        </div>
+        {getAvatarDisplay()}
         <span className="text-sm font-medium text-gray-700 hidden sm:inline">{username}</span>
         <HiChevronDown 
           size={14} 
@@ -231,40 +207,28 @@ const UserMenu = ({ user, onLogout, navigate }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute right-0 mt-2 w-72 rounded-xl overflow-hidden bg-white border border-gray-100 shadow-xl z-50"
+            className="absolute right-0 mt-2 w-64 rounded-xl overflow-hidden bg-white border border-gray-100 shadow-xl z-50"
           >
+            {/* User Info Header */}
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-800">{username}</p>
+              <p className="text-xs text-gray-500 capitalize">{role || 'User'}</p>
+            </div>
+            
             <div className="py-1">
-              {menuItems.map((item, idx) => (
-                item.divider ? (
-                  <div key={`divider-${idx}`} className="border-t border-gray-100 my-1">
-                    {item.label && (
-                      <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                        {item.label}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      item.onClick();
-                      setIsOpen(false);
-                    }}
-                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-150 flex items-center gap-3 ${
-                      item.danger 
-                        ? 'text-red-600 hover:bg-red-50' 
-                        : 'text-gray-700 hover:bg-purple-50'
-                    }`}
-                  >
-                    <item.icon size={16} className={item.danger ? 'text-red-500' : 'text-gray-400'} />
-                    <span className="flex-1">{item.label}</span>
-                    {item.badge && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-600 rounded-full">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                )
+              {menuItems.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={item.onClick}
+                  className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-150 flex items-center gap-3 ${
+                    item.danger 
+                      ? 'text-red-600 hover:bg-red-50' 
+                      : 'text-gray-700 hover:bg-purple-50'
+                  }`}
+                >
+                  <item.icon size={16} className={item.danger ? 'text-red-500' : 'text-gray-400'} />
+                  <span className="flex-1">{item.label}</span>
+                </button>
               ))}
             </div>
           </motion.div>
@@ -379,12 +343,14 @@ const ExpandableSearch = () => {
 
 const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, location }) => {
   const role = user?.role?.toLowerCase();
+  const isStudent = role === ROLES.STUDENT?.toLowerCase();
   const isInstructor = role === ROLES.INSTRUCTOR?.toLowerCase();
   const isAdmin = role === ROLES.ADMIN?.toLowerCase() || role === 'superadmin';
 
   const getMenuItems = () => {
     const items = [];
     
+    // Main nav
     items.push(
       { label: 'Home', path: ROUTES.HOME, icon: HiHome },
       { label: 'Courses', path: ROUTES.COURSE_LIST, icon: HiBookOpen }
@@ -393,23 +359,23 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
     if (isLoggedIn) {
       items.push({ label: 'My Profile', path: ROUTES.PROFILE, icon: HiUser });
       
-      if (!isInstructor && !isAdmin) {
+      // Student specific
+      if (isStudent) {
         items.push({ label: 'My Enrollments', path: ROUTES.MY_ENROLLMENTS, icon: HiShoppingBag });
         items.push({ label: 'Chat Support', path: ROUTES.CHAT, icon: HiChatAlt2 });
       }
       
+      // Instructor specific
       if (isInstructor) {
         items.push({ label: 'Dashboard', path: ROUTES.INSTRUCTOR_DASHBOARD, icon: HiChartBar });
-        items.push({ label: 'My Courses', path: ROUTES.INSTRUCTOR_COURSES, icon: HiBookOpen });
-        items.push({ label: 'Add Course', path: ROUTES.INSTRUCTOR_ADD, icon: HiPlusCircle });
-        items.push({ label: 'My Students', path: ROUTES.INSTRUCTOR_STUDENTS, icon: HiUsers });
+        items.push({ label: 'My Enrollments', path: ROUTES.MY_ENROLLMENTS, icon: HiShoppingBag });
+        items.push({ label: 'Chat Support', path: ROUTES.CHAT, icon: HiChatAlt2 });
       }
       
+      // Admin specific
       if (isAdmin) {
         items.push({ label: 'Admin Dashboard', path: ROUTES.ADMIN_DASHBOARD, icon: HiShieldCheck });
-        items.push({ label: 'Users', path: ROUTES.ADMIN_USERS, icon: HiUsers });
-        items.push({ label: 'Courses', path: ROUTES.ADMIN_COURSES, icon: HiBookOpen });
-        items.push({ label: 'Categories', path: ROUTES.ADMIN_CATEGORIES, icon: HiShieldCheck });
+        items.push({ label: 'Instructor Dashboard', path: ROUTES.INSTRUCTOR_DASHBOARD, icon: HiAcademicCap });
       }
     }
     
@@ -418,11 +384,16 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
 
   const menuItems = getMenuItems();
 
+  // Close dropdown and navigate
+  const handleNavigation = (path) => {
+    onClose();
+    setTimeout(() => navigate(path), 50);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -431,7 +402,6 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
             onClick={onClose}
           />
           
-          {/* Menu Panel */}
           <motion.div
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
@@ -442,24 +412,33 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <Logo />
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-100 transition"
-              >
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition">
                 <HiX size={20} />
               </button>
             </div>
+            
+            {/* User Info (if logged in) */}
+            {isLoggedIn && user && (
+              <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-gray-50">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                  {user.username?.slice(0, 2).toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{user.username}</p>
+                  <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                </div>
+              </div>
+            )}
             
             {/* Navigation Links */}
             <nav className="flex-1 overflow-y-auto py-4">
               {menuItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <Link
+                  <button
                     key={item.label}
-                    to={item.path}
-                    onClick={onClose}
-                    className={`flex items-center gap-3 px-6 py-3 text-sm transition ${
+                    onClick={() => handleNavigation(item.path)}
+                    className={`w-full flex items-center gap-3 px-6 py-3 text-sm transition ${
                       isActive 
                         ? 'bg-purple-50 text-purple-600 font-medium' 
                         : 'text-gray-700 hover:bg-gray-50'
@@ -467,7 +446,7 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
                   >
                     <item.icon size={18} className={isActive ? 'text-purple-600' : 'text-gray-400'} />
                     {item.label}
-                  </Link>
+                  </button>
                 );
               })}
             </nav>
@@ -476,14 +455,14 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
             {!isLoggedIn && (
               <div className="p-4 border-t border-gray-100 space-y-2">
                 <button
-                  onClick={() => { navigate(ROUTES.SIGN_IN); onClose(); }}
+                  onClick={() => { handleNavigation(ROUTES.SIGN_IN); }}
                   className="w-full py-2.5 rounded-full text-sm font-medium transition-all hover:bg-purple-50"
                   style={{ border: '0.5px solid #534AB7', color: '#534AB7' }}
                 >
                   Sign In
                 </button>
                 <button
-                  onClick={() => { navigate(ROUTES.SIGN_UP); onClose(); }}
+                  onClick={() => { handleNavigation(ROUTES.SIGN_UP); }}
                   className="w-full py-2.5 rounded-full text-sm font-medium text-white transition-all hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg, #534AB7 0%, #3C3489 100%)' }}
                 >
@@ -540,25 +519,19 @@ const Navbar = () => {
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <Logo />
             
-            {/* Desktop Navigation Links */}
             <DesktopNavLinks links={NAV_LINKS} isLoggedIn={isLoggedIn} location={location} />
             
-            {/* Search Bar - Desktop only */}
             {isNavSearchVisible && (
               <div className="hidden lg:block w-80">
                 <SearchBar variant="default" />
               </div>
             )}
             
-            {/* Right Section */}
             <div className="flex items-center gap-2">
-              {/* Expandable Search - Mobile/Tablet */}
               {isNavSearchVisible && <ExpandableSearch />}
               
-              {/* Desktop Auth or User Menu */}
               {!isLoggedIn ? (
                 <AuthButtons 
                   onSignIn={() => navigate(ROUTES.SIGN_IN)} 
@@ -568,7 +541,6 @@ const Navbar = () => {
                 <UserMenu user={user} onLogout={handleLogout} navigate={navigate} />
               )}
               
-              {/* Mobile Menu Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition"
@@ -581,7 +553,6 @@ const Navbar = () => {
         </div>
       </nav>
       
-      {/* Mobile Menu */}
       <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
@@ -594,12 +565,5 @@ const Navbar = () => {
     </>
   );
 };
-
-// Need to add missing icon
-const HiOutlineCurrencyDollar = (props) => (
-  <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
 
 export default Navbar;

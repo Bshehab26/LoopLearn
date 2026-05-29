@@ -1,6 +1,6 @@
 // src/features/auth/api/auth.api.js
 import api from '../../../services/api/axios';
-import { handleApiError, createApiResponse } from '../../../services/api/errorHandler';
+import { handleApiError } from '../../../services/api/errorHandler';
 
 // ============================================================================
 // Constants
@@ -15,7 +15,7 @@ const AUTH_ENDPOINTS = {
 // API Functions
 // ============================================================================
 
-export const Login = async (credentials) => {
+export const login = async (credentials) => {
   try {
     console.log('📤 Login payload:', { emailOrUsername: credentials.emailOrUsername, password: '***' });
     const response = await api.post(AUTH_ENDPOINTS.LOGIN, credentials);
@@ -41,7 +41,10 @@ export const Login = async (credentials) => {
   }
 };
 
-export const Register = async (userData) => {
+// ✅ Add named export for Login (capital L) to maintain compatibility
+export const Login = login;
+
+export const register = async (userData) => {
   try {
     console.log('📤 Register payload:', userData);
     const response = await api.post(AUTH_ENDPOINTS.REGISTER, userData);
@@ -65,3 +68,6 @@ export const Register = async (userData) => {
     };
   }
 };
+
+// ✅ Add named export for Register (capital R) to maintain compatibility
+export const Register = register;
