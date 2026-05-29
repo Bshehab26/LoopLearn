@@ -150,11 +150,7 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
     if (!validateForm()) return;
     
     setIsSubmitting(true);
-    const success = await onChangePassword(
-      formData.oldPassword,
-      formData.newPassword,
-      formData.confirmPassword
-    );
+    const success = await onChangePassword(formData);
     setIsSubmitting(false);
     
     if (success) {

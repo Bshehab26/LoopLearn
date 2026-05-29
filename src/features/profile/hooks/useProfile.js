@@ -1,24 +1,8 @@
-/**
- * useProfile.js
- * Custom hook for managing user profile data using the unified /Profile endpoint.
- * Handles profile fetching, updates, avatar uploads, and password changes.
- * 
- * @module features/profile/hooks/useProfile
- */
-
-import { useState, useCallback, useEffect } from 'react';
+// src/features/profile/hooks/useProfile.js
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../../store/AppProvider';
-import { 
-  getProfile, 
-  updateProfile, 
-  changePassword, 
-  updateAvatar,
-  updateProfileAvatar
-} from '../api/profile.api';
-
-// ============================================================================
-// Constants
-// ============================================================================
+import { getProfile, updateProfile, changePassword, updateAvatar } from '../api/profile.api';
+import { uploadAvatar } from '../../../shared/api/upload.api';
 
 const TOAST_DURATION = 3500;
 
@@ -26,90 +10,110 @@ const TOAST_DURATION = 3500;
 // Hook
 // ============================================================================
 
-const useProfile = () => {
-  const { isAuthenticated, user } = useAuth();
-  
+/**
+ * useProfile - Manages user profile operations
+ * @returns {Object} Profile state and handler functions
+ */
+export const useProfile= () => {
+  const { isAuthenticated, user, updateUser } = useAuth();
+
   // State
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const abortRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
 
-  // Toast helper
   const showToast = useCallback((message, type = 'success') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ message, type });
-    setTimeout(() => setToast(null), TOAST_DURATION);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), TOAST_DURATION);
   }, []);
 
-  // Fetch profile
   const fetchProfile = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false);
       return;
     }
-
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await getProfile();
-      
-      if (response.success) {
-        setProfile(response.data);
-      } else {
-        setError(response.message);
-      }
+      const data = await getProfile({ signal: controller.signal });
+      setProfile(data);
+      return data;
     } catch (err) {
-      setError(err.message || 'Failed to load profile');
+      if (err.name !== 'AbortError') {
+        setError(err.message || 'Failed to load profile');
+        showToast(err.message || 'Failed to load profile', 'error');
+      }
+      throw err;
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, showToast]);
 
-  // Update profile (basic info)
-  const updateUserProfile = useCallback(async (updates) => {
-    try {
-      setSaving(true);
-      setError(null);
-      
-      const response = await updateProfile(updates);
-      
-      if (response.success) {
-        setProfile(response.data);
-        showToast(response.message || 'Profile updated successfully');
-        return { success: true, data: response.data };
-      }
-      
-      setError(response.message);
-      showToast(response.message || 'Failed to update profile', 'error');
-      return { success: false, error: response.message };
-    } catch (err) {
-      const message = err.message || 'Failed to update profile';
-      setError(message);
-      showToast(message, 'error');
-      return { success: false, error: message };
-    } finally {
-      setSaving(false);
-    }
-  }, [showToast]);
+  useEffect(() => {
+    fetchProfile().catch(() => {});
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, [fetchProfile]);
 
-  // Change password
-  const updatePassword = useCallback(async (oldPassword, newPassword, confirmPassword) => {
+  // Update profile – expects { firstName, lastName, email, phone }
+ const updateUserProfile = useCallback(async (formData) => {
+  setSaving(true);
+  setError(null);
+  try {
+    const updated = await updateProfile(formData);
+    setProfile(updated);
+    if (updateUser) updateUser(updated); // now defined
+    showToast('Profile updated successfully');
+    return { success: true, data: updated };
+  } catch (err) {
+    const message = err.message || 'Failed to update profile';
+    setError(message);
+    showToast(message, 'error');
+    return { success: false, error: message };
+  } finally {
+    setSaving(false);
+  }
+}, [updateUser, showToast]);
+
+const updateUserAvatar = useCallback(async (file) => {
+  setSaving(true);
+  setError(null);
+  try {
+    const imageUrl = await uploadAvatar(file);
+    const updated = await updateAvatar(imageUrl);
+    setProfile(updated);
+    if (updateUser) updateUser(updated);
+    showToast('Profile photo updated');
+    return { success: true, data: updated };
+  } catch (err) {
+    const message = err.message || 'Failed to update avatar';
+    setError(message);
+    showToast(message, 'error');
+    return { success: false, error: message };
+  } finally {
+    setSaving(false);
+  }
+}, [updateUser, showToast]);
+
+  // Change password – expects { oldPassword, newPassword }
+  const updatePassword = useCallback(async (passwordData) => {
+    setSaving(true);
+    setError(null);
     try {
-      setSaving(true);
-      setError(null);
-      
-      const response = await changePassword({ oldPassword, newPassword, confirmPassword });
-      
-      if (response.success) {
-        showToast(response.message || 'Password changed successfully');
-        return { success: true };
-      }
-      
-      setError(response.message);
-      showToast(response.message || 'Failed to change password', 'error');
-      return { success: false, error: response.message };
+      await changePassword(passwordData);
+      showToast('Password changed successfully');
+      return { success: true };
     } catch (err) {
       const message = err.message || 'Failed to change password';
       setError(message);
@@ -120,70 +124,20 @@ const useProfile = () => {
     }
   }, [showToast]);
 
-  // Update avatar - handles both File upload and direct URL update
-  const updateUserAvatar = useCallback(async (avatarInput) => {
-    try {
-      setSaving(true);
-      setError(null);
-      
-      let response;
-      
-      // Check if input is a File object or a URL string
-      if (avatarInput instanceof File) {
-        // It's a File - upload it
-        response = await updateAvatar(avatarInput);
-      } else if (typeof avatarInput === 'string' && avatarInput.startsWith('http')) {
-        // It's a URL string - update profile directly
-        response = await updateProfileAvatar(avatarInput);
-      } else {
-        throw new Error('Invalid input: expected File or URL string');
-      }
-      
-      if (response.success) {
-        // Refresh profile data to get the latest avatar
-        await fetchProfile();
-        showToast(response.message || 'Avatar updated successfully');
-        return { success: true, data: response.data };
-      }
-      
-      setError(response.message);
-      showToast(response.message || 'Failed to update avatar', 'error');
-      return { success: false, error: response.message };
-    } catch (err) {
-      const message = err.message || 'Failed to update avatar';
-      setError(message);
-      showToast(message, 'error');
-      return { success: false, error: message };
-    } finally {
-      setSaving(false);
-    }
-  }, [showToast, fetchProfile]);
-
-  // Load profile on mount
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
-
-  // Role helpers
   const isStudent = user?.role?.toLowerCase() === 'student';
   const isInstructor = user?.role?.toLowerCase() === 'instructor';
   const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
 
   return {
-    // Data
     profile,
     loading,
     saving,
     error,
     toast,
-    
-    // Role info
     isStudent,
     isInstructor,
     isAdmin,
     userRole: user?.role,
-    
-    // Actions
     fetchProfile,
     updateUserProfile,
     updatePassword,

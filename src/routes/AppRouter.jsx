@@ -6,6 +6,8 @@ import StudentLayout from '../layouts/StudentLayout';
 import InstructorLayout from '../layouts/InstructorLayout';
 import AdminLayout from '../layouts/AdminLayout';
 import ProtectedRoute from './ProtectedRoute';  // ✅ Fixed: removed space
+import { ROUTES } from '../shared/constants/routes';
+
 
 // ============================================================================
 // Lazy Imports
@@ -44,39 +46,6 @@ const AdminCourses = lazy(() => import('../features/admin/pages/Courses'));
 const AdminCategories = lazy(() => import('../features/admin/pages/Categories'));
 const AdminReports = lazy(() => import('../features/admin/pages/Reports'));
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-export const ROUTES = {
-  // Public
-  HOME: '/',
-  COURSE_LIST: '/courses',
-  COURSE_DETAILS: '/course/:id',  // ✅ ADD THIS LINE
-  SIGN_IN: '/signin',
-  SIGN_UP: '/signup',
-  
-  // Student
-  MY_ENROLLMENTS: '/my-enrollments',
-  PROFILE: '/profile',
-  CHAT: '/chat',
-  WATCH: (courseId) => `/watch/${courseId}`,
-  
-  // Instructor
-  INSTRUCTOR_DASHBOARD: '/instructor',
-  INSTRUCTOR_COURSES: '/instructor/courses',
-  INSTRUCTOR_ADD: '/instructor/courses/add',
-  INSTRUCTOR_EDIT: (id) => `/instructor/courses/edit/${id}`,
-  INSTRUCTOR_STUDENTS: '/instructor/students',
-  INSTRUCTOR_PROFILE: '/instructor/profile',
-  
-  // Admin
-  ADMIN_DASHBOARD: '/admin',
-  ADMIN_USERS: '/admin/users',
-  ADMIN_COURSES: '/admin/courses',
-  ADMIN_CATEGORIES: '/admin/categories',
-  ADMIN_REPORTS: '/admin/reports',
-};
 
 // ============================================================================
 // Components

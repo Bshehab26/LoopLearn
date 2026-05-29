@@ -1,9 +1,10 @@
 // src/features/auth/pages/SignUp.jsx
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../../../layouts/AuthLayout';
-import useAuth from '../hooks/useAuth';
+import { useAuth } from '../../../store/AppProvider';
+import { Register } from '../api/auth.api';
 import { ErrorAlert, AuthInput, PasswordInput, AuthButton } from '../components/AuthComponents';
 import { HiCalendar, HiUserGroup } from 'react-icons/hi';
 
@@ -25,7 +26,7 @@ const FORM_ANIMATION = {
 const sanitizePhoneNumber = (value) => value.replace(/\D/g, '');
 
 // ============================================================================
-// Components
+// Sub‑components (kept from teammate)
 // ============================================================================
 
 const UserIcon = () => (
@@ -154,33 +155,40 @@ const GenderSelect = ({ value, onChange, disabled }) => {
 // Main Component
 // ============================================================================
 
+const INITIAL = {
+  firstName: '',
+  lastName: '',
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  phone: '',
+  birthDate: '',
+  gender: '',
+};
+
 const SignUp = () => {
-  const { signUp, loading, error, clearError } = useAuth();
-  
-  const [form, setForm] = useState({
-    username: '',
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    gender: '',
-    birthDate: '',
-    password: '',
-    confirmPassword: '',
-  });
-  
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState(INITIAL);
   const errorRef = useRef(null);
   const firstInputRef = useRef(null);
 
+  // Scroll error into view
   useEffect(() => {
     if (error && errorRef.current) {
       errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [error]);
 
+  // Focus first input on mount
   useEffect(() => {
     firstInputRef.current?.focus();
   }, []);
+
+  const clearError = useCallback(() => setError(''), []);
 
   const handleChange = useCallback((e) => {
     if (loading) return;
@@ -195,10 +203,67 @@ const SignUp = () => {
     clearError();
   }, [loading, clearError]);
 
+  const validate = () => {
+    if (!form.firstName.trim()) return 'First name is required.';
+    if (!form.lastName.trim()) return 'Last name is required.';
+    if (!form.username.trim()) return 'Username is required.';
+    if (!form.email.trim()) return 'Email is required.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return 'Invalid email address.';
+    if (!form.password) return 'Password is required.';
+    if (form.password.length < 8) return 'Password must be at least 8 characters.';
+    if (form.password !== form.confirmPassword) return 'Passwords do not match.';
+    if (!form.phone.trim()) return 'Phone is required.';
+    if (!/^01[0125]\d{8}$/.test(form.phone)) return 'Enter a valid Egyptian phone number (e.g. 01012345678).';
+    if (!form.birthDate) return 'Birth date is required.';
+    if (!form.gender) return 'Please select a gender.';
+    return null;
+  };
+
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    await signUp(form);
-  }, [form, signUp]);
+    clearError();
+
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        fName: form.firstName,
+        lName: form.lastName,
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        phone: form.phone,
+        birthDate: new Date(form.birthDate).toISOString(),
+        gender: form.gender,
+      };
+
+      const result = await Register(payload);
+
+      if (!result.isAuthenticated) {
+        setError(result.message || 'Registration failed.');
+        return;
+      }
+
+      login(result.token, result.expiresOn);
+      navigate('/', { replace: true });
+    } catch (err) {
+      const data = err?.response?.data;
+      const msg =
+        data?.message ||
+        data?.Message ||
+        (typeof data === 'string' ? data : null) ||
+        'Something went wrong. Please try again.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [form, login, navigate, clearError]);
 
   return (
     <AuthLayout title='Create account ✨' subtitle='Join and start learning today' mode='signup'>
@@ -224,29 +289,87 @@ const SignUp = () => {
         />
 
         <div className='grid grid-cols-2 gap-3'>
-          <AuthInput name='firstName' placeholder='First Name' value={form.firstName} onChange={handleChange} disabled={loading} autoComplete='given-name' />
-          <AuthInput name='lastName' placeholder='Last Name' value={form.lastName} onChange={handleChange} disabled={loading} autoComplete='family-name' />
+          <AuthInput
+            name='firstName'
+            placeholder='First Name'
+            value={form.firstName}
+            onChange={handleChange}
+            disabled={loading}
+            autoComplete='given-name'
+          />
+          <AuthInput
+            name='lastName'
+            placeholder='Last Name'
+            value={form.lastName}
+            onChange={handleChange}
+            disabled={loading}
+            autoComplete='family-name'
+          />
         </div>
 
-        <AuthInput name='phone' type='tel' placeholder='01XXXXXXXXX' value={form.phone} onChange={handlePhoneChange} disabled={loading} icon={<PhoneIcon />} autoComplete='tel' />
+        <AuthInput
+          name='phone'
+          type='tel'
+          placeholder='01XXXXXXXXX'
+          value={form.phone}
+          onChange={handlePhoneChange}
+          disabled={loading}
+          icon={<PhoneIcon />}
+          autoComplete='tel'
+        />
 
-        <AuthInput name='email' type='email' placeholder='Email address' value={form.email} onChange={handleChange} disabled={loading} icon={<EmailIcon />} autoComplete='email' />
+        <AuthInput
+          name='email'
+          type='email'
+          placeholder='Email address'
+          value={form.email}
+          onChange={handleChange}
+          disabled={loading}
+          icon={<EmailIcon />}
+          autoComplete='email'
+        />
 
         <div className='grid grid-cols-2 gap-3'>
           <GenderSelect value={form.gender} onChange={handleChange} disabled={loading} />
-          <AuthInput name='birthDate' type='date' placeholder='Birth Date' value={form.birthDate} onChange={handleChange} disabled={loading} icon={<HiCalendar size={15} />} />
+          <AuthInput
+            name='birthDate'
+            type='date'
+            placeholder='Birth Date'
+            value={form.birthDate}
+            onChange={handleChange}
+            disabled={loading}
+            icon={<HiCalendar size={15} />}
+          />
         </div>
 
-        <PasswordInput name='password' placeholder='Password (min. 8 characters)' value={form.password} onChange={handleChange} disabled={loading} autoComplete='new-password' />
-        <PasswordInput name='confirmPassword' placeholder='Confirm Password' value={form.confirmPassword} onChange={handleChange} disabled={loading} autoComplete='new-password' />
+        <PasswordInput
+          name='password'
+          placeholder='Password (min. 8 characters)'
+          value={form.password}
+          onChange={handleChange}
+          disabled={loading}
+          autoComplete='new-password'
+        />
+        <PasswordInput
+          name='confirmPassword'
+          placeholder='Confirm Password'
+          value={form.confirmPassword}
+          onChange={handleChange}
+          disabled={loading}
+          autoComplete='new-password'
+        />
 
         <PasswordMatchIndicator password={form.password} confirmPassword={form.confirmPassword} />
 
-        <AuthButton loading={loading} loadingText='Creating account...'>Create Account</AuthButton>
+        <AuthButton loading={loading} loadingText='Creating account...'>
+          Create Account
+        </AuthButton>
 
         <p className='text-sm text-center text-gray-500 pt-1'>
           Already have an account?{' '}
-          <Link to='/signin' className='font-medium hover:underline transition' style={{ color: '#534AB7' }}>Sign In</Link>
+          <Link to='/signin' className='font-medium hover:underline transition' style={{ color: '#534AB7' }}>
+            Sign In
+          </Link>
         </p>
       </motion.form>
     </AuthLayout>

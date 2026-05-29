@@ -1,147 +1,78 @@
-// src/store/contexts/AuthContext.jsx
-import React, { createContext, useState, useContext, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { storage } from '../../services/utils/storage';
-import { isTokenExpired, getUserIdFromToken, getUserRoleFromToken } from '../../services/utils/Parsetoken';
-import { ROUTES } from '../../shared/constants/routes';
+import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { ROLES } from '../../shared/constants/roles';
+import { getToken, getUser, saveToken, removeToken } from '../../services/utils/tokenUtils';
 
-// ============================================================================
-// Helper: Extract full user data from JWT token
-// ============================================================================
-
-const extractUserFromToken = (token) => {
-  if (!token || isTokenExpired(token)) return null;
-  
+// Helper: check if token exists and not expired
+const isTokenValid = () => {
+  const token = getToken();
+  if (!token) return false;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    
-    // Extract claims (ASP.NET Core format)
-    const userId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.nameid || payload.sub;
-    const username = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.unique_name || payload.name;
-    const email = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || payload.email;
-    const role = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role;
-    
-    return {
-      id: userId,
-      username: username,
-      email: email,
-      role: role,
-      token: token,
-      isAuthenticated: true,
-    };
-  } catch (error) {
-    console.error('[Auth] Failed to parse token:', error);
-    return null;
+    const decoded = JSON.parse(atob(token.split('.')[1]));
+    return !(decoded.exp && decoded.exp * 1000 < Date.now());
+  } catch {
+    return false;
   }
 };
-
-// ============================================================================
-// Context
-// ============================================================================
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
 
-// ============================================================================
-// Provider
-// ============================================================================
-
 export const AuthProvider = ({ children }) => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => getUser());
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(null);
-  const isInitialized = useRef(false);
 
-  // Login user - receives token from backend
-  const login = useCallback((authResponse) => {
-    const jwtToken = authResponse.token;
-    
-    if (!jwtToken) {
-      console.error('[Auth] No token in response');
-      return false;
-    }
-    
-    const userData = extractUserFromToken(jwtToken);
-    if (!userData) return false;
-    
-    setUser(userData);
-    setToken(jwtToken);
-    storage.setUser(userData);
-    storage.setToken(jwtToken);
-    
-    return true;
+  const login = useCallback((token, expiresOn) => {
+    saveToken(token, expiresOn);
+    // Force user state update by reading from token
+    setUser(getUser());
   }, []);
 
-  // Logout user
   const logout = useCallback(() => {
+    removeToken();
     setUser(null);
-    setToken(null);
-    storage.removeUser();
-    storage.removeToken();
-    navigate(ROUTES.SIGN_IN);
-  }, [navigate]);
-
-  // Update token (when refreshed)
-  const updateToken = useCallback((newToken) => {
-    const userData = extractUserFromToken(newToken);
-    if (userData) {
-      setUser(userData);
-      setToken(newToken);
-      storage.setUser(userData);
-      storage.setToken(newToken);
-    }
   }, []);
 
-  // Initialize auth from storage
+  const updateUser = useCallback((updatedData) => {
+    setUser(prev => ({ ...prev, ...updatedData }));
+  }, []);
+
+  // Derived authentication status: user exists AND token is not expired
+  const isAuthenticated = !!user && isTokenValid();
+
+  const role = user?.role || null;
+  const isStudent = role === ROLES.STUDENT;
+  const isInstructor = role === ROLES.INSTRUCTOR;
+  const isAdmin = role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
+
+  // Listen for cookie changes (e.g., logout from another tab)
   useEffect(() => {
-    if (isInitialized.current) return;
-    isInitialized.current = true;
-
-    const storedUser = storage.getUser();
-    const storedToken = storage.getToken();
-
-    if (storedUser?.token && storedToken && !isTokenExpired(storedToken)) {
-      setUser(storedUser);
-      setToken(storedToken);
-    } else if (storedToken && isTokenExpired(storedToken)) {
-      storage.removeUser();
-      storage.removeToken();
-    }
-    
+    const handleCookieChange = () => {
+      setUser(getUser());
+    };
+    // Polling is not ideal, but storage events don't work for cookies.
+    // A better approach is to use a custom event. For simplicity, we'll rely on
+    // the fact that login/logout happen in the same tab and trigger re-renders.
+    // This effect ensures initial loading is done.
     setLoading(false);
   }, []);
 
-  // Role helpers
-  const isStudent = user?.role === ROLES.STUDENT;
-  const isInstructor = user?.role === ROLES.INSTRUCTOR;
-  const isAdmin = user?.role === ROLES.ADMIN || user?.role === ROLES.SUPER_ADMIN;
-  const isAuthenticated = !!user?.isAuthenticated && !isTokenExpired(token);
-
   const value = {
     user,
-    token,
     loading,
     isAuthenticated,
     isStudent,
     isInstructor,
     isAdmin,
+    role,
     login,
     logout,
-    updateToken,
+    updateUser
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

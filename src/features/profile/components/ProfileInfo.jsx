@@ -1,9 +1,22 @@
 // src/features/profile/components/ProfileInfo.jsx
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import { HiPencil, HiCheck, HiX, HiOutlineMail, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser } from 'react-icons/hi';
 import { validateEmail, validateEgyptianPhone } from '../../../shared/utils/validators';
 
-const ProfileInfo = ({ profile, onSave, saving }) => {
+// Memoized sub‑component for each info row
+const InfoRow = memo(({ icon: Icon, label, value }) => (
+  <div className="flex items-start gap-3 py-3 border-b border-gray-100">
+    <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+      <Icon size={16} className="text-gray-500" />
+    </div>
+    <div className="flex-1">
+      <p className="text-xs text-gray-400 uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-medium text-gray-800 mt-0.5">{value || 'Not provided'}</p>
+    </div>
+  </div>
+));
+
+const ProfileInfo = memo(({ profile, onSave, saving }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -13,7 +26,7 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
   });
   const [errors, setErrors] = useState({});
 
-  // Initialize form with profile data
+  // Initialize form when profile changes
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -28,7 +41,7 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error for this field
+    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
@@ -69,18 +82,6 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
     setErrors({});
     setIsEditing(false);
   };
-
-  const InfoRow = ({ icon: Icon, label, value }) => (
-    <div className="flex items-start gap-3 py-3 border-b border-gray-100">
-      <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-        <Icon size={16} className="text-gray-500" />
-      </div>
-      <div className="flex-1">
-        <p className="text-xs text-gray-400 uppercase tracking-wide">{label}</p>
-        <p className="text-sm font-medium text-gray-800 mt-0.5">{value || 'Not provided'}</p>
-      </div>
-    </div>
-  );
 
   return (
     <div className="rounded-2xl p-6 bg-white border border-gray-100 shadow-sm">
@@ -201,6 +202,6 @@ const ProfileInfo = ({ profile, onSave, saving }) => {
       )}
     </div>
   );
-};
+});
 
 export default ProfileInfo;

@@ -1,10 +1,9 @@
 // src/features/profile/components/ProfileHeader.jsx
-import { useState, useRef } from 'react';
+import { useState, useRef, memo } from 'react';
 import { HiCamera } from 'react-icons/hi';
 import { getInitials } from '../../../shared/utils/formatters';
-import { updateAvatar, getProfile } from '../api/profile.api';
 
-const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
+const ProfileHeader = memo(({ profile, onAvatarChange }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
@@ -18,49 +17,33 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    // Validate file type
+
+    // 1. Validation
     if (!file.type.startsWith('image/')) {
       setUploadError('Please select an image file');
       setTimeout(() => setUploadError(null), 3000);
       return;
     }
-    
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setUploadError('Image must be less than 5MB');
       setTimeout(() => setUploadError(null), 3000);
       return;
     }
-    
+
+    // 2. Start upload
     setIsUploading(true);
     setUploadError(null);
-    
+
     try {
-      // Upload to backend
-      const result = await updateAvatar(file);
-      
-      if (result.success) {
-        // Fetch the updated profile to get the new avatar URL
-        const profileResponse = await getProfile();
-        
-        if (profileResponse.success && profileResponse.data?.avatar) {
-          // Pass the URL to parent component (not the File object)
-          onAvatarChange(profileResponse.data.avatar, null);
-        } else {
-          throw new Error('Could not get avatar URL from profile');
-        }
-      } else {
-        throw new Error(result.message || 'Upload failed');
-      }
-    } catch (error) {
-      console.error('Avatar upload failed:', error);
-      setUploadError(error.message || 'Failed to upload image');
+      await onAvatarChange(file);
+      // Clear the file input so the same file can be selected again
+      e.target.value = '';
+    } catch (err) {
+      console.error('Upload failed:', err);
+      setUploadError(err.message || 'Failed to upload image');
       setTimeout(() => setUploadError(null), 3000);
     } finally {
       setIsUploading(false);
-      // Clear file input so same file can be selected again
-      e.target.value = '';
     }
   };
 
@@ -78,14 +61,14 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
 
   return (
     <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-purple-600 to-purple-800">
-      {/* Upload Error Toast */}
+      {/* Upload error toast */}
       {uploadError && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-red-500 text-white text-sm px-4 py-2 rounded-full shadow-lg">
           {uploadError}
         </div>
       )}
-      
-      {/* Uploading Overlay */}
+
+      {/* Uploading overlay */}
       {isUploading && (
         <div className="absolute inset-0 bg-black/50 z-20 flex items-center justify-center">
           <div className="bg-white rounded-full px-4 py-2 flex items-center gap-2">
@@ -94,12 +77,12 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
           </div>
         </div>
       )}
-      
+
       <div className="h-32 bg-gradient-to-r from-purple-500 to-indigo-600" />
-      
+
       <div className="px-6 pb-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
-          {/* Avatar */}
+          {/* Avatar section */}
           <div
             className="relative"
             onMouseEnter={() => setIsHovering(true)}
@@ -112,6 +95,7 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
                   alt={fullName || 'Avatar'}
                   className="w-full h-full rounded-full object-cover"
                   onError={(e) => {
+                    // Fallback to initials if image fails to load
                     e.target.style.display = 'none';
                     e.target.parentElement.innerHTML = `<div class="w-full h-full rounded-full bg-purple-100 flex items-center justify-center"><span class="text-2xl font-bold text-purple-600">${initials}</span></div>`;
                   }}
@@ -122,8 +106,8 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
                 </div>
               )}
             </div>
-            
-            {isHovering && !saving && !isUploading && (
+
+            {isHovering && !isUploading && (
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full shadow-md hover:bg-gray-50 transition"
@@ -132,7 +116,7 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
                 <HiCamera size={16} className="text-purple-600" />
               </button>
             )}
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -142,7 +126,7 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
             />
           </div>
 
-          {/* User Info */}
+          {/* User info */}
           <div className="flex-1 text-center sm:text-left">
             <h2 className="text-xl font-bold text-white">{fullName || profile?.username}</h2>
             <div className="flex flex-wrap gap-2 mt-1 justify-center sm:justify-start">
@@ -157,7 +141,7 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
             </div>
           </div>
 
-          {/* Join Date */}
+          {/* Join date */}
           {profile?.joinDate && (
             <div className="text-right">
               <p className="text-xs text-purple-200">Member since</p>
@@ -170,6 +154,6 @@ const ProfileHeader = ({ profile, onAvatarChange, saving }) => {
       </div>
     </div>
   );
-};
+});
 
 export default ProfileHeader;

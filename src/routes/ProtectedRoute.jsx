@@ -27,7 +27,7 @@ const ProtectedRoute = ({
   redirectTo = '/signin',
   fallback = null 
 }) => {
-  const { isAuthenticated, user, loading } = useAuth();  // ✅ Changed
+  const { isAuthenticated, role, loading} = useAuth();  // ✅ Changed
   const location = useLocation();
 
   if (loading) {
@@ -36,20 +36,19 @@ const ProtectedRoute = ({
     </div>;
   }
 
-  if (!isAuthenticated || !user?.token) {
+  if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  const userRole = user.role;
-  const hasAccess = hasRequiredRole(userRole, allowedRoles);
+  const hasAccess = hasRequiredRole(role, allowedRoles);
 
   if (!hasAccess) {
     if (fallback) return fallback;
     
     let redirectPath = '/';
-    if (userRole === 'Admin' || userRole === 'SuperAdmin') redirectPath = '/admin/dashboard';
-    else if (userRole === 'Instructor') redirectPath = '/instructor/dashboard';
-    else if (userRole === 'Student') redirectPath = '/';
+    if (role === 'Admin' || role === 'SuperAdmin') redirectPath = '/admin/dashboard';
+    else if (role === 'Instructor') redirectPath = '/instructor/dashboard';
+    else if (role === 'Student') redirectPath = '/';
     
     return <Navigate to={redirectPath} replace />;
   }

@@ -1,14 +1,12 @@
 // src/features/auth/pages/SignIn.jsx
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthLayout from '../../../layouts/AuthLayout';
-import useAuth from '../hooks/useAuth';
+import { useAuth } from '../../../store/AppProvider';
+import { Login } from '../api/auth.api'; // ✅ Fixed import
+import { getUser } from '../../../services/utils/tokenUtils';
 import { ErrorAlert, AuthInput, PasswordInput, AuthButton } from '../components/AuthComponents';
-
-// ============================================================================
-// Constants
-// ============================================================================
 
 const FORM_ANIMATION = {
   initial: { opacity: 0, y: 8 },
@@ -23,17 +21,20 @@ const UserIcon = () => (
   </svg>
 );
 
-// ============================================================================
-// Main Component
-// ============================================================================
-
 const SignIn = () => {
-  const { signIn, loading, error, clearError } = useAuth();
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+  const [form, setForm] = useState({ emailOrUsername: '', password: '' })
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const errorRef = useRef(null);
-  const identifierInputRef = useRef(null);
+  const inputRef = useRef(null);
+  const from = location.state?.from?.pathname || null
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (error && errorRef.current) {
@@ -41,39 +42,63 @@ const SignIn = () => {
     }
   }, [error]);
 
-  useEffect(() => {
-    identifierInputRef.current?.focus();
-  }, []);
+  const clearError = useCallback(() => setError(''), []);
 
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    await signIn({ identifier: identifier.trim(), password: password.trim() });
-  }, [identifier, password, signIn]);
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    clearError();
+  }, [clearError]);
 
-  const handleForgotPassword = useCallback(() => {
-    // TODO: Implement forgot password
-    console.log('Forgot password clicked');
-  }, []);
+const handleSubmit = useCallback(async (e) => {
+  e.preventDefault();
+  clearError();
+
+  if (!form.emailOrUsername.trim()) return setError('Email or username is required.');
+  if (!form.password) return setError('Password is required.');
+
+  setLoading(true);
+  try {
+    const result = await Login(form);
+    if (!result.isAuthenticated) {
+      setError(result.message || 'Login failed.');
+      return;
+    }
+    // Save token and update context
+    login(result.token, result.expiresOn);
+    
+    // Wait a tick for the cookie to be set and context to update
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const user = getUser();
+    const role = user?.role;
+
+    if (from) return navigate(from, { replace: true });
+    if (role === 'Admin' || role === 'SuperAdmin') navigate('/admin/dashboard', { replace: true });
+    if (role === 'Instructor') navigate('/instructor', { replace: true });
+    navigate('/', { replace: true });
+  } catch (err) {
+    const msg = err?.response?.data?.message || err?.response?.data?.Message || 'Something went wrong.';
+    setError(msg);
+  } finally {
+    setLoading(false);
+  }
+}, [form, login, navigate, from, clearError]);
 
   return (
     <AuthLayout title='Welcome back 👋' subtitle='Sign in to continue learning' mode='signin'>
-      <motion.form
-        onSubmit={handleSubmit}
-        className='flex flex-col gap-4'
-        {...FORM_ANIMATION}
-        noValidate
-      >
+      <motion.form onSubmit={handleSubmit} className='flex flex-col gap-4' {...FORM_ANIMATION} noValidate>
         <div ref={errorRef}>
           <ErrorAlert error={error} onClose={clearError} />
         </div>
 
         <AuthInput
-          ref={identifierInputRef}
-          name='identifier'
+          ref={inputRef}
+          name='emailOrUsername'
           type='text'
           placeholder='Username or Email'
-          value={identifier}
-          onChange={(e) => { setIdentifier(e.target.value); clearError(); }}
+          value={form.emailOrUsername}
+          onChange={handleChange}
           disabled={loading}
           icon={<UserIcon />}
           autoComplete='username'
@@ -82,26 +107,19 @@ const SignIn = () => {
         <PasswordInput
           name='password'
           placeholder='Password'
-          value={password}
-          onChange={(e) => { setPassword(e.target.value); clearError(); }}
+          value={form.password}
+          onChange={handleChange}
           disabled={loading}
           autoComplete='current-password'
         />
 
         <div className='flex justify-end -mt-1'>
-          <button
-            type='button'
-            onClick={handleForgotPassword}
-            className='text-xs transition hover:opacity-70 focus:outline-none focus:underline'
-            style={{ color: '#534AB7' }}
-          >
+          <button type='button' onClick={() => { /* TODO */ }} className='text-xs transition hover:opacity-70' style={{ color: '#534AB7' }}>
             Forgot password?
           </button>
         </div>
 
-        <AuthButton loading={loading} loadingText='Signing in...'>
-          Sign In
-        </AuthButton>
+        <AuthButton loading={loading} loadingText='Signing in...'>Sign In</AuthButton>
 
         <p className='text-sm text-center text-gray-500 pt-1'>
           Don't have an account?{' '}

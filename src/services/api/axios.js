@@ -1,7 +1,6 @@
 // src/services/api/axios.js
 import axios from 'axios';
-import { storage } from '../utils/storage';
-
+import { getToken, removeToken } from '../utils/tokenUtils';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -29,7 +28,7 @@ const ROUTES = {
 // ============================================================================
 
 const getBaseUrl = () => {
-  return import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL;
+  return  import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL;
 };
 
 const getTimeout = () => {
@@ -37,6 +36,16 @@ const getTimeout = () => {
   return isNaN(timeout) ? DEFAULT_TIMEOUT : timeout;
 };
 
+
+const isOnSignInPage = () => {
+  return window.location.pathname.includes(ROUTES.SIGN_IN);
+};
+
+const redirectToSignIn = () => {
+  if (!isOnSignInPage()) {
+    window.location.href = ROUTES.SIGN_IN;
+  }
+};
 // ============================================================================
 // Axios Instance
 // ============================================================================
@@ -50,47 +59,6 @@ const api = axios.create({
   },
   withCredentials: false,
 });
-
-// ============================================================================
-// Token Extraction Helpers
-// ============================================================================
-
-const extractToken = () => {
-  const user = storage.getUser();
-  if (user?.token) return user.token;
-
-  const directToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
-  if (directToken) return directToken;
-
-  const sessionUser = sessionStorage.getItem(STORAGE_KEYS.USER);
-  if (sessionUser) {
-    try {
-      const parsed = JSON.parse(sessionUser);
-      if (parsed?.token) return parsed.token;
-    } catch {
-      // Invalid JSON, ignore
-    }
-  }
-
-  return null;
-};
-
-const clearAuthData = () => {
-  localStorage.removeItem(STORAGE_KEYS.USER);
-  localStorage.removeItem(STORAGE_KEYS.TOKEN);
-  sessionStorage.removeItem(STORAGE_KEYS.USER);
-  sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
-};
-
-const isOnSignInPage = () => {
-  return window.location.pathname.includes(ROUTES.SIGN_IN);
-};
-
-const redirectToSignIn = () => {
-  if (!isOnSignInPage()) {
-    window.location.href = ROUTES.SIGN_IN;
-  }
-};
 
 // ============================================================================
 // Logging Helpers
@@ -110,6 +78,10 @@ const logError = (message, ...args) => {
   console.error(`[API] ${message}`, ...args);
 };
 
+const clearAuthData = () => {
+  removeToken();
+  // If you have any other stored user data, remove it here
+};
 // ============================================================================
 // Request Interceptor
 // ============================================================================
@@ -121,7 +93,7 @@ api.interceptors.request.use(
         console.log(`[AXIOS] 🚀 ${config.method?.toUpperCase()} ${config.url}`);
       }
       
-      const token = extractToken();
+      const token = getToken();
       
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;

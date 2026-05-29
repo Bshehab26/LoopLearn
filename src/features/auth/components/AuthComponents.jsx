@@ -1,7 +1,6 @@
 // src/features/auth/components/AuthComponents.jsx
 // Remove the ref forwarding issue
-
-import { useState } from 'react';
+import { useState,forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiEye, HiEyeOff } from 'react-icons/hi';
 
@@ -51,7 +50,7 @@ export const ErrorAlert = ({ error, onClose }) => (
 // Input Field Component (No ref - remove ref forwarding)
 // ============================================================================
 
-export const AuthInput = ({ 
+export const AuthInput = forwardRef(({ 
   name, 
   type = 'text', 
   placeholder, 
@@ -60,7 +59,7 @@ export const AuthInput = ({
   disabled, 
   icon, 
   autoComplete 
-}) => {
+}, ref) => {
   const inputStyle = {
     width: '100%',
     padding: '11px 14px',
@@ -92,6 +91,7 @@ export const AuthInput = ({
         </div>
       )}
       <input
+        ref={ref}
         name={name}
         type={type}
         placeholder={placeholder}
@@ -106,8 +106,7 @@ export const AuthInput = ({
       />
     </div>
   );
-};
-
+});
 // ============================================================================
 // Password Input Component - Fixed
 // ============================================================================

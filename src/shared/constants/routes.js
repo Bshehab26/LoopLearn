@@ -3,15 +3,13 @@ export const ROUTES = {
   // Public
   HOME: '/',
   COURSE_LIST: '/courses',
-  COURSE_DETAILS: (id) => `/course/${id}`,
-  
-  // Auth
+  COURSE_DETAILS: '/course/:id',  // ✅ ADD THIS LINE
   SIGN_IN: '/signin',
   SIGN_UP: '/signup',
   
   // Student
-  PROFILE: '/profile',
   MY_ENROLLMENTS: '/my-enrollments',
+  PROFILE: '/profile',
   CHAT: '/chat',
   WATCH: (courseId) => `/watch/${courseId}`,
   
