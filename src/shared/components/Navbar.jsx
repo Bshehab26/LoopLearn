@@ -1,17 +1,18 @@
 /**
  * Navbar.jsx
- * Main navigation component - Responsive with mobile menu for visitors.
+ * Main navigation component - Responsive with mobile menu.
  * Features: Logo, search (expandable on mobile), auth buttons, mobile menu.
  * 
  * @module shared/components/Navbar
  */
 
-import { useState, useContext, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   HiMenu, HiX, HiUser, HiBookOpen, HiAcademicCap, HiLogout, 
   HiChevronDown, HiHome, HiSearch, HiChartBar, HiUsers, 
-  HiPlusCircle, HiShoppingBag, HiChatAlt2, HiCog, HiShieldCheck
+  HiPlusCircle, HiShoppingBag, HiChatAlt2, HiCog, HiShieldCheck,
+  HiOutlineCreditCard, HiOutlineDocumentText, HiOutlineUserGroup
 } from 'react-icons/hi';
 import { useAuth, useUI } from '../../store/AppProvider';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,35 +42,362 @@ const Logo = () => (
 );
 
 // ============================================================================
-// Mobile Menu Component (For Visitors & Logged-in Users)
+// Optimized User Menu Dropdown
+// ============================================================================
+
+const UserMenu = ({ user, onLogout, navigate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  const username = user?.username || user?.email?.split('@')[0] || 'User';
+  const role = user?.role?.toLowerCase();
+  const initials = username.slice(0, 2).toUpperCase();
+  
+  const isStudent = role === ROLES.STUDENT?.toLowerCase();
+  const isInstructor = role === ROLES.INSTRUCTOR?.toLowerCase();
+  const isAdmin = role === ROLES.ADMIN?.toLowerCase() || role === 'superadmin';
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close dropdown on escape key
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
+  // Memoize menu items to prevent re-renders
+  const getMenuItems = useCallback(() => {
+    const items = [];
+    
+    // Profile - always show
+    items.push({
+      label: 'My Profile',
+      icon: HiUser,
+      onClick: () => navigate(ROUTES.PROFILE),
+      divider: false,
+    });
+    
+    // Student specific
+    if (isStudent) {
+      items.push({
+        label: 'My Enrollments',
+        icon: HiShoppingBag,
+        onClick: () => navigate(ROUTES.MY_ENROLLMENTS),
+        divider: false,
+      });
+      items.push({
+        label: 'Chat Support',
+        icon: HiChatAlt2,
+        onClick: () => navigate(ROUTES.CHAT),
+        divider: false,
+      });
+      items.push({
+        label: 'Payment History',
+        icon: HiOutlineCreditCard,
+        onClick: () => navigate('/payments'),
+        divider: false,
+      });
+    }
+    
+    // Instructor specific
+    if (isInstructor) {
+      items.push({ divider: true, label: 'TEACHING' });
+      items.push({
+        label: 'Dashboard',
+        icon: HiChartBar,
+        onClick: () => navigate(ROUTES.INSTRUCTOR_DASHBOARD),
+        divider: false,
+      });
+      items.push({
+        label: 'My Courses',
+        icon: HiBookOpen,
+        onClick: () => navigate(ROUTES.INSTRUCTOR_COURSES),
+        divider: false,
+      });
+      items.push({
+        label: 'Add Course',
+        icon: HiPlusCircle,
+        onClick: () => navigate(ROUTES.INSTRUCTOR_ADD),
+        divider: false,
+      });
+      items.push({
+        label: 'My Students',
+        icon: HiUsers,
+        onClick: () => navigate(ROUTES.INSTRUCTOR_STUDENTS),
+        divider: false,
+      });
+      items.push({
+        label: 'Earnings',
+        icon: HiOutlineCurrencyDollar,
+        onClick: () => navigate('/instructor/earnings'),
+        divider: false,
+      });
+    }
+    
+    // Admin specific
+    if (isAdmin) {
+      items.push({ divider: true, label: 'ADMIN' });
+      items.push({
+        label: 'Dashboard',
+        icon: HiChartBar,
+        onClick: () => navigate(ROUTES.ADMIN_DASHBOARD),
+        divider: false,
+      });
+      items.push({
+        label: 'Users',
+        icon: HiOutlineUserGroup,
+        onClick: () => navigate(ROUTES.ADMIN_USERS),
+        divider: false,
+      });
+      items.push({
+        label: 'Courses',
+        icon: HiBookOpen,
+        onClick: () => navigate(ROUTES.ADMIN_COURSES),
+        divider: false,
+      });
+      items.push({
+        label: 'Categories',
+        icon: HiShieldCheck,
+        onClick: () => navigate(ROUTES.ADMIN_CATEGORIES),
+        divider: false,
+      });
+      items.push({
+        label: 'Reports',
+        icon: HiOutlineDocumentText,
+        onClick: () => navigate(ROUTES.ADMIN_REPORTS),
+        divider: false,
+      });
+    }
+    
+    // Settings & Logout
+    items.push({ divider: true });
+    items.push({
+      label: 'Settings',
+      icon: HiCog,
+      onClick: () => navigate('/settings'),
+      divider: false,
+    });
+    items.push({
+      label: 'Logout',
+      icon: HiLogout,
+      onClick: onLogout,
+      divider: false,
+      danger: true,
+    });
+    
+    return items;
+  }, [isStudent, isInstructor, isAdmin, navigate, onLogout]);
+
+  const menuItems = getMenuItems();
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {/* Avatar Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
+        aria-label="User menu"
+        aria-expanded={isOpen}
+      >
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+          {initials}
+        </div>
+        <span className="text-sm font-medium text-gray-700 hidden sm:inline">{username}</span>
+        <HiChevronDown 
+          size={14} 
+          className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+        />
+      </button>
+
+      {/* Dropdown Menu */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="absolute right-0 mt-2 w-72 rounded-xl overflow-hidden bg-white border border-gray-100 shadow-xl z-50"
+          >
+            <div className="py-1">
+              {menuItems.map((item, idx) => (
+                item.divider ? (
+                  <div key={`divider-${idx}`} className="border-t border-gray-100 my-1">
+                    {item.label && (
+                      <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        {item.label}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      item.onClick();
+                      setIsOpen(false);
+                    }}
+                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-150 flex items-center gap-3 ${
+                      item.danger 
+                        ? 'text-red-600 hover:bg-red-50' 
+                        : 'text-gray-700 hover:bg-purple-50'
+                    }`}
+                  >
+                    <item.icon size={16} className={item.danger ? 'text-red-500' : 'text-gray-400'} />
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-600 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// ============================================================================
+// Auth Buttons (Desktop)
+// ============================================================================
+
+const AuthButtons = ({ onSignIn, onSignUp }) => (
+  <div className="flex items-center gap-2">
+    <button
+      onClick={onSignIn}
+      className="px-4 py-2 rounded-full text-sm font-medium transition-all hover:bg-purple-50"
+      style={{ border: '0.5px solid #534AB7', color: '#534AB7' }}
+    >
+      Sign in
+    </button>
+    <button
+      onClick={onSignUp}
+      className="px-4 py-2 rounded-full text-sm font-medium text-white transition-all hover:opacity-90 shadow-sm"
+      style={{ background: 'linear-gradient(135deg, #534AB7 0%, #3C3489 100%)' }}
+    >
+      Sign up
+    </button>
+  </div>
+);
+
+// ============================================================================
+// Desktop Navigation Links
+// ============================================================================
+
+const DesktopNavLinks = ({ links, isLoggedIn, location }) => (
+  <div className="hidden lg:flex items-center gap-6">
+    {links.map((link) => {
+      if (link.requiresAuth && !isLoggedIn) return null;
+      const isActive = location.pathname === link.path;
+      return (
+        <Link
+          key={link.path}
+          to={link.path}
+          className={`text-sm font-medium transition-all hover:text-purple-600 flex items-center gap-1.5 ${
+            isActive ? 'text-purple-600' : 'text-gray-600'
+          }`}
+        >
+          <link.icon size={16} />
+          {link.label}
+        </Link>
+      );
+    })}
+  </div>
+);
+
+// ============================================================================
+// Expandable Search Bar for Mobile
+// ============================================================================
+
+const ExpandableSearch = () => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setIsExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  if (isExpanded) {
+    return (
+      <motion.div
+        ref={searchRef}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="fixed top-16 left-4 right-4 z-50 bg-white rounded-xl shadow-xl p-3 border border-gray-200 lg:hidden"
+      >
+        <div className="relative">
+          <SearchBar variant="default" />
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="absolute -top-2 -right-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300 transition"
+          >
+            <HiX size={12} />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setIsExpanded(true)}
+      className="lg:hidden p-2 rounded-full hover:bg-gray-100 transition"
+      aria-label="Search"
+    >
+      <HiSearch size={18} className="text-gray-600" />
+    </button>
+  );
+};
+
+// ============================================================================
+// Mobile Menu Component
 // ============================================================================
 
 const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, location }) => {
   const role = user?.role?.toLowerCase();
   const isInstructor = role === ROLES.INSTRUCTOR?.toLowerCase();
-  const isAdmin = role === ROLES.ADMIN?.toLowerCase();
+  const isAdmin = role === ROLES.ADMIN?.toLowerCase() || role === 'superadmin';
 
-  // Get menu items based on auth state
   const getMenuItems = () => {
     const items = [];
     
-    // Main navigation links (always visible)
     items.push(
       { label: 'Home', path: ROUTES.HOME, icon: HiHome },
       { label: 'Courses', path: ROUTES.COURSE_LIST, icon: HiBookOpen }
     );
     
     if (isLoggedIn) {
-      // Profile
       items.push({ label: 'My Profile', path: ROUTES.PROFILE, icon: HiUser });
       
-      // Student specific
       if (!isInstructor && !isAdmin) {
         items.push({ label: 'My Enrollments', path: ROUTES.MY_ENROLLMENTS, icon: HiShoppingBag });
         items.push({ label: 'Chat Support', path: ROUTES.CHAT, icon: HiChatAlt2 });
       }
       
-      // Instructor specific
       if (isInstructor) {
         items.push({ label: 'Dashboard', path: ROUTES.INSTRUCTOR_DASHBOARD, icon: HiChartBar });
         items.push({ label: 'My Courses', path: ROUTES.INSTRUCTOR_COURSES, icon: HiBookOpen });
@@ -77,11 +405,11 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
         items.push({ label: 'My Students', path: ROUTES.INSTRUCTOR_STUDENTS, icon: HiUsers });
       }
       
-      // Admin specific
       if (isAdmin) {
-        items.push({ label: 'Admin Dashboard', path: '/admin/dashboard', icon: HiShieldCheck });
-        items.push({ label: 'Manage Users', path: '/admin/users', icon: HiUsers });
-        items.push({ label: 'Manage Courses', path: '/admin/courses', icon: HiBookOpen });
+        items.push({ label: 'Admin Dashboard', path: ROUTES.ADMIN_DASHBOARD, icon: HiShieldCheck });
+        items.push({ label: 'Users', path: ROUTES.ADMIN_USERS, icon: HiUsers });
+        items.push({ label: 'Courses', path: ROUTES.ADMIN_COURSES, icon: HiBookOpen });
+        items.push({ label: 'Categories', path: ROUTES.ADMIN_CATEGORIES, icon: HiShieldCheck });
       }
     }
     
@@ -184,270 +512,6 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, navigate, loc
 };
 
 // ============================================================================
-// Expandable Search Bar for Mobile
-// ============================================================================
-
-const ExpandableSearch = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const searchRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setIsExpanded(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  if (isExpanded) {
-    return (
-      <motion.div
-        ref={searchRef}
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="fixed top-16 left-4 right-4 z-50 bg-white rounded-xl shadow-xl p-3 border border-gray-200 lg:hidden"
-      >
-        <div className="relative">
-          <SearchBar variant="default" />
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="absolute -top-2 -right-2 p-1 bg-gray-200 rounded-full"
-          >
-            <HiX size={12} />
-          </button>
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => setIsExpanded(true)}
-      className="lg:hidden p-2 rounded-full hover:bg-gray-100 transition"
-      aria-label="Search"
-    >
-      <HiSearch size={18} className="text-gray-600" />
-    </button>
-  );
-};
-
-// ============================================================================
-// Desktop User Menu
-// ============================================================================
-
-const UserMenu = ({ user, onLogout, navigate }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-  
-  const username = user?.username || user?.email?.split('@')[0] || 'User';
-  const role = user?.role?.toLowerCase();
-  const initials = username.slice(0, 2).toUpperCase();
-  
-  const isStudent = role === ROLES.STUDENT?.toLowerCase();
-  const isInstructor = role === ROLES.INSTRUCTOR?.toLowerCase();
-  const isAdmin = role === ROLES.ADMIN?.toLowerCase();
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const getMenuItems = () => {
-    const items = [];
-    
-    items.push({
-      label: 'My Profile',
-      icon: HiUser,
-      onClick: () => navigate(ROUTES.PROFILE),
-    });
-    
-    if (isStudent) {
-      items.push({
-        label: 'My Enrollments',
-        icon: HiShoppingBag,
-        onClick: () => navigate(ROUTES.MY_ENROLLMENTS),
-      });
-      items.push({
-        label: 'Chat Support',
-        icon: HiChatAlt2,
-        onClick: () => navigate(ROUTES.CHAT),
-      });
-    }
-    
-    if (isInstructor) {
-      items.push({
-        label: 'Dashboard',
-        icon: HiChartBar,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_DASHBOARD),
-      });
-      items.push({
-        label: 'My Courses',
-        icon: HiBookOpen,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_COURSES),
-      });
-      items.push({
-        label: 'Add Course',
-        icon: HiPlusCircle,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_ADD),
-      });
-      items.push({
-        label: 'My Students',
-        icon: HiUsers,
-        onClick: () => navigate(ROUTES.INSTRUCTOR_STUDENTS),
-      });
-    }
-    
-    if (isAdmin) {
-      items.push({ divider: true, label: 'ADMIN' });
-      items.push({
-        label: 'Admin Dashboard',
-        icon: HiShieldCheck,
-        onClick: () => navigate('/admin/dashboard'),
-      });
-      items.push({
-        label: 'Manage Users',
-        icon: HiUsers,
-        onClick: () => navigate('/admin/users'),
-      });
-      items.push({
-        label: 'Manage Courses',
-        icon: HiBookOpen,
-        onClick: () => navigate('/admin/courses'),
-      });
-    }
-    
-    items.push({ divider: true });
-    items.push({
-      label: 'Settings',
-      icon: HiCog,
-      onClick: () => navigate('/settings'),
-    });
-    items.push({
-      label: 'Logout',
-      icon: HiLogout,
-      onClick: onLogout,
-      danger: true,
-    });
-    
-    return items;
-  };
-
-  const menuItems = getMenuItems();
-
-  return (
-    <div className="relative hidden lg:block" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-50 transition border border-gray-200"
-      >
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-purple-100 text-purple-600">
-          {initials}
-        </div>
-        <span className="text-sm font-medium text-gray-700 hidden sm:inline">{username}</span>
-        <HiChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-64 rounded-xl overflow-hidden bg-white border border-gray-100 shadow-xl z-50"
-          >
-            <div className="py-2">
-              {menuItems.map((item, idx) => (
-                item.divider ? (
-                  <div key={`divider-${idx}`} className="border-t border-gray-100 my-1">
-                    {item.label && (
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        {item.label}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      item.onClick();
-                      setIsOpen(false);
-                    }}
-                    className={`w-full px-4 py-2.5 text-left text-sm transition flex items-center gap-3 ${
-                      item.danger 
-                        ? 'text-red-600 hover:bg-red-50' 
-                        : 'text-gray-700 hover:bg-purple-50'
-                    }`}
-                  >
-                    <item.icon size={16} className={item.danger ? 'text-red-500' : 'text-purple-500'} />
-                    {item.label}
-                  </button>
-                )
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-// ============================================================================
-// Desktop Auth Buttons
-// ============================================================================
-
-const AuthButtons = ({ onSignIn, onSignUp }) => (
-  <div className="hidden lg:flex items-center gap-2">
-    <button
-      onClick={onSignIn}
-      className="px-4 py-2 rounded-full text-sm font-medium transition-all hover:bg-purple-50"
-      style={{ border: '0.5px solid #534AB7', color: '#534AB7' }}
-    >
-      Sign in
-    </button>
-    <button
-      onClick={onSignUp}
-      className="px-4 py-2 rounded-full text-sm font-medium text-white transition-all hover:opacity-90 shadow-sm"
-      style={{ background: 'linear-gradient(135deg, #534AB7 0%, #3C3489 100%)' }}
-    >
-      Sign up
-    </button>
-  </div>
-);
-
-// ============================================================================
-// Desktop Navigation Links
-// ============================================================================
-
-const DesktopNavLinks = ({ links, isLoggedIn, location }) => (
-  <div className="hidden lg:flex items-center gap-6">
-    {links.map((link) => {
-      if (link.requiresAuth && !isLoggedIn) return null;
-      const isActive = location.pathname === link.path;
-      return (
-        <Link
-          key={link.path}
-          to={link.path}
-          className={`text-sm font-medium transition-all hover:text-purple-600 flex items-center gap-1.5 ${
-            isActive ? 'text-purple-600' : 'text-gray-600'
-          }`}
-        >
-          <link.icon size={16} />
-          {link.label}
-        </Link>
-      );
-    })}
-  </div>
-);
-
-// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -530,5 +594,12 @@ const Navbar = () => {
     </>
   );
 };
+
+// Need to add missing icon
+const HiOutlineCurrencyDollar = (props) => (
+  <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
 export default Navbar;
