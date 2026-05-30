@@ -1,74 +1,67 @@
 // src/features/profile/api/profile.api.js
-import api from '../../../services/api/axios';
-import { handleApiError } from '../../../services/api/errorHandler';
-
-// ============================================================================
-// Constants
-// ============================================================================
+import api from "../../../services/api/axios";
 
 const PROFILE_ENDPOINTS = {
-  BASE: '/Profile',
-  UPDATE: '/Profile/update',
-  CHANGE_PASSWORD: '/Profile/changePassword',
-  UPDATE_AVATAR: '/Profile/update/avatar',
+  BASE: "/Profile",
+  UPDATE: "/Profile/update",
+  CHANGE_PASSWORD: "/Profile/changePassword",
+  UPDATE_AVATAR: "/Profile/update/avatar",
 };
-
-// ============================================================================
-// Profile CRUD
-// ============================================================================
 
 export const getProfile = async () => {
   try {
     const response = await api.get(PROFILE_ENDPOINTS.BASE);
-    const responseData = response.data;
-    
-    console.log('📥 Raw profile response:', responseData);
-    
-    // ✅ Handle both response formats:
-    // Format 1: { success: true, data: { ... } }
-    // Format 2: { username: "...", firstName: "...", ... } (direct)
-    
-    if (responseData?.success === true && responseData?.data) {
-      // Wrapped format
-      return responseData.data;
+    // response.data is { success, data, message }
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      return handleApiError(response);
     }
-    
-    // Direct format (your backend)
-    return responseData;
   } catch (error) {
-    console.error('❌ Get profile error:', error);
-    throw error;
+    return handleApiError(error);
   }
 };
 
 export const updateProfile = async (updates) => {
   try {
     const response = await api.put(PROFILE_ENDPOINTS.UPDATE, updates);
-    return response.data;
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      return handleApiError(response);
+    }
   } catch (error) {
-    console.error('❌ Update profile error:', error);
-    throw error;
+    return handleApiError(error);
   }
 };
 
 export const changePassword = async (passwords) => {
   try {
-    const response = await api.put(PROFILE_ENDPOINTS.CHANGE_PASSWORD, passwords);
-    return response.data;
+    const response = await api.put(
+      PROFILE_ENDPOINTS.CHANGE_PASSWORD,
+      passwords
+    );
+    if (response.data.success) {
+      return response.data;
+    } else {
+      return handleApiError(response);
+    }
   } catch (error) {
-    console.error('❌ Change password error:', error);
-    throw error;
+    return handleApiError(error);
   }
 };
 
-export const updateAvatar = async (avatarUrl) => {
+export const updateAvatar = async (profileImageUrl) => {
   try {
     const response = await api.put(PROFILE_ENDPOINTS.UPDATE_AVATAR, null, {
-      params: { profileImageUrl: avatarUrl }
+      params: { profileImageUrl },
     });
-    return response.data;
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      return handleApiError(response);
+    }
   } catch (error) {
-    console.error('❌ Update avatar error:', error);
-    throw error;
+    return handleApiError(error);
   }
 };

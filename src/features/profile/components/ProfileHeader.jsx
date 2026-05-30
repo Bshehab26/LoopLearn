@@ -1,5 +1,5 @@
 // src/features/profile/components/ProfileHeader.jsx
-import { useState, useRef, memo } from 'react';
+import { useState, useRef, memo, useEffect } from 'react';
 import { HiCamera } from 'react-icons/hi';
 import { getInitials } from '../../../shared/utils/formatters';
 
@@ -7,6 +7,7 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [avatarKey, setAvatarKey] = useState(Date.now());
   const fileInputRef = useRef(null);
 
   const avatarUrl = profile?.avatar;
@@ -14,11 +15,18 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
   const initials = getInitials(profile?.username || profile?.firstName || 'U');
   const role = profile?.role || 'Student';
 
+  // Force re-render when avatar URL changes
+  useEffect(() => {
+    if (avatarUrl) {
+      console.log('🖼️ ProfileHeader: Avatar URL changed:', avatarUrl);
+      setAvatarKey(Date.now());
+    }
+  }, [avatarUrl]);
+
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // 1. Validation
     if (!file.type.startsWith('image/')) {
       setUploadError('Please select an image file');
       setTimeout(() => setUploadError(null), 3000);
@@ -30,13 +38,12 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
       return;
     }
 
-    // 2. Start upload
     setIsUploading(true);
     setUploadError(null);
 
     try {
       await onAvatarChange(file);
-      // Clear the file input so the same file can be selected again
+      setAvatarKey(Date.now());
       e.target.value = '';
     } catch (err) {
       console.error('Upload failed:', err);
@@ -59,16 +66,19 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
     }
   };
 
+  const getCacheBustedUrl = () => {
+    if (!avatarUrl) return null;
+    return `${avatarUrl}?t=${avatarKey}`;
+  };
+
   return (
     <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-purple-600 to-purple-800">
-      {/* Upload error toast */}
       {uploadError && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-red-500 text-white text-sm px-4 py-2 rounded-full shadow-lg">
           {uploadError}
         </div>
       )}
 
-      {/* Uploading overlay */}
       {isUploading && (
         <div className="absolute inset-0 bg-black/50 z-20 flex items-center justify-center">
           <div className="bg-white rounded-full px-4 py-2 flex items-center gap-2">
@@ -82,7 +92,6 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
 
       <div className="px-6 pb-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
-          {/* Avatar section */}
           <div
             className="relative"
             onMouseEnter={() => setIsHovering(true)}
@@ -91,13 +100,19 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
             <div className="w-24 h-24 rounded-full bg-white p-1 shadow-lg">
               {avatarUrl ? (
                 <img
-                  src={avatarUrl}
+                  key={avatarKey}
+                  src={getCacheBustedUrl()}
                   alt={fullName || 'Avatar'}
                   className="w-full h-full rounded-full object-cover"
                   onError={(e) => {
-                    // Fallback to initials if image fails to load
                     e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = `<div class="w-full h-full rounded-full bg-purple-100 flex items-center justify-center"><span class="text-2xl font-bold text-purple-600">${initials}</span></div>`;
+                    const parent = e.target.parentElement;
+                    if (parent && !parent.querySelector('.fallback-initials')) {
+                      const fallbackDiv = document.createElement('div');
+                      fallbackDiv.className = 'w-full h-full rounded-full bg-purple-100 flex items-center justify-center fallback-initials';
+                      fallbackDiv.innerHTML = `<span class="text-2xl font-bold text-purple-600">${initials}</span>`;
+                      parent.appendChild(fallbackDiv);
+                    }
                   }}
                 />
               ) : (
@@ -126,7 +141,6 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
             />
           </div>
 
-          {/* User info */}
           <div className="flex-1 text-center sm:text-left">
             <h2 className="text-xl font-bold text-white">{fullName || profile?.username}</h2>
             <div className="flex flex-wrap gap-2 mt-1 justify-center sm:justify-start">
@@ -141,7 +155,6 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
             </div>
           </div>
 
-          {/* Join date */}
           {profile?.joinDate && (
             <div className="text-right">
               <p className="text-xs text-purple-200">Member since</p>
@@ -155,5 +168,7 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
     </div>
   );
 });
+
+ProfileHeader.displayName = 'ProfileHeader';
 
 export default ProfileHeader;
