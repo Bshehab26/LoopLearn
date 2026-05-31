@@ -14,6 +14,7 @@ import {
   HiShoppingBag, HiChatAlt2, HiShieldCheck
 } from 'react-icons/hi';
 import { useAuth, useUI } from '../../store/AppProvider';
+import { useProfile } from '../../store/AppProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchBar from '../../features/courses/components/SearchBar';
 import { ROUTES } from '../constants/routes';
@@ -187,7 +188,7 @@ const DesktopNavLinks = ({ links, isLoggedIn, location }) => (
 // Profile Dropdown  (desktop – authenticated users only)
 // ============================================================================
 
-const ProfileDropdown = ({ user, onLogout, navigate }) => {
+const ProfileDropdown = ({ user, profile , onLogout, navigate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -227,7 +228,7 @@ const ProfileDropdown = ({ user, onLogout, navigate }) => {
         aria-label="Profile menu"
         aria-expanded={isOpen}
       >
-        <Avatar avatarUrl={user?.avatar} initials={initials} size={8} />
+        <Avatar avatarUrl={profile?.avatar} initials={initials} size={8} />
         <span className="text-sm font-medium text-gray-700 hidden sm:inline-block">{username}</span>
         <HiChevronDown
           size={14}
@@ -324,7 +325,7 @@ const MobileSearchOverlay = ({ isOpen, onClose }) => {
 // Mobile Menu  (slide-in drawer)
 // ============================================================================
 
-const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, onSignIn, onSignUp, navigate, location }) => {
+const MobileMenu = ({ isOpen, onClose, isLoggedIn, user,profile, onLogout, onSignIn, onSignUp, navigate, location }) => {
   const username = user?.username || user?.email?.split('@')[0] || 'User';
   const role     = user?.role?.toLowerCase();
   const initials = username.slice(0, 2).toUpperCase();
@@ -373,7 +374,7 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, onSignIn, onS
             {isLoggedIn && user && (
               <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-gray-50">
                 <div className="flex-shrink-0 overflow-hidden rounded-full">
-                  <Avatar avatarUrl={user.avatar} initials={initials} size={10} />
+                  <Avatar avatarUrl={profile?.avatar} initials={initials} size={10} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">{username}</p>
@@ -450,6 +451,7 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, onLogout, onSignIn, onS
 
 const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
+  const {profile} = useProfile();
   const { isNavSearchVisible }            = useUI();
   const location  = useLocation();
   const navigate  = useNavigate();
@@ -493,7 +495,7 @@ const Navbar = () => {
               {/* Desktop: Profile dropdown (auth) OR Auth buttons (visitor) */}
               <div className="hidden md:block">
                 {isAuthenticated ? (
-                  <ProfileDropdown user={user} onLogout={handleLogout} navigate={navigate} />
+                  <ProfileDropdown user={user} profile={profile} onLogout={handleLogout} navigate={navigate} />
                 ) : (
                   <AuthButtons onSignIn={handleSignIn} onSignUp={handleSignUp} />
                 )}
@@ -519,6 +521,7 @@ const Navbar = () => {
         onClose={() => setIsMobileMenuOpen(false)}
         isLoggedIn={isAuthenticated}
         user={user}
+        profile={profile}
         onLogout={handleLogout}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}

@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   getInstructorCourses, 
   deleteCourse, 
-  publishCourse,
   submitForReview 
 } from '../api/instructor.api';
+import { mapBackendStatus } from '../utils/courseStatusMapper';
 
 export const useInstructorCourses = () => {
   const [courses, setCourses] = useState([]);
@@ -19,7 +19,11 @@ export const useInstructorCourses = () => {
       const response = await getInstructorCourses();
       
       if (response.success) {
-        setCourses(response.data || []);
+        const mappedCourses = (response.data || []).map(course => ({
+          ...course,
+          status: mapBackendStatus(course.status)
+        }));
+        setCourses(mappedCourses);
         setError(null);
       } else {
         setError(response.message);
@@ -43,23 +47,6 @@ export const useInstructorCourses = () => {
       return false;
     } catch (err) {
       setError('Failed to delete course');
-      return false;
-    }
-  }, []);
-
-  const handlePublishCourse = useCallback(async (courseId) => {
-    try {
-      const response = await publishCourse(courseId);
-      if (response.success) {
-        setCourses(prev => prev.map(c => 
-          c.id === courseId ? { ...c, status: 'published' } : c
-        ));
-        return true;
-      }
-      setError(response.message);
-      return false;
-    } catch (err) {
-      setError('Failed to publish course');
       return false;
     }
   }, []);
@@ -91,7 +78,6 @@ export const useInstructorCourses = () => {
     error,
     fetchCourses,
     deleteCourse: handleDeleteCourse,
-    publishCourse: handlePublishCourse,
     submitForReview: handleSubmitForReview,
   };
 };

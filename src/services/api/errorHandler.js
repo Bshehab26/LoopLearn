@@ -5,44 +5,36 @@
  * Backend returns: { success: false, message: "error text" } or validation errors
  */
 export const handleApiError = (error) => {
-  // Network error (no response from server)
-  if (!error.response) {
-    return {
-      success: false,
-      message: "Network error. Please check your internet connection.",
-      status: null,
-      data: null,
-    };
+  if (error.response) {
+    const { status, data } = error.response;
+    
+    // If the server returned a standard error object
+    if (data) {
+      // Handle plain string message
+      if (typeof data === 'string') {
+        return { success: false, message: data };
+      }
+      // Handle common envelope formats
+      if (data.success === false) {
+        return { success: false, message: data.message || data.Message || 'Request failed' };
+      }
+      if (data.message || data.Message) {
+        return { success: false, message: data.message || data.Message };
+      }
+    }
+    
+    // HTTP status-specific messages
+    if (status === 401) return { success: false, message: 'Unauthorized. Please log in again.' };
+    if (status === 403) return { success: false, message: 'You do not have permission to perform this action.' };
+    if (status === 404) return { success: false, message: 'Resource not found.' };
+    if (status >= 500) return { success: false, message: 'Server error. Please try again later.' };
   }
-
-  const { status, data } = error.response;
   
-  // Extract error message from different response formats
-  let message = "An unexpected error occurred.";
-  
-  // Backend format: { success: false, message: "..." }
-  if (data?.message) message = data.message;
-  else if (data?.Message) message = data.Message;
-  // Validation errors (ASP.NET format)
-  else if (data?.errors) {
-    const errors = Object.values(data.errors).flat();
-    message = errors.join(" ");
-  }
-  // String response
-  else if (typeof data === "string") message = data;
-  
-  return {
-    success: false,
-    message,
-    status,
-    data: null,
-  };
+  // Network or other errors
+  return { success: false, message: error.message || 'An unexpected error occurred' };
 };
 
-/**
- * Creates a standardized API response
- */
-export const createApiResponse = (data, success = true, message = "") => ({
+export const createApiResponse = (data, success = true, message = '') => ({
   success,
   data,
   message,

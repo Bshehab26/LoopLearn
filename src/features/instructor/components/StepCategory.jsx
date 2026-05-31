@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { HiOutlineTag, HiSearch, HiPlus, HiX } from 'react-icons/hi';
-import { getCategories } from '../api/instructor.api';
+import { getCategories } from '../../../shared/api/preLoadData.api'
 
 const StepCategory = ({ selectedCategory, onCategoryChange, error }) => {
   const [categories, setCategories] = useState([]);

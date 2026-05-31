@@ -37,8 +37,8 @@ const useCourseWizard = () => {
     
     if (!trimmedTitle) {
       newErrors.title = 'Course title is required';
-    } else if (trimmedTitle.length < 10) {
-      newErrors.title = 'Title must be at least 10 characters';
+    } else if (trimmedTitle.length < 2) {
+      newErrors.title = 'Title must be at least 2 characters';
     } else if (trimmedTitle.length > 100) {
       newErrors.title = 'Title cannot exceed 100 characters';
     }
@@ -127,7 +127,7 @@ const useCourseWizard = () => {
   }, []);
 
   const titleLength = courseData.title.length;
-  const isTitleValid = titleLength >= 10 && titleLength <= 100;
+  const isTitleValid = titleLength >= 2 && titleLength <= 100;
 
   return {
     currentStep,

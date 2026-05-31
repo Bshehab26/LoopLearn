@@ -385,7 +385,7 @@ const SectionItem = ({ section, index, onUpdate, onDelete, onMoveUp, onMoveDown 
 // Main Component
 // ============================================================================
 
-const CourseStructureSection = ({ course, onUpdate }) => {
+const CourseStructureSection = ({ course, onUpdate , isEditable = true}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
   
@@ -511,14 +511,13 @@ const CourseStructureSection = ({ course, onUpdate }) => {
                     placeholder="New section title (e.g., Introduction, Chapter 1, etc.)"
                     className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none"
                   />
-                  <button
-                    onClick={addSection}
-                    disabled={!newSectionTitle.trim()}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
-                  >
-                    <HiPlus size={18} />
-                    Add Section
-                  </button>
+  <button
+    onClick={addSection}
+    disabled={!isEditable || !newSectionTitle.trim()}
+    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+  >
+    <HiPlus size={18} /> Add Section
+  </button>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                   Organize your course into sections. Each section can contain multiple lessons.

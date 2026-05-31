@@ -1,6 +1,6 @@
 /**
  * Dashboard.jsx
- * Instructor dashboard page - Fixed routes
+ * Instructor dashboard page - stats computed from courses
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,7 +12,6 @@ import {
   HiOutlineChartBar, HiOutlineCalendar
 } from 'react-icons/hi';
 import { useAuth } from '../../../store/AppProvider';
-import { getDashboardStats } from '../api/instructor.api';
 import { useInstructorCourses } from '../hooks/useInstructorCourses';
 
 const containerVariants = {
@@ -62,26 +61,21 @@ const Dashboard = () => {
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      const response = await getDashboardStats();
-      if (response.success) {
-        setStats(response.data);
-      } else {
-        setStats({
-          totalCourses: courses.length,
-          totalStudents: 0,
-          totalRevenue: 0,
-          totalEnrollments: 0,
-        });
-      }
+    if (!coursesLoading) {
+      const totalEnrollments = courses.reduce((sum, c) => sum + (c.enrollmentCount || 0), 0);
+      const totalRevenue = courses.reduce((sum, c) => sum + ((c.price || 0) * (c.enrollmentCount || 0)), 0);
+      setStats({
+        totalCourses: courses.length,
+        totalStudents: totalEnrollments, // unique students? assuming enrollment count is students
+        totalRevenue,
+        totalEnrollments,
+      });
       setStatsLoading(false);
-    };
-    fetchStats();
-  }, [courses.length]);
+    }
+  }, [courses, coursesLoading]);
 
   const recentCourses = courses.slice(0, 5);
 
-  // ✅ FIXED: Routes match AppRouter.jsx
   const quickActions = [
     { icon: HiOutlinePlusCircle, label: 'Add Course', onClick: () => navigate('/instructor/courses/add'), color: '#534AB7' },
     { icon: HiOutlineEye, label: 'View Courses', onClick: () => navigate('/instructor/courses'), color: '#1D9E75' },

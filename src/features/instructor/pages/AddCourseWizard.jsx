@@ -85,7 +85,7 @@ const AddCourseWizard = () => {
   const isNextDisabled = () => {
     switch (currentStep) {
       case STEPS.BASIC_INFO:
-        return !courseData.title.trim() || titleLength < 10;
+        return !courseData.title.trim() || titleLength < 2;
       case STEPS.CATEGORY:
         return !courseData.category;
       default:
@@ -94,7 +94,7 @@ const AddCourseWizard = () => {
   };
 
   const isCreateDisabled = () => {
-    return !courseData.title.trim() || !courseData.category || titleLength < 10 || isSubmitting;
+    return !courseData.title.trim() || !courseData.category || titleLength < 2 || isSubmitting;
   };
 
   return (

@@ -1,9 +1,8 @@
 // src/features/profile/pages/Profile.jsx
-import useProfile from '../hooks/useProfile';
 import ProfileHeader from '../components/ProfileHeader';
 import ProfileInfo from '../components/ProfileInfo';
 import ChangePasswordSection from '../components/ChangePasswordSection';
-import { useAuth } from '../../../store/AppProvider';
+import { useAuth ,useProfile } from '../../../store/AppProvider';
 import { 
   HiOutlineAcademicCap, HiOutlineUserGroup, HiOutlineCurrencyDollar, HiOutlineChartBar,
   HiOutlineBookOpen, HiOutlineStar, HiOutlineTrendingUp, HiOutlineShieldCheck

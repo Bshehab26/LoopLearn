@@ -9,7 +9,7 @@ import { HiOutlineBookOpen, HiCheckCircle, HiExclamationCircle } from 'react-ico
 
 const StepBasicInfo = ({ title, onTitleChange, error }) => {
   const maxLength = 100;
-  const minLength = 10;
+  const minLength = 2;
   const currentLength = title.length;
   
   const getCharacterColor = () => {
