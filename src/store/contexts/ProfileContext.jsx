@@ -178,10 +178,7 @@ export const ProfileProvider = ({ children }) => {
   };
 
   return (
-    <ProfileContext.Provider value={{
-      profile, loading, error,
-      fetchProfile, editProfile, changeUserPassword, editAvatar,
-    }}>
+    <ProfileContext.Provider value={value}>
       {children}
     </ProfileContext.Provider>
   );
