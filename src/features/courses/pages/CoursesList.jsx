@@ -45,7 +45,7 @@ const CoursesList = () => {
   const sortMenuRef = useRef(null);
   const fetchInProgressRef = useRef(false);
 
-  // Fetch all courses (only published ones)
+  // ✅ Fetch all courses (NO published filter - show everything)
   const fetchCourses = useCallback(async () => {
     if (fetchInProgressRef.current) return;
     fetchInProgressRef.current = true;
@@ -60,11 +60,10 @@ const CoursesList = () => {
       }
       
       if (result.success) {
-        // Filter only published courses for public view
-        const publishedCourses = (result.data || []).filter(
-          course => course.status === 'Published' || course.status === 'published'
-        );
-        setAllCourses(publishedCourses);
+        // ✅ Show ALL courses - NO filter for published status
+        const allCoursesData = result.data || [];
+        setAllCourses(allCoursesData);
+        console.log(`📚 Loaded ${allCoursesData.length} total courses`);
       } else {
         setAllCourses([]);
       }
@@ -264,7 +263,7 @@ const CoursesList = () => {
   );
 };
 
-// Skeleton component (keep existing)
+// Skeleton component
 const Shimmer = ({ style = {} }) => (
   <div style={{ background: '#EEEDFE', borderRadius: 12, overflow: 'hidden', position: 'relative', ...style }}>
     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)', animation: 'shimmer 1.5s infinite' }} />

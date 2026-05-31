@@ -25,7 +25,7 @@ const CourseSection = () => {
         
         console.log('[CourseSection] API Response:', result);
         
-        // ✅ Handle different API response structures
+        // Handle different API response structures
         let allCourses = [];
         if (result.success && result.data) {
           allCourses = Array.isArray(result.data) ? result.data : [];
@@ -39,24 +39,15 @@ const CourseSection = () => {
         
         setTotalCourses(allCourses.length);
         
-        // ✅ Filter only PUBLISHED courses (case insensitive)
-        const publishedCourses = allCourses.filter(course => {
-          const status = course.status?.toLowerCase();
-          const isPublished = status === 'published' || status === 'active' || status === 'live';
-          const isVisible = course.isVisible !== false;
-          return isPublished && isVisible;
-        });
-        
-        console.log('[CourseSection] Total courses:', allCourses.length);
-        console.log('[CourseSection] Published courses:', publishedCourses.length);
-        
-        // ✅ Sort by featured flag or creation date
-        const sortedCourses = publishedCourses.sort((a, b) => {
+        // ✅ Show ALL courses - NO filter for published status
+        // Just sort by featured flag or creation date
+        const sortedCourses = allCourses.sort((a, b) => {
           if (a.isFeatured && !b.isFeatured) return -1;
           if (!a.isFeatured && b.isFeatured) return 1;
           return new Date(b.createdAt) - new Date(a.createdAt);
         });
         
+        console.log('[CourseSection] Total courses loaded:', sortedCourses.length);
         setCourses(sortedCourses);
         
       } catch (err) {
@@ -118,7 +109,7 @@ const CourseSection = () => {
   const displayCourses = courses.slice(0, 4);
   const coursesCount = displayCourses.length;
 
-  // ✅ No published courses state - Beautiful empty state
+  // Empty state
   if (coursesCount === 0) {
     return (
       <section ref={sectionRef} className='relative w-full py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-gray-50 to-white'>
@@ -128,7 +119,6 @@ const CourseSection = () => {
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto">
-          {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -147,7 +137,6 @@ const CourseSection = () => {
             </p>
           </motion.div>
           
-          {/* Empty State Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -156,24 +145,20 @@ const CourseSection = () => {
           >
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
               <div className="p-8 md:p-10 text-center">
-                {/* Illustration */}
                 <div className="w-32 h-32 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center">
                   <HiOutlineAcademicCap className="w-16 h-16 text-purple-500" />
                 </div>
                 
-                {/* Title */}
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-3">
                   No Courses Available Yet
                 </h3>
                 
-                {/* Description */}
                 <p className="text-gray-500 max-w-md mx-auto mb-6 leading-relaxed">
                   We're working hard to bring you amazing courses. 
-                  {totalCourses > 0 && ` Found ${totalCourses} course${totalCourses !== 1 ? 's' : ''} in draft mode.`}
+                  {totalCourses > 0 && ` Found ${totalCourses} course${totalCourses !== 1 ? 's' : ''} in the database.`}
                   Stay tuned for updates!
                 </p>
                 
-                {/* Info Banner */}
                 {totalCourses > 0 && (
                   <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-100">
                     <div className="flex items-center justify-center gap-2">
@@ -185,7 +170,6 @@ const CourseSection = () => {
                   </div>
                 )}
                 
-                {/* CTA Button */}
                 <button
                   onClick={() => navigate('/courses')}
                   className="inline-flex items-center gap-2 px-8 py-3 bg-purple-600 text-white rounded-full text-base font-medium hover:bg-purple-700 transition-all shadow-md hover:shadow-lg"
@@ -197,7 +181,6 @@ const CourseSection = () => {
             </div>
           </motion.div>
 
-          {/* Trust Indicators */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={isInView ? { opacity: 1 } : {}}
@@ -224,13 +207,12 @@ const CourseSection = () => {
     );
   }
 
-  // ✅ Normal state with courses
+  // Normal state with courses
   return (
     <section
       ref={sectionRef}
       className='relative w-full py-20 px-4 sm:px-6 lg:px-8 overflow-hidden bg-gradient-to-b from-white via-gray-50 to-white'
     >
-      {/* Background Decorative Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-purple-100/30 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-indigo-100/30 blur-3xl" />
@@ -238,7 +220,6 @@ const CourseSection = () => {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Animated Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -263,7 +244,6 @@ const CourseSection = () => {
           </p>
         </motion.div>
 
-        {/* Course Grid - Responsive layout based on number of courses */}
         <div className={`grid gap-6 md:gap-8 mb-12 auto-rows-fr ${
           coursesCount === 1 ? 'grid-cols-1 max-w-md mx-auto' :
           coursesCount === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto' :
@@ -284,7 +264,6 @@ const CourseSection = () => {
           ))}
         </div>
 
-        {/* View All Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -309,7 +288,6 @@ const CourseSection = () => {
           </motion.button>
         </motion.div>
 
-        {/* Trust Indicators */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}

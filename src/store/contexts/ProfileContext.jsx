@@ -13,15 +13,9 @@ const ProfileContext = createContext(null);
 
 export const useProfile = () => {
   const context = useContext(ProfileContext);
-  if (!context) {
-    throw new Error('useProfile must be used within ProfileProvider');
-  }
+  if (!context) throw new Error('useProfile must be used within ProfileProvider');
   return context;
 };
-
-// ============================================================================
-// Provider
-// ============================================================================
 
 export const ProfileProvider = ({ children }) => {
   const { isAuthenticated, user, updateUser } = useAuth();
@@ -184,7 +178,10 @@ export const ProfileProvider = ({ children }) => {
   };
 
   return (
-    <ProfileContext.Provider value={value}>
+    <ProfileContext.Provider value={{
+      profile, loading, error,
+      fetchProfile, editProfile, changeUserPassword, editAvatar,
+    }}>
       {children}
     </ProfileContext.Provider>
   );
