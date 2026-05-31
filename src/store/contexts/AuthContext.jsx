@@ -1,8 +1,7 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { ROLES } from '../../shared/constants/roles';
-import { getToken, getUser, saveToken, removeToken } from '../../services/utils/tokenUtils';
+import { getToken, getUser, saveToken, removeToken, saveUser, clearUser } from '../../services/utils/tokenUtils';
 
-// Helper: check if token exists and not expired
 const isTokenValid = () => {
   const token = getToken();
   if (!token) return false;
@@ -23,41 +22,71 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => getUser());
+  const [user, setUser] = useState(() => {
+    const userData = getUser();
+    console.log('🔧 Initial user load:', userData);
+    return userData;
+  });
   const [loading, setLoading] = useState(true);
 
   const login = useCallback((token, expiresOn) => {
+    console.log('🔐 Login called with token');
     saveToken(token, expiresOn);
-    // Force user state update by reading from token
-    setUser(getUser());
+    const userData = getUser();
+    console.log('👤 User after login:', userData);
+    setUser(userData);
+    if (userData) {
+      saveUser(userData);
+    }
+    
+    window.dispatchEvent(new CustomEvent('user-logged-in', { 
+      detail: { user: userData, timestamp: Date.now() } 
+    }));
+    
+    return userData;
   }, []);
 
   const logout = useCallback(() => {
     removeToken();
+    clearUser();
     setUser(null);
+    window.dispatchEvent(new CustomEvent('user-logged-out'));
   }, []);
 
   const updateUser = useCallback((updatedData) => {
-    setUser(prev => ({ ...prev, ...updatedData }));
+    setUser(prev => {
+      const updated = { ...prev, ...updatedData };
+      saveUser(updated);
+      return updated;
+    });
   }, []);
 
-  // Derived authentication status: user exists AND token is not expired
-  const isAuthenticated = !!user && isTokenValid();
+  const setUserAvatar = useCallback((avatarUrl) => {
+    console.log('🖼️ Setting avatar in AuthContext:', avatarUrl);
+    setUser(prev => {
+      const updated = { ...prev, avatar: avatarUrl };
+      saveUser(updated);
+      return updated;
+    });
+  }, []);
 
+  const refreshUser = useCallback(() => {
+    const freshUser = getUser();
+    console.log('🔄 Refreshing user:', freshUser);
+    if (freshUser) {
+      setUser(freshUser);
+      saveUser(freshUser);
+    }
+    return freshUser;
+  }, []);
+
+  const isAuthenticated = !!user && isTokenValid();
   const role = user?.role || null;
   const isStudent = role === ROLES.STUDENT;
   const isInstructor = role === ROLES.INSTRUCTOR;
   const isAdmin = role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
 
-  // Listen for cookie changes (e.g., logout from another tab)
   useEffect(() => {
-    const handleCookieChange = () => {
-      setUser(getUser());
-    };
-    // Polling is not ideal, but storage events don't work for cookies.
-    // A better approach is to use a custom event. For simplicity, we'll rely on
-    // the fact that login/logout happen in the same tab and trigger re-renders.
-    // This effect ensures initial loading is done.
     setLoading(false);
   }, []);
 
@@ -71,7 +100,9 @@ export const AuthProvider = ({ children }) => {
     role,
     login,
     logout,
-    updateUser
+    updateUser,
+    setUserAvatar,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

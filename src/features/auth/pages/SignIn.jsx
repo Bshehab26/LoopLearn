@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthLayout from '../../../layouts/AuthLayout';
 import { useAuth } from '../../../store/AppProvider';
-import { Login } from '../api/auth.api'; // ✅ Fixed import
+import { Login } from '../api/auth.api';
 import { getUser } from '../../../services/utils/tokenUtils';
 import { ErrorAlert, AuthInput, PasswordInput, AuthButton } from '../components/AuthComponents';
 
@@ -50,40 +50,44 @@ const SignIn = () => {
     clearError();
   }, [clearError]);
 
-const handleSubmit = useCallback(async (e) => {
-  e.preventDefault();
-  clearError();
+  const handleSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    clearError();
 
-  if (!form.emailOrUsername.trim()) return setError('Email or username is required.');
-  if (!form.password) return setError('Password is required.');
+    if (!form.emailOrUsername.trim()) return setError('Email or username is required.');
+    if (!form.password) return setError('Password is required.');
 
-  setLoading(true);
-  try {
-    const result = await Login(form);
-    if (!result.isAuthenticated) {
-      setError(result.message || 'Login failed.');
-      return;
+    setLoading(true);
+    try {
+      const result = await Login(form);
+      if (!result.isAuthenticated) {
+        setError(result.message || 'Login failed.');
+        return;
+      }
+      
+      login(result.token, result.expiresOn);
+      
+      // Wait for profile to be fetched
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const user = getUser();
+      const role = user?.role;
+
+      if (from) return navigate(from, { replace: true });
+      if (role === 'Admin' || role === 'SuperAdmin') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'Instructor') {
+        navigate('/instructor', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.response?.data?.Message || 'Something went wrong.';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    // Save token and update context
-    login(result.token, result.expiresOn);
-    
-    // Wait a tick for the cookie to be set and context to update
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const user = getUser();
-    const role = user?.role;
-
-    if (from) return navigate(from, { replace: true });
-    if (role === 'Admin' || role === 'SuperAdmin') navigate('/admin/dashboard', { replace: true });
-    if (role === 'Instructor') navigate('/instructor', { replace: true });
-    navigate('/', { replace: true });
-  } catch (err) {
-    const msg = err?.response?.data?.message || err?.response?.data?.Message || 'Something went wrong.';
-    setError(msg);
-  } finally {
-    setLoading(false);
-  }
-}, [form, login, navigate, from, clearError]);
+  }, [form, login, navigate, from, clearError]);
 
   return (
     <AuthLayout title='Welcome back 👋' subtitle='Sign in to continue learning' mode='signin'>
@@ -114,7 +118,7 @@ const handleSubmit = useCallback(async (e) => {
         />
 
         <div className='flex justify-end -mt-1'>
-          <button type='button' onClick={() => { /* TODO */ }} className='text-xs transition hover:opacity-70' style={{ color: '#534AB7' }}>
+          <button type='button' onClick={() => {}} className='text-xs transition hover:opacity-70' style={{ color: '#534AB7' }}>
             Forgot password?
           </button>
         </div>
