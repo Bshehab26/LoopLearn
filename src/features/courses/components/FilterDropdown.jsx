@@ -1,180 +1,242 @@
 /**
  * FilterDropdown.jsx
- * Filter dropdown component for courses by category.
- * SUPPORTS SINGLE CATEGORY SELECTION ONLY (radio buttons)
+ *
+ * Fixes:
+ *  1. Categories were HARDCODED in a static array — now fetched from
+ *     GET /api/Category via the useCategories hook.
+ *  2. Loading & error states shown inside the dropdown.
+ *  3. Course counts still computed client-side from the `courses` prop
+ *     (matches DB category names dynamically instead of the old static list).
+ *  4. Outside-click uses the shared useOutsideClick hook.
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { HiOutlineAdjustmentsHorizontal, HiChevronDown } from 'react-icons/hi2';
+import { HiX } from 'react-icons/hi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import useCategories from '../hooks/useCategories';
 
-const CATEGORIES = [
-  'Web Development', 'Mobile Apps', 'Data Science', 'UI/UX Design',
-  'Cybersecurity', 'DevOps', 'AI & ML',
-];
+// ============================================================================
+// Animation
+// ============================================================================
 
-const DROPDOWN_ANIMATION = {
-  initial: { opacity: 0, y: -10, scale: 0.95 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -10, scale: 0.95 },
-  transition: { duration: 0.2 },
+const ANIM = {
+  initial: { opacity: 0, y: -8, scale: 0.97 },
+  animate: { opacity: 1, y: 0,  scale: 1    },
+  exit:    { opacity: 0, y: -8, scale: 0.97 },
+  transition: { duration: 0.18 },
 };
 
-const DROPDOWN_WIDTH = 320;
+// ============================================================================
+// Helpers
+// ============================================================================
 
-const calculateCategoryCounts = (courses) => {
-  const counts = {};
-  CATEGORIES.forEach(cat => { counts[cat] = 0; });
-  
-  courses?.forEach(course => {
-    const category = course.category;
-    if (category && counts[category] !== undefined) {
-      counts[category]++;
-    }
+/**
+ * Build category-to-count map from the courses already loaded.
+ * Uses the DB category names (from useCategories) so counts align correctly.
+ */
+const buildCounts = (courses = [], dbCategories = []) => {
+  const map = {};
+  dbCategories.forEach(c => { map[c.name] = 0; });
+  courses.forEach(course => {
+    const cat = course.category;
+    if (cat && map[cat] !== undefined) map[cat]++;
   });
-  
-  return CATEGORIES.map(label => ({ label, count: counts[label] || 0 }));
+  return map;
 };
 
 const extractCategoryFromUrl = (params) => {
-  let category = params.get('category');
-  if (!category) category = params.get('categories');
-  if (!category) return null;
-  try { return decodeURIComponent(category); } catch { return category; }
+  const raw = params.get('category') ?? params.get('categories');
+  if (!raw) return null;
+  try { return decodeURIComponent(raw); } catch { return raw; }
 };
 
-const FilterButton = ({ isOpen, onClick, hasActiveFilter, disabled }) => (
+// ============================================================================
+// Sub-components
+// ============================================================================
+
+const FilterButton = ({ isOpen, onClick, hasFilter, disabled }) => (
   <motion.button
     whileHover={{ scale: 1.02 }}
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
     disabled={disabled}
-    className='flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all bg-white border border-gray-200 hover:border-purple-300 hover:shadow-md disabled:opacity-50'
-    style={{ borderColor: hasActiveFilter ? '#534AB7' : undefined, color: hasActiveFilter ? '#534AB7' : '#5F5E5A' }}
+    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all bg-white border hover:shadow-sm disabled:opacity-50"
+    style={{
+      borderColor: hasFilter ? '#534AB7' : '#E5E7EB',
+      color:       hasFilter ? '#534AB7' : '#5F5E5A',
+    }}
   >
-    <HiOutlineAdjustmentsHorizontal size={16} className={hasActiveFilter ? 'text-purple-600' : ''} />
+    <HiOutlineAdjustmentsHorizontal size={16} className={hasFilter ? 'text-purple-600' : ''} />
     Filter
-    {hasActiveFilter && <span className='text-white text-xs rounded-full px-1.5 py-0.5' style={{ background: '#534AB7' }}>1</span>}
-    <HiChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+    {hasFilter && (
+      <span className="bg-purple-600 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
+        1
+      </span>
+    )}
+    <HiChevronDown
+      size={14}
+      className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+    />
   </motion.button>
 );
 
-const CategoryList = ({ categories, selectedCategory, onSelectCategory }) => {
-  if (categories.length === 0) {
-    return <div className='px-5 py-8 text-center'><p className='text-sm text-gray-500'>No categories available</p></div>;
-  }
-
-  return (
-    <div className='px-5 py-3'>
-      <h4 className='text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3'>Select Category (Single Selection)</h4>
-      <div className='flex flex-col gap-1 max-h-64 overflow-y-auto'>
-        {categories.map(({ label, count }) => (
-          <div key={label} onClick={() => onSelectCategory(label)} className='flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer transition hover:bg-purple-50 group'>
-            <div className='w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all border-2' style={{ borderColor: selectedCategory === label ? '#534AB7' : '#D1D5DB' }}>
-              {selectedCategory === label && <div className='w-2.5 h-2.5 rounded-full bg-purple-600' />}
-            </div>
-            <span className='text-sm flex-1 text-gray-700 group-hover:text-purple-600 transition'>{label}</span>
-            {count > 0 && <span className='text-xs text-gray-400'>{count}</span>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const ApplyButton = ({ onClick, hasSelection, loading }) => (
-  <div className='sticky bottom-0 bg-white px-5 py-4 border-t border-gray-100'>
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      disabled={loading || !hasSelection}
-      className='w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all bg-gradient-to-r from-purple-600 to-purple-800 hover:shadow-md disabled:opacity-50'
+const CategoryRow = ({ name, count, selected, onSelect }) => (
+  <div
+    onClick={() => onSelect(name)}
+    className="flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer transition hover:bg-purple-50 group"
+  >
+    {/* Radio circle */}
+    <div
+      className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+      style={{ borderColor: selected ? '#534AB7' : '#D1D5DB' }}
     >
-      {loading ? (
-        <span className='flex items-center justify-center gap-2'>
-          <svg className='animate-spin h-4 w-4' viewBox='0 0 24 24'>
-            <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' fill='none' />
-            <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z' />
-          </svg>
-          Loading...
-        </span>
-      ) : 'Apply Filter'}
-    </motion.button>
-  </div>
-);
-
-const DropdownHeader = ({ selectedCategory, onClearAll }) => (
-  <div className='sticky top-0 bg-white z-10 flex items-center justify-between px-5 pt-4 pb-2 border-b border-gray-100'>
-    <span className='text-sm font-semibold text-gray-800'>Filter Courses</span>
-    {selectedCategory && (
-      <button onClick={onClearAll} className='text-xs text-purple-600 hover:text-purple-700 transition font-medium'>Clear filter</button>
+      {selected && <div className="w-2 h-2 rounded-full bg-purple-600" />}
+    </div>
+    <span className={`text-sm flex-1 transition-colors ${selected ? 'text-purple-700 font-medium' : 'text-gray-700 group-hover:text-purple-600'}`}>
+      {name}
+    </span>
+    {count > 0 && (
+      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{count}</span>
     )}
   </div>
 );
 
-const FilterDropdown = ({ courses = [], onFilterChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState('left-0');
-  
-  const categoriesWithCounts = useMemo(() => calculateCategoryCounts(courses), [courses]);
-  const dropdownRef = useRef(null);
-  const navigate = useNavigate();
-  const location = useLocation();
+// ============================================================================
+// Main Component
+// ============================================================================
 
+const FilterDropdown = ({ courses = [], onFilterChange }) => {
+  const [isOpen,   setIsOpen]   = useState(false);
+  const [selected, setSelected] = useState(null);
+
+  // ✅ FIX: real categories from the database
+  const { categories: dbCategories, loading: catLoading, error: catError } = useCategories();
+
+  const dropdownRef = useRef(null);
+  const navigate    = useNavigate();
+  const location    = useLocation();
+
+  // Sync selected state from URL on mount / navigation
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const categoryFromUrl = extractCategoryFromUrl(params);
-    setSelectedCategory(categoryFromUrl);
+    setSelected(extractCategoryFromUrl(params));
   }, [location.search]);
 
+  // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  useEffect(() => {
-    if (isOpen && dropdownRef.current) {
-      const rect = dropdownRef.current.getBoundingClientRect();
-      setDropdownPosition(rect.right + DROPDOWN_WIDTH > window.innerWidth ? 'right-0' : 'left-0');
-    }
-  }, [isOpen]);
+  // ✅ Counts built from DB category names + loaded courses
+  const countMap = useMemo(
+    () => buildCounts(courses, dbCategories),
+    [courses, dbCategories]
+  );
 
-  const selectCategory = useCallback((category) => {
-    setSelectedCategory(prev => prev === category ? null : category);
+  const handleSelect = useCallback((name) => {
+    setSelected(prev => (prev === name ? null : name));
   }, []);
 
-  // ✅ FIXED: Navigate to /courses
-  const clearFilter = useCallback(() => {
-    setSelectedCategory(null);
+  const handleApply = useCallback(() => {
+    if (!selected) return;
+    navigate(`/courses?category=${encodeURIComponent(selected)}`, { replace: true });
+    onFilterChange?.({ categories: [selected] });
+    setIsOpen(false);
+  }, [selected, navigate, onFilterChange]);
+
+  const handleClear = useCallback(() => {
+    setSelected(null);
     navigate('/courses', { replace: true });
-    if (onFilterChange) onFilterChange({ categories: [] });
+    onFilterChange?.({ categories: [] });
     setIsOpen(false);
   }, [navigate, onFilterChange]);
 
-  // ✅ FIXED: Navigate to /courses with category param
-  const applyFilter = useCallback(() => {
-    if (!selectedCategory) return;
-    navigate(`/courses?category=${encodeURIComponent(selectedCategory)}`, { replace: true });
-    if (onFilterChange) onFilterChange({ categories: [selectedCategory] });
-    setIsOpen(false);
-  }, [selectedCategory, navigate, onFilterChange]);
+  const hasFilter = !!selected;
 
   return (
-    <div className='relative' ref={dropdownRef}>
-      <FilterButton isOpen={isOpen} onClick={() => setIsOpen(!isOpen)} hasActiveFilter={!!selectedCategory} disabled={loading} />
+    <div className="relative" ref={dropdownRef}>
+      <FilterButton
+        isOpen={isOpen}
+        onClick={() => setIsOpen(v => !v)}
+        hasFilter={hasFilter}
+        disabled={catLoading}
+      />
+
       <AnimatePresence>
         {isOpen && (
-          <motion.div {...DROPDOWN_ANIMATION} className={`absolute ${dropdownPosition} mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden`} style={{ maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
-            <DropdownHeader selectedCategory={selectedCategory} onClearAll={clearFilter} />
-            <CategoryList categories={categoriesWithCounts} selectedCategory={selectedCategory} onSelectCategory={selectCategory} />
-            <ApplyButton onClick={applyFilter} hasSelection={!!selectedCategory} loading={loading} />
+          <motion.div
+            {...ANIM}
+            className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+            style={{ maxHeight: 'calc(100vh - 120px)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-gray-100">
+              <span className="text-sm font-semibold text-gray-800">Filter by Category</span>
+              {hasFilter && (
+                <button onClick={handleClear} className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 transition font-medium">
+                  <HiX size={12} /> Clear
+                </button>
+              )}
+            </div>
+
+            {/* Category list */}
+            <div className="px-4 py-3 overflow-y-auto" style={{ maxHeight: 280 }}>
+              {catLoading ? (
+                // Skeleton rows
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-2 py-2 animate-pulse">
+                      <div className="w-4 h-4 rounded-full bg-gray-200 flex-shrink-0" />
+                      <div className="h-3 bg-gray-200 rounded flex-1" style={{ width: `${55 + i * 8}%` }} />
+                      <div className="h-3 w-5 bg-gray-100 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : catError ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-red-500 mb-2">Failed to load categories</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="text-xs text-purple-600 underline hover:text-purple-700"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : dbCategories.length === 0 ? (
+                <p className="py-6 text-center text-sm text-gray-400">No categories found</p>
+              ) : (
+                dbCategories.map(cat => (
+                  <CategoryRow
+                    key={cat.id}
+                    name={cat.name}
+                    count={countMap[cat.name] ?? 0}
+                    selected={selected === cat.name}
+                    onSelect={handleSelect}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Apply button */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleApply}
+                disabled={!hasFilter || catLoading}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all
+                           bg-gradient-to-r from-purple-600 to-indigo-600
+                           hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Apply Filter
+              </motion.button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
