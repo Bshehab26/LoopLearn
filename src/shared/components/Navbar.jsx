@@ -46,14 +46,15 @@ function buildMenuItems({ role, navigate, onClose, onLogout }) {
 
   const items = [{ label: 'My Profile', icon: HiUser, onClick: go(ROUTES.PROFILE) }];
 
-  if (isStudent || isInstructor) {
+  // ✅ FIX: My Enrollments & Chat Support shown for students, instructors AND admins
+  if (isStudent || isInstructor || isAdmin) {
     items.push(
-      { label: 'My Enrollments',  icon: HiShoppingBag, onClick: go(ROUTES.MY_ENROLLMENTS) },
-      { label: 'Chat Support',    icon: HiChatAlt2,    onClick: go(ROUTES.CHAT) },
+      { label: 'My Enrollments', icon: HiShoppingBag, onClick: go(ROUTES.MY_ENROLLMENTS) },
+      { label: 'Chat Support',   icon: HiChatAlt2,    onClick: go(ROUTES.CHAT) },
     );
   }
   if (isInstructor || isAdmin) {
-    items.push({ label: 'Instructor Dashboard', icon: HiChartBar,   onClick: go(ROUTES.INSTRUCTOR_DASHBOARD) });
+    items.push({ label: 'Instructor Dashboard', icon: HiChartBar,    onClick: go(ROUTES.INSTRUCTOR_DASHBOARD) });
   }
   if (isAdmin) {
     items.push({ label: 'Admin Dashboard',      icon: HiShieldCheck, onClick: go(ROUTES.ADMIN_DASHBOARD) });

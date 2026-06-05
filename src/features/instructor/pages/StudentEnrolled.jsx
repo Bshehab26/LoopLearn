@@ -1,4 +1,5 @@
 // src/features/instructor/pages/StudentEnrolled.jsx
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -20,168 +21,23 @@ import {
   HiBadgeCheck,
   HiAcademicCap
 } from 'react-icons/hi';
-import { HiTrophy } from 'react-icons/hi2'; // ✅ Use hi2 for Trophy
+import { HiTrophy } from 'react-icons/hi2';
+import useInstructorStudents from '../hooks/useInstructorStudents';
+import { getInstructorCourses } from '../api/instructor.api';
 
 // ============================================================================
-// Helper function to format dates without date-fns
+// Helper Functions
 // ============================================================================
 
 const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
   const date = new Date(dateString);
   const options = { year: 'numeric', month: 'short', day: 'numeric' };
   return date.toLocaleDateString('en-US', options);
 };
 
 // ============================================================================
-// Mock Data
-// ============================================================================
-
-const MOCK_STUDENTS = [
-  {
-    id: 1,
-    name: 'Ahmed Mansour',
-    email: 'ahmed.mansour@example.com',
-    phone: '+20 123 456 7890',
-    avatar: null,
-    enrolledDate: '2026-01-15T10:30:00Z',
-    lastActivity: '2026-05-30T14:20:00Z',
-    progress: 85,
-    completedLessons: 42,
-    totalLessons: 50,
-    certificateIssued: true,
-    grade: 'A',
-    courseId: 1,
-    courseName: 'Advanced React Development',
-    status: 'active'
-  },
-  {
-    id: 2,
-    name: 'Sara Ibrahim',
-    email: 'sara.ibrahim@example.com',
-    phone: '+20 123 456 7891',
-    avatar: null,
-    enrolledDate: '2026-02-20T09:15:00Z',
-    lastActivity: '2026-05-29T16:45:00Z',
-    progress: 62,
-    completedLessons: 31,
-    totalLessons: 50,
-    certificateIssued: false,
-    grade: 'B+',
-    courseId: 1,
-    courseName: 'Advanced React Development',
-    status: 'active'
-  },
-  {
-    id: 3,
-    name: 'Omar Hassan',
-    email: 'omar.hassan@example.com',
-    phone: '+20 123 456 7892',
-    avatar: null,
-    enrolledDate: '2026-01-10T11:00:00Z',
-    lastActivity: '2026-05-28T10:30:00Z',
-    progress: 94,
-    completedLessons: 47,
-    totalLessons: 50,
-    certificateIssued: true,
-    grade: 'A+',
-    courseId: 1,
-    courseName: 'Advanced React Development',
-    status: 'completed'
-  },
-  {
-    id: 4,
-    name: 'Laila Mostafa',
-    email: 'laila.mostafa@example.com',
-    phone: '+20 123 456 7893',
-    avatar: null,
-    enrolledDate: '2026-03-05T14:45:00Z',
-    lastActivity: '2026-05-30T09:15:00Z',
-    progress: 28,
-    completedLessons: 14,
-    totalLessons: 50,
-    certificateIssued: false,
-    grade: 'C',
-    courseId: 1,
-    courseName: 'Advanced React Development',
-    status: 'active'
-  },
-  {
-    id: 5,
-    name: 'Youssef Ali',
-    email: 'youssef.ali@example.com',
-    phone: '+20 123 456 7894',
-    avatar: null,
-    enrolledDate: '2026-04-12T08:20:00Z',
-    lastActivity: '2026-05-27T13:00:00Z',
-    progress: 16,
-    completedLessons: 8,
-    totalLessons: 50,
-    certificateIssued: false,
-    grade: 'D',
-    courseId: 1,
-    courseName: 'Advanced React Development',
-    status: 'inactive'
-  },
-  {
-    id: 6,
-    name: 'Nadia Kamal',
-    email: 'nadia.kamal@example.com',
-    phone: '+20 123 456 7895',
-    avatar: null,
-    enrolledDate: '2026-01-25T13:10:00Z',
-    lastActivity: '2026-05-29T11:30:00Z',
-    progress: 76,
-    completedLessons: 38,
-    totalLessons: 50,
-    certificateIssued: false,
-    grade: 'B',
-    courseId: 2,
-    courseName: 'UI/UX Design Masterclass',
-    status: 'active'
-  },
-  {
-    id: 7,
-    name: 'Khaled Abdelrahman',
-    email: 'khaled.a@example.com',
-    phone: '+20 123 456 7896',
-    avatar: null,
-    enrolledDate: '2026-02-01T09:00:00Z',
-    lastActivity: '2026-05-28T15:45:00Z',
-    progress: 88,
-    completedLessons: 44,
-    totalLessons: 50,
-    certificateIssued: true,
-    grade: 'A-',
-    courseId: 2,
-    courseName: 'UI/UX Design Masterclass',
-    status: 'active'
-  },
-  {
-    id: 8,
-    name: 'Mona El-Sayed',
-    email: 'mona.elsayed@example.com',
-    phone: '+20 123 456 7897',
-    avatar: null,
-    enrolledDate: '2026-03-18T11:30:00Z',
-    lastActivity: '2026-05-30T12:00:00Z',
-    progress: 52,
-    completedLessons: 26,
-    totalLessons: 50,
-    certificateIssued: false,
-    grade: 'B-',
-    courseId: 2,
-    courseName: 'UI/UX Design Masterclass',
-    status: 'active'
-  }
-];
-
-const MOCK_COURSES = [
-  { id: 1, name: 'Advanced React Development', enrolledCount: 5, averageProgress: 64 },
-  { id: 2, name: 'UI/UX Design Masterclass', enrolledCount: 3, averageProgress: 72 },
-];
-
-// ============================================================================
-// Helper Components
+// Helper Components (same as before, keep them)
 // ============================================================================
 
 const StatCard = ({ title, value, icon: Icon, color, trend }) => (
@@ -194,9 +50,9 @@ const StatCard = ({ title, value, icon: Icon, color, trend }) => (
       <div>
         <p className="text-sm text-gray-500 mb-1">{title}</p>
         <p className="text-2xl font-bold text-gray-800">{value}</p>
-        {trend && (
-          <p className={`text-xs mt-2 ${trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-            {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}% from last month
+        {trend !== undefined && (
+          <p className={`text-xs mt-2 ${trend > 0 ? 'text-green-500' : trend < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+            {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'} {Math.abs(trend)}% from last month
           </p>
         )}
       </div>
@@ -207,7 +63,7 @@ const StatCard = ({ title, value, icon: Icon, color, trend }) => (
   </motion.div>
 );
 
-const CourseFilter = ({ courses, selectedCourse, onSelect }) => (
+const CourseFilter = ({ courses, selectedCourse, onSelect, loading }) => (
   <div className="flex flex-wrap gap-2">
     <button
       onClick={() => onSelect(null)}
@@ -219,19 +75,23 @@ const CourseFilter = ({ courses, selectedCourse, onSelect }) => (
     >
       All Courses
     </button>
-    {courses.map(course => (
-      <button
-        key={course.id}
-        onClick={() => onSelect(course.id)}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-          selectedCourse === course.id
-            ? 'bg-purple-600 text-white shadow-md'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        }`}
-      >
-        {course.name}
-      </button>
-    ))}
+    {loading ? (
+      <div className="px-4 py-2 text-gray-400">Loading courses...</div>
+    ) : (
+      courses.map(course => (
+        <button
+          key={course.id}
+          onClick={() => onSelect(course.id)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            selectedCourse === course.id
+              ? 'bg-purple-600 text-white shadow-md'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          {course.name}
+        </button>
+      ))
+    )}
   </div>
 );
 
@@ -247,8 +107,8 @@ const StatusBadge = ({ status }) => {
     inactive: 'Inactive'
   };
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
-      {labels[status]}
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.inactive}`}>
+      {labels[status] || 'Inactive'}
     </span>
   );
 };
@@ -257,12 +117,12 @@ const ProgressBar = ({ progress }) => (
   <div className="w-full">
     <div className="flex justify-between text-xs text-gray-500 mb-1">
       <span>Progress</span>
-      <span>{progress}%</span>
+      <span>{Math.round(progress)}%</span>
     </div>
     <div className="w-full bg-gray-200 rounded-full h-2">
       <motion.div
         initial={{ width: 0 }}
-        animate={{ width: `${progress}%` }}
+        animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
         transition={{ duration: 0.5 }}
         className="bg-purple-600 h-2 rounded-full"
       />
@@ -502,7 +362,156 @@ const StudentEnrolled = () => {
   const [viewMode, setViewMode] = useState('table');
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [courses, setCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  
   const itemsPerPage = 10;
+
+  // Use the real hook for students
+  const { 
+    students: realStudents, 
+    loading: studentsLoading, 
+    error,
+    pagination,
+    filterByCourse,
+    goToPage: goToApiPage,
+    currentPage: apiPage,
+    refetch
+  } = useInstructorStudents();
+
+  // Fetch courses for filter dropdown
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const result = await getInstructorCourses(1, 100);
+        if (result.success) {
+          const courseList = result.data.map(course => ({
+            id: course.id,
+            name: course.title,
+            enrolledCount: course.enrollmentCount || 0,
+            averageProgress: course.averageRating || 0
+          }));
+          setCourses(courseList);
+        }
+      } catch (err) {
+        console.error('Failed to fetch courses:', err);
+      } finally {
+        setCoursesLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  // Sync selected course with filter
+  useEffect(() => {
+    filterByCourse(selectedCourse);
+  }, [selectedCourse, filterByCourse]);
+
+  // Filter and sort students
+  const filteredStudents = useMemo(() => {
+    let filtered = [...realStudents];
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(s =>
+        s.name?.toLowerCase().includes(term) ||
+        s.email?.toLowerCase().includes(term)
+      );
+    }
+
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(s => s.status === selectedStatus);
+    }
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortBy];
+      let bVal = b[sortBy];
+      if (sortBy === 'name') {
+        aVal = a.name?.toLowerCase() || '';
+        bVal = b.name?.toLowerCase() || '';
+      }
+      if (sortBy === 'progress') {
+        aVal = a.progress || 0;
+        bVal = b.progress || 0;
+      }
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [realStudents, searchTerm, selectedStatus, sortBy, sortOrder]);
+
+  // Paginate filtered results
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const paginatedStudents = filteredStudents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Calculate stats from real data
+  const stats = useMemo(() => {
+    const totalStudents = realStudents.length;
+    const activeStudents = realStudents.filter(s => s.status === 'active').length;
+    const completedStudents = realStudents.filter(s => s.status === 'completed').length;
+    const averageProgress = totalStudents > 0 
+      ? Math.round(realStudents.reduce((sum, s) => sum + (s.progress || 0), 0) / totalStudents)
+      : 0;
+    return { totalStudents, activeStudents, completedStudents, averageProgress };
+  }, [realStudents]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const handleAction = (action, student) => {
+    console.log(`Action: ${action} on student:`, student);
+    // Implement actual actions here
+    switch(action) {
+      case 'View Profile':
+        // Navigate to student profile
+        break;
+      case 'Send Message':
+        // Open chat with student
+        break;
+      case 'View Progress':
+        // Navigate to detailed progress
+        break;
+      case 'Remove Student':
+        // Show confirmation modal for removal
+        if (confirm(`Are you sure you want to remove ${student.name} from this course?`)) {
+          // API call to remove student
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Name', 'Email', 'Progress', 'Grade', 'Enrolled Date', 'Status'];
+    const csvData = filteredStudents.map(s => [
+      s.name,
+      s.email,
+      `${Math.round(s.progress)}%`,
+      s.grade,
+      formatDate(s.enrolledDate),
+      s.status
+    ]);
+    const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'enrolled-students.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Check if mobile
   useEffect(() => {
@@ -517,94 +526,33 @@ const StudentEnrolled = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Filter and sort students
-  const filteredStudents = useMemo(() => {
-    let filtered = [...MOCK_STUDENTS];
-
-    if (selectedCourse) {
-      filtered = filtered.filter(s => s.courseId === selectedCourse);
-    }
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(s =>
-        s.name.toLowerCase().includes(term) ||
-        s.email.toLowerCase().includes(term)
-      );
-    }
-
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(s => s.status === selectedStatus);
-    }
-
-    filtered.sort((a, b) => {
-      let aVal = a[sortBy];
-      let bVal = b[sortBy];
-      if (sortBy === 'name') {
-        aVal = a.name.toLowerCase();
-        bVal = b.name.toLowerCase();
-      }
-      if (sortBy === 'progress') {
-        aVal = a.progress;
-        bVal = b.progress;
-      }
-      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [searchTerm, selectedCourse, selectedStatus, sortBy, sortOrder]);
-
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
-  const paginatedStudents = filteredStudents.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const stats = useMemo(() => {
-    const totalStudents = MOCK_STUDENTS.length;
-    const activeStudents = MOCK_STUDENTS.filter(s => s.status === 'active').length;
-    const completedStudents = MOCK_STUDENTS.filter(s => s.status === 'completed').length;
-    const averageProgress = Math.round(
-      MOCK_STUDENTS.reduce((sum, s) => sum + s.progress, 0) / totalStudents
+  if (studentsLoading && realStudents.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading students...</p>
+        </div>
+      </div>
     );
-    return { totalStudents, activeStudents, completedStudents, averageProgress };
-  }, []);
+  }
 
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
-    }
-  };
-
-  const handleAction = (action, student) => {
-    console.log(`Action: ${action} on student:`, student);
-    alert(`${action} action triggered for ${student.name}`);
-  };
-
-  const exportToCSV = () => {
-    const headers = ['Name', 'Email', 'Progress', 'Grade', 'Enrolled Date', 'Status'];
-    const csvData = filteredStudents.map(s => [
-      s.name,
-      s.email,
-      `${s.progress}%`,
-      s.grade,
-      formatDate(s.enrolledDate),
-      s.status
-    ]);
-    const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'enrolled-students.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  if (error && realStudents.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-2">⚠️</div>
+          <p className="text-red-600">Error loading students: {error}</p>
+          <button 
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -622,28 +570,24 @@ const StudentEnrolled = () => {
             value={stats.totalStudents}
             icon={HiUserGroup}
             color="bg-purple-600"
-            trend={12}
           />
           <StatCard
             title="Active Students"
             value={stats.activeStudents}
             icon={HiUserAdd}
             color="bg-green-600"
-            trend={8}
           />
           <StatCard
             title="Completed"
             value={stats.completedStudents}
             icon={HiTrophy}
             color="bg-blue-600"
-            trend={5}
           />
           <StatCard
             title="Avg Progress"
             value={`${stats.averageProgress}%`}
             icon={HiChartBar}
             color="bg-orange-600"
-            trend={3}
           />
         </div>
 
@@ -705,12 +649,13 @@ const StudentEnrolled = () => {
           {/* Desktop Filters */}
           <div className="hidden lg:flex flex-wrap gap-4 mt-4 pt-4 border-t border-gray-100">
             <CourseFilter
-              courses={MOCK_COURSES}
+              courses={courses}
               selectedCourse={selectedCourse}
               onSelect={(id) => {
                 setSelectedCourse(id);
                 setCurrentPage(1);
               }}
+              loading={coursesLoading}
             />
             <select
               value={selectedStatus}
@@ -737,12 +682,13 @@ const StudentEnrolled = () => {
                 className="lg:hidden mt-4 pt-4 border-t border-gray-100 space-y-3"
               >
                 <CourseFilter
-                  courses={MOCK_COURSES}
+                  courses={courses}
                   selectedCourse={selectedCourse}
                   onSelect={(id) => {
                     setSelectedCourse(id);
                     setCurrentPage(1);
                   }}
+                  loading={coursesLoading}
                 />
                 <select
                   value={selectedStatus}
@@ -798,9 +744,23 @@ const StudentEnrolled = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedStudents.map((student, index) => (
-                    <StudentRow key={student.id} student={student} index={index} onAction={handleAction} />
-                  ))}
+                  {studentsLoading && realStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="text-center py-8 text-gray-500">
+                        Loading students...
+                      </td>
+                    </tr>
+                  ) : paginatedStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="text-center py-8 text-gray-500">
+                        No students found
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedStudents.map((student, index) => (
+                      <StudentRow key={student.id} student={student} index={index} onAction={handleAction} />
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -810,18 +770,19 @@ const StudentEnrolled = () => {
         {/* Grid View */}
         {(viewMode === 'grid' || isMobile) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {paginatedStudents.map(student => (
-              <StudentCard key={student.id} student={student} onAction={handleAction} />
-            ))}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {paginatedStudents.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-            <HiUserGroup className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-800 mb-2">No students found</h3>
-            <p className="text-gray-500">Try adjusting your search or filters</p>
+            {studentsLoading && realStudents.length === 0 ? (
+              <div className="col-span-full text-center py-8 text-gray-500">
+                Loading students...
+              </div>
+            ) : paginatedStudents.length === 0 ? (
+              <div className="col-span-full text-center py-8 text-gray-500">
+                No students found
+              </div>
+            ) : (
+              paginatedStudents.map(student => (
+                <StudentCard key={student.id} student={student} onAction={handleAction} />
+              ))
+            )}
           </div>
         )}
 

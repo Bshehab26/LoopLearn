@@ -7,9 +7,6 @@ export { default as AddCourseWizard } from './pages/AddCourseWizard';
 export { default as EditCourse } from './pages/EditCourse';
 export { default as StudentEnrolled } from './pages/StudentEnrolled';
 
-// ❌ REMOVE THIS LINE:
-// export { default as InstructorProfile } from './pages/Profile';
-
 // Components
 export { default as CourseCard } from './components/CourseCard';
 export { default as EmptyState } from './components/EmptyState';
@@ -23,6 +20,7 @@ export { default as StepIndicator } from './components/StepIndicator';
 // Hooks
 export { default as useInstructorCourses } from './hooks/useInstructorCourses';
 export { default as useCourseWizard } from './hooks/useCourseWizard';
+export { default as useInstructorStudents } from './hooks/useInstructorStudents'; // ADD THIS
 
 // API
 export {
@@ -35,4 +33,7 @@ export {
   publishCourse,
   getDashboardStats,
   getEnrolledStudents,
+  getInstructorStudents,  // ADD THIS
+  submitForReview,       // ADD THIS
+  getReviewHistory,      // ADD THIS
 } from './api/instructor.api';
