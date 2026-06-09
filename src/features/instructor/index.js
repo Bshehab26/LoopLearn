@@ -11,6 +11,8 @@ export { default as StudentEnrolled } from './pages/StudentEnrolled';
 export { default as CourseCard } from './components/CourseCard';
 export { default as EmptyState } from './components/EmptyState';
 export { default as CourseStructureSection } from './components/CourseStructureSection';
+export { default as SubmitForReviewModal } from './components/SubmitForReviewModal';
+export { default as CourseValidationErrorsModal } from './components/CourseValidationErrorsModal';
 
 // Wizard Components
 export { default as StepBasicInfo } from './components/StepBasicInfo';
@@ -20,7 +22,7 @@ export { default as StepIndicator } from './components/StepIndicator';
 // Hooks
 export { default as useInstructorCourses } from './hooks/useInstructorCourses';
 export { default as useCourseWizard } from './hooks/useCourseWizard';
-export { default as useInstructorStudents } from './hooks/useInstructorStudents'; // ADD THIS
+export { default as useInstructorStudents } from './hooks/useInstructorStudents';
 
 // API
 export {
@@ -33,7 +35,7 @@ export {
   publishCourse,
   getDashboardStats,
   getEnrolledStudents,
-  getInstructorStudents,  // ADD THIS
-  submitForReview,       // ADD THIS
-  getReviewHistory,      // ADD THIS
+  getInstructorStudents,
+  submitForReview,
+  getReviewHistory,
 } from './api/instructor.api';

@@ -75,3 +75,18 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   --primary-dark: #3C3489;
   --primary-light: #EEEDFE;
 }
+/* Add to your index.css or tailwind config */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

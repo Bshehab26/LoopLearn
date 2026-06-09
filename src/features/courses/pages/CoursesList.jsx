@@ -1,31 +1,17 @@
 // src/features/courses/pages/CoursesList.jsx
-//
-// Fixes applied:
-//  1. Removed duplicate getAllCourses / searchCourses imports — useCourses hook owns
-//     all data fetching (no more parallel fetch in the component).
-//  2. SearchBar rendered with navigateOnSearch=false so it doesn't re-navigate while
-//     we're already ON the courses page — it just updates local state.
-//  3. URL ↔ state sync: on mount, read ?search & ?category from URL and feed them
-//     into useCourses; on filter change, update URL (replace) without navigation.
-//  4. Sort menu now closes on outside click.
-//  5. Active filter chips shown below the filter bar so the user can see & clear them.
-//  6. Pagination fully controlled by usePagination (no duplicate page state).
-//  7. fetchInProgressRef guard removed — useCourses handles deduplication.
-//  8. Responsive: 1 col mobile → 2 col tablet → 3 col laptop → 4 col desktop.
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiOutlineSortAscending, HiOutlineViewGrid, HiOutlineViewList,
-  HiX, HiOutlineFilter,
+  HiX, HiChevronLeft, HiChevronRight,
 } from 'react-icons/hi';
 
 import CourseCard      from '../components/CourseCard';
 import FilterDropdown  from '../components/FilterDropdown';
 import SearchBar       from '../components/SearchBar';
 import useCourses      from '../hooks/useCourses';
-import usePagination   from '../../../shared/hooks/usePagination';
 import useOutsideClick from '../../../shared/hooks/useOutsideClick';
 
 // ============================================================================
@@ -39,13 +25,6 @@ const SORT_OPTIONS = [
   { value: 'price-high', label: 'Price: High → Low',   icon: '💎' },
   { value: 'newest',     label: 'Newest First',        icon: '✨' },
 ];
-
-const ITEMS_PER_PAGE = (() => {
-  const w = window.innerWidth;
-  if (w < 640)  return 4;
-  if (w < 1024) return 6;
-  return 8;
-})();
 
 // ============================================================================
 // Sort helper (client-side since API doesn't support it)
@@ -73,21 +52,37 @@ const CoursesList = () => {
   // Read initial values from URL (on first load)
   const initialSearch   = searchParams.get('search')   || '';
   const initialCategory = searchParams.get('category') || '';
+  const initialPage     = parseInt(searchParams.get('page')) || 1;
 
-  // ── useCourses owns all fetching ──────────────────────────────────────────
-  const {
-    courses,
-    loading,
-    error,
-    filters,
-    updateFilters,
-    searchCoursesDebounced,
-    filterByCategories,
-    clearFilters: clearAllFilters,
-  } = useCourses({
-    searchTerm: initialSearch,
-    categories: initialCategory ? [initialCategory] : [],
-  });
+  // In CoursesList.jsx, update the filter handler and add activeCategory
+
+const {
+  courses,
+  loading,
+  error,
+  pagination,
+  filters,
+  updateFilters,
+  changePage,
+  searchCoursesDebounced,
+  filterByCategories,
+  clearFilters: clearAllFilters,
+} = useCourses({
+  searchTerm: initialSearch,
+  categories: initialCategory ? [initialCategory] : [],
+  page: initialPage,
+  pageSize: 12,
+});
+
+// Get active category for display in filter button
+const activeCategory = filters.categories[0] || null;
+
+// Update the FilterDropdown usage
+<FilterDropdown 
+  courses={courses} 
+  onFilterChange={({ categories }) => filterByCategories(categories)}
+  activeCategory={activeCategory}
+/>
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [viewMode,     setViewMode]     = useState('grid');
@@ -97,31 +92,20 @@ const CoursesList = () => {
   const sortMenuRef = useRef(null);
   useOutsideClick(sortMenuRef, () => setShowSortMenu(false));
 
-  // ── Sync URL when filters change ──────────────────────────────────────────
+  // ── Sync URL when filters or page change ──────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams();
     if (filters.searchTerm)      params.set('search',   filters.searchTerm);
     if (filters.categories[0])   params.set('category', filters.categories[0]);
+    if (pagination.page > 1)     params.set('page',     pagination.page);
     setSearchParams(params, { replace: true });
-  }, [filters.searchTerm, filters.categories, setSearchParams]);
+  }, [filters.searchTerm, filters.categories, pagination.page, setSearchParams]);
 
-  // ── Derived data ──────────────────────────────────────────────────────────
-  const sorted = sortCourses(courses, sortBy);
-
-  const {
-    currentItems:  paginatedCourses,
-    currentPage,
-    totalPages,
-    goToPage,
-    goNext,
-    goPrev,
-    isFirstPage,
-    isLastPage,
-  } = usePagination({ items: sorted, itemsPerPage: ITEMS_PER_PAGE, scrollToTop: true });
+  // ── Sort the current page courses ─────────────────────────────────────────
+  const sortedCourses = sortCourses(courses, sortBy);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  /** ✅ FIX: SearchBar navigateOnSearch=false → only call updateFilters */
   const handleSearch = useCallback((term) => {
     searchCoursesDebounced(term);
   }, [searchCoursesDebounced]);
@@ -133,6 +117,11 @@ const CoursesList = () => {
   const handleClearFilters = () => {
     clearAllFilters();
     setSortBy('popular');
+  };
+
+  const handlePageChange = (newPage) => {
+    changePage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const removeCategory = (cat) => {
@@ -176,11 +165,11 @@ const CoursesList = () => {
           <p className="text-gray-500 text-base sm:text-lg">
             {courses.length === 0 && !loading
               ? 'No courses matched your search.'
-              : `${courses.length.toLocaleString()} course${courses.length !== 1 ? 's' : ''} available`
+              : `${pagination.total?.toLocaleString() || courses.length} course${pagination.total !== 1 ? 's' : ''} available`
             }
           </p>
 
-          {/* ✅ SearchBar — navigateOnSearch=false, no re-navigation loop */}
+          {/* SearchBar */}
           <div className="mt-5 max-w-lg">
             <SearchBar
               variant="default"
@@ -241,9 +230,9 @@ const CoursesList = () => {
           <div className="flex items-center gap-3">
             <p className="text-sm text-gray-500 hidden sm:block">
               Showing{' '}
-              <span className="font-semibold text-violet-600">{paginatedCourses.length}</span>
+              <span className="font-semibold text-violet-600">{sortedCourses.length}</span>
               {' '}of{' '}
-              <span className="font-semibold">{courses.length}</span>
+              <span className="font-semibold">{pagination.total || courses.length}</span>
             </p>
 
             <div className="flex gap-0.5 bg-gray-100 rounded-full p-1">
@@ -273,7 +262,7 @@ const CoursesList = () => {
           </div>
         </div>
 
-        {/* ✅ Active filter chips — visible feedback, easy removal */}
+        {/* Active filter chips */}
         <AnimatePresence>
           {hasActiveFilters && (
             <motion.div
@@ -301,7 +290,7 @@ const CoursesList = () => {
           )}
         </AnimatePresence>
 
-        {/* ── Course grid / list ── */}
+        {/* Course grid / list */}
         {error && (
           <div className="mt-10 text-center py-12 bg-red-50 rounded-2xl border border-red-100">
             <p className="text-red-600 font-medium">{error}</p>
@@ -314,13 +303,13 @@ const CoursesList = () => {
           </div>
         )}
 
-        {paginatedCourses.length > 0 ? (
+        {sortedCourses.length > 0 ? (
           <div className={`mt-8 ${
             viewMode === 'grid'
               ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
               : 'flex flex-col gap-4'
           }`}>
-            {paginatedCourses.map((course, i) => (
+            {sortedCourses.map((course, i) => (
               <CourseCard key={course.id ?? i} course={course} viewMode={viewMode} />
             ))}
           </div>
@@ -335,16 +324,12 @@ const CoursesList = () => {
           </div>
         )}
 
-        {/* ── Pagination ── */}
-        {totalPages > 1 && (
+        {/* Pagination - Using backend pagination data */}
+        {pagination.totalPages > 1 && (
           <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPrev={goPrev}
-            onNext={goNext}
-            onGoTo={goToPage}
-            isFirstPage={isFirstPage}
-            isLastPage={isLastPage}
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
           />
         )}
       </div>
@@ -391,69 +376,80 @@ const EmptyState = ({ onClear, hasFilters }) => (
   </div>
 );
 
-const Pagination = ({ currentPage, totalPages, onPrev, onNext, onGoTo, isFirstPage, isLastPage }) => {
+const Pagination = ({ currentPage, totalPages, onPageChange }) => {
   // Build page numbers: always show first, last, current ±1, with ellipsis
-  const pages = [];
-  const range = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]
-    .filter(p => p >= 1 && p <= totalPages));
-  const sorted = [...range].sort((a, b) => a - b);
+  const getPageNumbers = () => {
+    const pages = [];
+    const range = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]
+      .filter(p => p >= 1 && p <= totalPages));
+    const sorted = [...range].sort((a, b) => a - b);
 
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push('…');
-    pages.push(sorted[i]);
-  }
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push('…');
+      pages.push(sorted[i]);
+    }
+    return pages;
+  };
+
+  const pages = getPageNumbers();
 
   return (
-    <nav
-      aria-label="Pagination"
-      className="flex justify-center items-center gap-1.5 mt-12"
-    >
-      <PagBtn onClick={onPrev} disabled={isFirstPage} aria="Previous page">
-        ← Prev
+    <nav aria-label="Pagination" className="flex justify-center items-center gap-1.5 mt-12">
+      <PagBtn
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        <HiChevronLeft size={16} />
+        <span className="ml-1">Prev</span>
       </PagBtn>
 
       {pages.map((p, i) =>
         p === '…' ? (
-          <span key={`e${i}`} className="px-2 text-gray-400 text-sm select-none">…</span>
+          <span key={`ellipsis-${i}`} className="px-2 text-gray-400 text-sm select-none">…</span>
         ) : (
           <PagBtn
             key={p}
-            onClick={() => onGoTo(p)}
+            onClick={() => onPageChange(p)}
             active={p === currentPage}
-            aria={`Page ${p}`}
+            aria-label={`Page ${p}`}
+            aria-current={p === currentPage ? 'page' : undefined}
           >
             {p}
           </PagBtn>
         )
       )}
 
-      <PagBtn onClick={onNext} disabled={isLastPage} aria="Next page">
-        Next →
+      <PagBtn
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        aria-label="Next page"
+      >
+        <span className="mr-1">Next</span>
+        <HiChevronRight size={16} />
       </PagBtn>
     </nav>
   );
 };
 
-const PagBtn = ({ children, onClick, disabled, active, aria }) => (
+const PagBtn = ({ children, onClick, disabled, active, ...props }) => (
   <button
     onClick={onClick}
     disabled={disabled}
-    aria-label={aria}
-    aria-current={active ? 'page' : undefined}
-    className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all
+    className={`flex items-center gap-1 px-3.5 py-2 rounded-lg text-sm font-medium transition-all
       ${active
         ? 'bg-violet-600 text-white shadow-md shadow-violet-200'
         : disabled
           ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
           : 'bg-white border border-gray-200 text-gray-700 hover:border-violet-400 hover:text-violet-600'
       }`}
+    {...props}
   >
     {children}
   </button>
 );
 
-// ── Skeleton ─────────────────────────────────────────────────────────────────
-
+// Skeleton Components
 const Shimmer = ({ className = '' }) => (
   <div className={`relative overflow-hidden bg-gray-100 rounded-xl ${className}`}>
     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-[shimmer_1.4s_infinite]" />

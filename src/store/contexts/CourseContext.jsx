@@ -1,4 +1,5 @@
 // src/store/contexts/CourseContext.jsx
+
 import React, { createContext, useState, useContext, useCallback } from 'react';
 import { getAllCourses, searchCourses, getCoursesByCategories } from '../../features/courses/api/course.api';
 
@@ -44,6 +45,9 @@ export const CourseProvider = ({ children }) => {
     setError(null);
     try {
       const response = await getAllCourses(page, pageSize);
+      
+      console.log('[CourseContext] fetchAllCourses response:', response);
+      
       if (response.success) {
         setAllCourses(response.data || []);
         setPagination({
@@ -52,7 +56,7 @@ export const CourseProvider = ({ children }) => {
           totalPages: response.pagination?.totalPages || 0,
           pageSize: response.pagination?.pageSize || pageSize,
         });
-        return { success: true, data: response.data };
+        return { success: true, data: response.data, pagination: response.pagination };
       }
       setError(response.message);
       return { success: false, error: response.message };
@@ -71,6 +75,9 @@ export const CourseProvider = ({ children }) => {
     setError(null);
     try {
       const response = await searchCourses(searchTerm, page, pageSize);
+      
+      console.log('[CourseContext] searchAllCourses response:', response);
+      
       if (response.success) {
         setAllCourses(response.data || []);
         setPagination({
@@ -79,7 +86,7 @@ export const CourseProvider = ({ children }) => {
           totalPages: response.pagination?.totalPages || 0,
           pageSize: response.pagination?.pageSize || pageSize,
         });
-        return { success: true, data: response.data };
+        return { success: true, data: response.data, pagination: response.pagination };
       }
       setError(response.message);
       return { success: false, error: response.message };
@@ -98,6 +105,9 @@ export const CourseProvider = ({ children }) => {
     setError(null);
     try {
       const response = await getCoursesByCategories(categories, page, pageSize);
+      
+      console.log('[CourseContext] filterByCategories response:', response);
+      
       if (response.success) {
         setAllCourses(response.data || []);
         setPagination({
@@ -106,7 +116,7 @@ export const CourseProvider = ({ children }) => {
           totalPages: response.pagination?.totalPages || 0,
           pageSize: response.pagination?.pageSize || pageSize,
         });
-        return { success: true, data: response.data };
+        return { success: true, data: response.data, pagination: response.pagination };
       }
       setError(response.message);
       return { success: false, error: response.message };

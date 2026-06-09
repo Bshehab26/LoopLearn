@@ -1,4 +1,5 @@
 // src/features/courses/api/course.api.js
+
 import api from '../../../services/api/axios';
 import { handleApiError } from '../../../services/api/errorHandler';
 
@@ -17,18 +18,27 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 12;
 
 // ============================================================================
-// Helper Functions
+// Helper Functions - FIXED PAGINATION EXTRACTION
 // ============================================================================
 
-const extractPaginationHeaders = (headers) => ({
-  total: parseInt(headers['total-count'] || 0, 10),
-  page: parseInt(headers['page'] || DEFAULT_PAGE, 10),
-  pageSize: parseInt(headers['pagesize'] || DEFAULT_PAGE_SIZE, 10),
-  totalPages: Math.ceil(
-    (parseInt(headers['total-count'] || 0, 10)) / 
-    (parseInt(headers['pagesize'] || DEFAULT_PAGE_SIZE, 10))
-  ),
-});
+const extractPaginationHeaders = (headers) => {
+  // Get headers (case-insensitive)
+  const totalCount = parseInt(headers['total-count'] || headers['Total-Count'] || 0, 10);
+  const page = parseInt(headers['page'] || headers['Page'] || DEFAULT_PAGE, 10);
+  const pageSize = parseInt(headers['pagesize'] || headers['PageSize'] || DEFAULT_PAGE_SIZE, 10);
+  
+  // Calculate total pages
+  const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0;
+  
+  console.log('[Pagination] Headers:', { totalCount, page, pageSize, totalPages });
+  
+  return {
+    total: totalCount,
+    page: page,
+    pageSize: pageSize,
+    totalPages: totalPages,
+  };
+};
 
 // ============================================================================
 // API Functions
@@ -40,7 +50,25 @@ export const getAllCourses = async (page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE
       params: { page, pageSize }
     });
     
+    console.log('[getAllCourses] Response headers:', response.headers);
+    console.log('[getAllCourses] Response data:', response.data);
+    
     const pagination = extractPaginationHeaders(response.headers);
+    
+    // Handle 204 No Content
+    if (response.status === 204 || !response.data?.data || response.data.data.length === 0) {
+      return {
+        success: true,
+        message: 'No courses found',
+        data: [],
+        pagination: {
+          total: 0,
+          page: page,
+          pageSize: pageSize,
+          totalPages: 0,
+        },
+      };
+    }
     
     return {
       success: response.data.success || true,
@@ -88,6 +116,8 @@ export const searchCourses = async (searchTerm, page = DEFAULT_PAGE, pageSize = 
       params: { page, pageSize }
     });
     
+    console.log('[searchCourses] Response headers:', response.headers);
+    
     const pagination = extractPaginationHeaders(response.headers);
     
     // Handle search response format (may have nested course objects)
@@ -119,12 +149,33 @@ export const getCoursesByCategories = async (categories, page = DEFAULT_PAGE, pa
       };
     }
     
-    const params = new URLSearchParams();
-    categories.forEach(cat => params.append('categories', cat));
-    params.append('page', page);
-    params.append('pageSize', pageSize);
+    const response = await api.get(COURSE_ENDPOINTS.BY_CATEGORIES, {
+      params: { 
+        categories: categories,
+        page, 
+        pageSize 
+      },
+      paramsSerializer: (params) => {
+        // Handle array parameters correctly
+        const { categories, ...rest } = params;
+        const searchParams = new URLSearchParams();
+        
+        // Add categories as separate parameters
+        if (Array.isArray(categories)) {
+          categories.forEach(cat => searchParams.append('categories', cat));
+        }
+        
+        // Add other params
+        Object.entries(rest).forEach(([key, value]) => {
+          searchParams.append(key, value);
+        });
+        
+        return searchParams.toString();
+      }
+    });
     
-    const response = await api.get(`${COURSE_ENDPOINTS.BY_CATEGORIES}?${params.toString()}`);
+    console.log('[getCoursesByCategories] Response headers:', response.headers);
+    
     const pagination = extractPaginationHeaders(response.headers);
     
     return {

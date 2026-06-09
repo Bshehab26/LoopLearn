@@ -12,6 +12,7 @@ export const useInstructorCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'draft', 'pending', 'published', 'rejected'
 
   const fetchCourses = useCallback(async () => {
     try {
@@ -55,9 +56,16 @@ export const useInstructorCourses = () => {
     try {
       const response = await submitForReview(courseId);
       if (response.success) {
-        setCourses(prev => prev.map(c => 
-          c.id === courseId ? { ...c, status: 'pending' } : c
+        // Update the course status in the local state
+        setCourses(prev => prev.map(course => 
+          course.id === courseId 
+            ? { ...course, status: 'pending' } 
+            : course
         ));
+        
+        // Also refresh from server to ensure consistency
+        await fetchCourses();
+        
         return true;
       }
       setError(response.message);
@@ -66,16 +74,37 @@ export const useInstructorCourses = () => {
       setError('Failed to submit for review');
       return false;
     }
-  }, []);
+  }, [fetchCourses]);
+
+  // Filter courses based on active filter
+  const filteredCourses = useCallback(() => {
+    if (activeFilter === 'all') return courses;
+    return courses.filter(course => course.status === activeFilter);
+  }, [courses, activeFilter]);
+
+  // Get counts for each status
+  const getStatusCounts = useCallback(() => {
+    return {
+      all: courses.length,
+      draft: courses.filter(c => c.status === 'draft').length,
+      pending: courses.filter(c => c.status === 'pending').length,
+      published: courses.filter(c => c.status === 'published').length,
+      rejected: courses.filter(c => c.status === 'rejected').length,
+    };
+  }, [courses]);
 
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
 
   return {
-    courses,
+    courses: filteredCourses(),
+    allCourses: courses,
     loading,
     error,
+    activeFilter,
+    setActiveFilter,
+    statusCounts: getStatusCounts(),
     fetchCourses,
     deleteCourse: handleDeleteCourse,
     submitForReview: handleSubmitForReview,

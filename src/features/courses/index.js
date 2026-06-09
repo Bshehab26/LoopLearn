@@ -2,8 +2,9 @@
 export { default as CoursesList } from './pages/CoursesList';
 export { default as CourseDetails } from './pages/CourseDetails';
 export { default as WatchWindow } from './pages/WatchWindow';
-export { default as CourseCard } from './components/CourseCard';
-export { default as SearchBar } from './components/SearchBar';
+// src/features/courses/index.js
+
+export { default as CourseCard } from './components/CourseCard';export { default as SearchBar } from './components/SearchBar';
 export { default as FilterDropdown } from './components/FilterDropdown';
 export { default as Comments } from './components/Comments';
 

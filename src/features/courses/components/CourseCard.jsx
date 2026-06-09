@@ -1,345 +1,386 @@
-/**
- * CourseCard.jsx
- * Fixed: handleCardClick was undefined (crash), ListViewStats reviews.length on number,
- *        MobilePriceBadge showed on md+ screens (logic reversed), isFree badge duplicated.
- * Enhanced: cleaner grid/list layout, better responsive design, accessible markup.
- *
- * @module features/courses/components/CourseCard
- */
+// src/features/courses/components/CourseCard.jsx
 
-import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useUI } from '../../../store/AppProvider';
 import { motion } from 'framer-motion';
-import {
-  HiOutlineUserGroup, HiOutlineClock, HiOutlineStar,
-  HiOutlineBookmark, HiOutlinePlay,
+import { 
+  HiStar, 
+  HiClock, 
+  HiOutlineBookOpen,
+  HiUserGroup 
 } from 'react-icons/hi';
 
-// ============================================================================
-// Constants
-// ============================================================================
+// Get currency from env or default to USD
+const CURRENCY = import.meta.env.VITE_CURRENCY || 'USD';
+const CURRENCY_SYMBOL = CURRENCY === 'EGP' ? 'EGP' : '$';
 
-const DEFAULT_VALUES = {
-  rating: 0,
-  reviews: 0,
-  students: 0,
-  duration: '0m',
-  description: 'An excellent course to advance your skills and career.',
+// Helper function to format price
+const formatPrice = (price, isFree) => {
+  if (isFree) return 'Free';
+  return `${CURRENCY_SYMBOL}${price?.toFixed(2) || '0.00'}`;
 };
 
-// Animation variants
-const CARD_VARIANTS = {
-  hidden:  { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-  hover:   { y: -6, transition: { duration: 0.25, ease: 'easeOut' } },
+// Helper function to format duration
+const formatDuration = (duration) => {
+  if (!duration) return null;
+  if (typeof duration === 'string') {
+    const parts = duration.split(':');
+    if (parts.length === 3) {
+      const hours = parseInt(parts[0]);
+      const minutes = parseInt(parts[1]);
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}min`;
+    }
+  }
+  if (typeof duration === 'number') {
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}min`;
+  }
+  return null;
 };
 
-const IMAGE_VARIANTS = {
-  hover: { scale: 1.06, transition: { duration: 0.4 } },
-};
-
-// ============================================================================
-// Sub-components
-// ============================================================================
-
-const StarRating = ({ rating = 0 }) => {
-  const full = Math.floor(rating);
-  return (
-    <div className="flex items-center gap-0.5">
-      {[...Array(5)].map((_, i) => (
-        <HiOutlineStar
-          key={i}
-          size={13}
-          className={i < full ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}
-        />
-      ))}
-    </div>
-  );
-};
-
-/** ✅ FIX: reviewCount is a number — use it directly, not .length */
-const ListViewStats = ({ rating = 0, reviewCount = 0, students = 0, duration }) => (
-  <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-100">
-    <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
-      <HiOutlineStar size={12} className="text-amber-400 fill-amber-400" />
-      <span className="font-semibold text-gray-700">{Number(rating).toFixed(1)}</span>
-      <span className="text-gray-400">({reviewCount.toLocaleString()})</span>
-    </span>
-    <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
-      <HiOutlineUserGroup size={12} />
-      {Number(students).toLocaleString()} students
-    </span>
-    {duration && (
-      <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
-        <HiOutlineClock size={12} />
-        {duration}
-      </span>
-    )}
-  </div>
-);
-
-const GridViewStats = ({ rating = 0, reviewCount = 0, students = 0 }) => (
-  <div className="flex items-center justify-between mt-2">
-    <div className="flex items-center gap-1.5">
-      <StarRating rating={rating} />
-      <span className="text-xs font-semibold text-gray-700">{Number(rating).toFixed(1)}</span>
-      <span className="text-xs text-gray-400">({Number(reviewCount).toLocaleString()})</span>
-    </div>
-    <div className="flex items-center gap-1 text-xs text-gray-500">
-      <HiOutlineUserGroup size={12} />
-      <span>{Number(students).toLocaleString()}</span>
-    </div>
-  </div>
-);
-
-const CourseBadge = ({ text, type = 'featured' }) => {
-  const styles = {
-    featured:   'bg-gradient-to-r from-yellow-500 to-orange-500',
-    bestseller: 'bg-gradient-to-r from-green-500 to-emerald-600',
-    new:        'bg-gradient-to-r from-blue-500 to-cyan-500',
-    updated:    'bg-gradient-to-r from-violet-500 to-purple-600',
-    free:       'bg-gradient-to-r from-teal-500 to-green-500',
+// Helper function to get level color
+const getLevelColor = (level) => {
+  const colors = {
+    'Beginner': 'bg-green-100 text-green-700',
+    'Intermediate': 'bg-yellow-100 text-yellow-700',
+    'Advanced': 'bg-red-100 text-red-700',
+    'All Levels': 'bg-blue-100 text-blue-700',
   };
-  return (
-    <span
-      className={`absolute top-3 left-3 ${styles[type] ?? styles.featured} text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full shadow`}
-    >
-      {text}
-    </span>
-  );
+  return colors[level] || 'bg-gray-100 text-gray-700';
 };
 
-const ProgressBar = ({ progress = 0 }) => {
-  if (!progress) return null;
-  return (
-    <div className="mt-3">
-      <div className="flex justify-between text-xs text-gray-500 mb-1">
-        <span>Progress</span>
-        <span className="text-violet-600 font-medium">{progress}%</span>
-      </div>
-      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full"
-        />
-      </div>
-    </div>
-  );
+// Helper function to get category color
+const getCategoryColor = (category) => {
+  const colors = {
+    'Web Development': 'bg-blue-100 text-blue-700',
+    'Mobile Development': 'bg-teal-100 text-teal-700',
+    'Data Science': 'bg-orange-100 text-orange-700',
+    'UI/UX Design': 'bg-pink-100 text-pink-700',
+    'Cybersecurity': 'bg-red-100 text-red-700',
+    'DevOps': 'bg-indigo-100 text-indigo-700',
+    'Cloud Computing': 'bg-cyan-100 text-cyan-700',
+    'Game Development': 'bg-purple-100 text-purple-700',
+    'Business': 'bg-emerald-100 text-emerald-700',
+    'Marketing': 'bg-amber-100 text-amber-700',
+  };
+  return colors[category] || 'bg-gray-100 text-gray-700';
 };
 
-// ============================================================================
-// Main Component
-// ============================================================================
+// Card variants for animations
+const cardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      delay: i * 0.05,
+      duration: 0.4,
+      ease: [0.25, 0.1, 0.25, 1],
+    },
+  }),
+  hover: {
+    y: -8,
+    scale: 1.02,
+    transition: {
+      type: 'spring',
+      stiffness: 300,
+      damping: 20,
+    },
+  },
+};
 
-const CourseCard = ({ course, viewMode = 'grid', showProgress = false, onSave, isSaved = false }) => {
-  const { currency } = useUI();
-  const [isHovered, setIsHovered] = useState(false);
-  const [saved, setSaved]         = useState(isSaved);
+const imageVariants = {
+  hover: {
+    scale: 1.1,
+    transition: { duration: 0.3 },
+  },
+};
 
-  const formattedPrice = useMemo(
-    () => course.isFree ? 'Free' : `${currency}${Number(course.price ?? 0).toFixed(2)}`,
-    [currency, course.price, course.isFree]
-  );
+const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
+  const {
+    id,
+    title,
+    subtitle,
+    thumbnailUrl,
+    instructorName,
+    averageRating = 0,
+    totalRatings = 0,
+    price = 0,
+    isFree = false,
+    level = 'Beginner',
+    category,
+    duration,
+  } = course;
 
-  /** ✅ FIX: was undefined before — extracted from inline handler */
-  const handleSaveClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSaved(prev => !prev);
-    onSave?.(course.id);
+  // Generate gradient based on category for placeholder
+  const getCategoryGradient = (cat) => {
+    const gradients = {
+      'Web Development': 'from-blue-500 to-purple-600',
+      'Mobile Development': 'from-green-500 to-teal-600',
+      'Data Science': 'from-yellow-500 to-orange-600',
+      'UI/UX Design': 'from-pink-500 to-rose-600',
+      'Cybersecurity': 'from-red-500 to-orange-600',
+      'DevOps': 'from-indigo-500 to-purple-600',
+      'Cloud Computing': 'from-cyan-500 to-blue-600',
+      'Game Development': 'from-purple-500 to-pink-600',
+      'Business': 'from-emerald-500 to-green-600',
+      'Marketing': 'from-orange-500 to-red-600',
+    };
+    return gradients[cat] || 'from-purple-500 to-indigo-600';
   };
 
-  const badge = (() => {
-    if (course.isFree)       return { text: 'Free',             type: 'free' };
-    if (course.isFeatured)   return { text: 'Featured',         type: 'featured' };
-    if (course.isBestseller) return { text: 'Bestseller',       type: 'bestseller' };
-    if (course.isNew)        return { text: 'New',              type: 'new' };
-    if (course.isUpdated)    return { text: 'Recently Updated', type: 'updated' };
-    return null;
-  })();
+  const gradient = getCategoryGradient(category);
+  const levelColor = getLevelColor(level);
+  const categoryColor = getCategoryColor(category);
+  const formattedPrice = formatPrice(price, isFree);
+  const formattedDuration = formatDuration(duration);
 
-  const thumbnail =
-    course.thumbnailUrl ||
-    course.avatar ||
-    `https://placehold.co/400x225/7c3aed/ffffff?text=${encodeURIComponent(course.title?.slice(0, 2) ?? 'C')}`;
+  // Play Icon Component
+  const PlayIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
 
-  // ──────────────────────────────────────────────────
-  // LIST VIEW
-  // ──────────────────────────────────────────────────
-  if (viewMode === 'list') {
+  // Grid view
+  if (viewMode === 'grid') {
     return (
-      <motion.div variants={CARD_VARIANTS} initial="hidden" animate="visible" whileHover="hover" className="group">
-        <Link
-          to={`/course/${course.id}`}
-          className="flex flex-col sm:flex-row bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-shadow duration-300"
-        >
-          {/* Thumbnail */}
-          <div className="relative sm:w-56 w-full overflow-hidden flex-shrink-0 bg-gray-100">
+      <motion.div
+        custom={index}
+        initial="hidden"
+        animate="visible"
+        whileHover="hover"
+        variants={cardVariants}
+        className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300"
+      >
+        {/* Thumbnail Container */}
+        <div className="relative h-48 overflow-hidden bg-gray-100">
+          {thumbnailUrl ? (
             <motion.img
-              className="w-full h-40 sm:h-full object-cover"
-              src={thumbnail}
-              alt={course.title}
-              loading="lazy"
-              variants={IMAGE_VARIANTS}
-              whileHover="hover"
+              src={thumbnailUrl}
+              alt={title}
+              className="w-full h-full object-cover"
+              variants={imageVariants}
             />
-            {badge && <CourseBadge text={badge.text} type={badge.type} />}
-          </div>
+          ) : (
+            <motion.div 
+              variants={imageVariants}
+              className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+            >
+              <HiOutlineBookOpen className="w-16 h-16 text-white/30" />
+            </motion.div>
+          )}
+          
+          {/* Level Badge - Top Left */}
+          <motion.div 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="absolute top-3 left-3 z-10"
+          >
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${levelColor} shadow-sm`}>
+              {level}
+            </span>
+          </motion.div>
+          
+          {/* Category Badge - Below Level, Top Left */}
+          {category && (
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 }}
+              className="absolute top-12 left-3 z-10"
+            >
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${categoryColor} shadow-sm backdrop-blur-sm bg-white/80`}>
+                {category}
+              </span>
+            </motion.div>
+          )}
+          
+          {/* Price Badge - Right Side */}
+          <motion.div 
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="absolute top-3 right-3 z-10"
+          >
+            <span className="px-3 py-1 rounded-lg text-sm font-bold bg-white/95 backdrop-blur-sm shadow-md">
+              {formattedPrice}
+            </span>
+          </motion.div>
+          
+          {/* Overlay on hover */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            whileHover={{ opacity: 1 }}
+            className="absolute inset-0 bg-black/40 flex items-center justify-center z-20"
+          >
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-6 py-2 bg-white rounded-full text-gray-800 font-semibold text-sm shadow-lg"
+              onClick={() => window.location.href = `/course/${id}`}
+            >
+              View Course
+            </motion.button>
+          </motion.div>
+        </div>
 
-          {/* Body */}
-          <div className="flex-1 p-5 text-left flex flex-col justify-between min-w-0">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                <span className="text-xs font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                  {course.category || 'Course'}
-                </span>
-                <span className="text-xs text-gray-400">{course.level || 'All Levels'}</span>
-              </div>
-
-              <h3 className="text-base sm:text-lg font-bold text-gray-800 line-clamp-2 group-hover:text-violet-600 transition-colors leading-snug">
-                {course.title}
-              </h3>
-              <p className="text-sm text-violet-500 mt-0.5 font-medium truncate">
-                {course.instructorName}
-              </p>
-              <p className="text-sm text-gray-500 mt-2 line-clamp-2 leading-relaxed hidden sm:block">
-                {course.description || course.subtitle || DEFAULT_VALUES.description}
-              </p>
+        {/* Content */}
+        <div className="p-4">
+          {/* Rating Row */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1">
+              <HiStar className="w-4 h-4 text-yellow-400 fill-current" />
+              <span className="text-sm font-semibold text-gray-700">
+                {averageRating?.toFixed(1) || '0.0'}
+              </span>
+              <span className="text-xs text-gray-400">
+                ({totalRatings || 0})
+              </span>
             </div>
-
-            <div className="flex items-end justify-between gap-4 mt-3">
-              <ListViewStats
-                rating={course.averageRating}
-                reviewCount={course.totalRatings ?? 0}
-                students={course.enrollmentCount ?? 0}
-                duration={course.totalDuration}
-              />
-              <div className="text-right flex-shrink-0">
-                <p className="text-xl font-bold text-violet-600">{formattedPrice}</p>
-                {course.originalPrice && course.originalPrice > course.price && (
-                  <p className="text-xs text-gray-400 line-through">
-                    {currency}{Number(course.originalPrice).toFixed(2)}
-                  </p>
-                )}
+            
+            {/* Duration */}
+            {formattedDuration && (
+              <div className="flex items-center gap-1 text-gray-500">
+                <HiClock className="w-4 h-4" />
+                <span className="text-xs">{formattedDuration}</span>
               </div>
-            </div>
-
-            {showProgress && <ProgressBar progress={course.progress} />}
+            )}
           </div>
-        </Link>
+          
+          {/* Title */}
+          <h3 className="font-bold text-gray-800 mb-1 line-clamp-2 text-lg group-hover:text-purple-600 transition-colors">
+            {title}
+          </h3>
+          
+          {/* Subtitle */}
+          {subtitle && (
+            <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+              {subtitle}
+            </p>
+          )}
+          
+          {/* Instructor */}
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <HiUserGroup className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="text-xs truncate">{instructorName || 'Unknown Instructor'}</span>
+          </div>
+        </div>
       </motion.div>
     );
   }
 
-  // ──────────────────────────────────────────────────
-  // GRID VIEW
-  // ──────────────────────────────────────────────────
+  // List view
   return (
     <motion.div
-      variants={CARD_VARIANTS}
+      custom={index}
       initial="hidden"
       animate="visible"
       whileHover="hover"
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      className="group h-full"
+      variants={cardVariants}
+      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row"
     >
-      <Link
-        to={`/course/${course.id}`}
-        className="flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-shadow duration-300 h-full"
-      >
-        {/* Thumbnail */}
-        <div className="relative overflow-hidden bg-gray-100 flex-shrink-0">
+      {/* Thumbnail */}
+      <div className="relative sm:w-64 h-48 sm:h-auto overflow-hidden bg-gray-100">
+        {thumbnailUrl ? (
           <motion.img
-            className="w-full aspect-video object-cover"
-            src={thumbnail}
-            alt={course.title}
-            loading="lazy"
-            variants={IMAGE_VARIANTS}
-            whileHover="hover"
+            src={thumbnailUrl}
+            alt={title}
+            className="w-full h-full object-cover"
+            variants={imageVariants}
           />
-
-          {/* Hover overlay */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isHovered ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none"
+        ) : (
+          <motion.div 
+            variants={imageVariants}
+            className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
           >
-            <div className="w-11 h-11 rounded-full bg-white/90 flex items-center justify-center">
-              <HiOutlinePlay size={22} className="text-violet-600 ml-0.5" />
-            </div>
+            <HiOutlineBookOpen className="w-12 h-12 text-white/30" />
           </motion.div>
-
-          {badge && <CourseBadge text={badge.text} type={badge.type} />}
-
-          {/* Save button */}
-          <button
-            onClick={handleSaveClick}
-            aria-label={saved ? 'Unsave course' : 'Save course'}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow transition-transform duration-200 hover:scale-110"
-          >
-            <HiOutlineBookmark
-              size={16}
-              className={`transition-colors ${saved ? 'text-violet-600 fill-violet-600' : 'text-gray-500'}`}
-            />
-          </button>
-
-          {/* ✅ FIX: price badge shown only on mobile (correct logic) */}
-          {!course.isFree && (
-            <span className="absolute bottom-3 right-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow sm:hidden">
-              {formattedPrice}
-            </span>
-          )}
+        )}
+        
+        {/* Level Badge - Top Left */}
+        <div className="absolute top-3 left-3 z-10">
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${levelColor} shadow-sm`}>
+            {level}
+          </span>
         </div>
-
-        {/* Body */}
-        <div className="p-4 flex flex-col flex-grow">
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="text-xs font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-              {course.category || 'Course'}
+        
+        {/* Category Badge - Below Level, Top Left */}
+        {category && (
+          <div className="absolute top-12 left-3 z-10">
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${categoryColor} shadow-sm backdrop-blur-sm bg-white/80`}>
+              {category}
             </span>
-            <span className="text-xs text-gray-400">{course.level || 'All Levels'}</span>
           </div>
-
-          <h3 className="text-sm font-bold text-gray-800 line-clamp-2 group-hover:text-violet-600 transition-colors leading-snug flex-grow">
-            {course.title}
-          </h3>
-
-          <p className="text-xs text-gray-500 mt-1 truncate">by {course.instructorName}</p>
-
-          <GridViewStats
-            rating={course.averageRating ?? 0}
-            reviewCount={course.totalRatings ?? 0}
-            students={course.enrollmentCount ?? 0}
-          />
-
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-            {/* ✅ Price visible on sm+ screens (hidden on mobile — shown in badge above) */}
-            <div className="hidden sm:block">
-              <p className="text-base font-bold text-violet-600">{formattedPrice}</p>
-              {course.originalPrice && course.originalPrice > course.price && (
-                <p className="text-xs text-gray-400 line-through">
-                  {currency}{Number(course.originalPrice).toFixed(2)}
-                </p>
-              )}
+        )}
+        
+        {/* Price Badge */}
+        <div className="absolute top-3 right-3 z-10">
+          <span className="px-3 py-1 rounded-lg text-sm font-bold bg-white/95 backdrop-blur-sm shadow-md">
+            {formattedPrice}
+          </span>
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 p-5">
+        <div className="flex flex-col h-full">
+          {/* Rating and Duration Row */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-1">
+              <HiStar className="w-4 h-4 text-yellow-400 fill-current" />
+              <span className="text-sm font-semibold text-gray-700">
+                {averageRating?.toFixed(1) || '0.0'}
+              </span>
+              <span className="text-xs text-gray-400">
+                ({totalRatings || 0} ratings)
+              </span>
             </div>
-
-            <motion.span
+            
+            {formattedDuration && (
+              <div className="flex items-center gap-1 text-gray-500">
+                <HiClock className="w-4 h-4" />
+                <span className="text-sm">{formattedDuration}</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Title */}
+          <h3 className="font-bold text-gray-800 mb-2 line-clamp-1 text-xl group-hover:text-purple-600 transition-colors">
+            {title}
+          </h3>
+          
+          {/* Subtitle */}
+          {subtitle && (
+            <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+              {subtitle}
+            </p>
+          )}
+          
+          {/* Instructor */}
+          <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
+            <HiUserGroup className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="text-sm">{instructorName || 'Unknown Instructor'}</span>
+          </div>
+          
+          {/* Footer with CTA */}
+          <div className="flex justify-end mt-auto pt-3 border-t border-gray-100">
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-1.5 rounded-full shadow ml-auto sm:ml-0"
+              className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition shadow-sm"
+              onClick={() => window.location.href = `/course/${id}`}
             >
-              {course.isEnrolled ? 'Continue' : 'Enroll Now'}
-            </motion.span>
+              <PlayIcon />
+              Enroll Now
+            </motion.button>
           </div>
-
-          {showProgress && <ProgressBar progress={course.progress} />}
         </div>
-      </Link>
+      </div>
     </motion.div>
   );
 };

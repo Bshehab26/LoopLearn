@@ -83,11 +83,22 @@ export const getCourseById = async (courseId) => {
   }
 };
 
+// src/features/instructor/api/instructor.api.js - Update updateCourse
+
 export const updateCourse = async (courseId, courseData) => {
   try {
+    console.log('[updateCourse] Sending update for course:', courseId);
+    console.log('[updateCourse] Payload:', JSON.stringify(courseData, null, 2));
+    
     const response = await api.put(ENDPOINTS.COURSE_UPDATE(courseId), courseData);
+    
+    console.log('[updateCourse] Response status:', response.status);
+    console.log('[updateCourse] Response data:', response.data);
+    
     return response.data;
   } catch (error) {
+    console.error('[updateCourse] Error:', error);
+    console.error('[updateCourse] Error response:', error.response?.data);
     return handleApiError(error);
   }
 };
@@ -105,15 +116,78 @@ export const deleteCourse = async (courseId) => {
 // Course Status API
 // ============================================================================
 
+// src/features/instructor/api/instructor.api.js - Update submitForReview
+
 export const submitForReview = async (courseId) => {
   try {
+    console.log('[submitForReview] Submitting course:', courseId);
     const response = await api.post(ENDPOINTS.COURSE_SUBMIT_REVIEW(courseId));
-    return response.data;
+    
+    console.log('[submitForReview] Success response:', response.data);
+    
+    return {
+      success: true,
+      message: response.data?.message || 'Course submitted for review successfully',
+      data: response.data?.data
+    };
+    
   } catch (error) {
-    return handleApiError(error);
+    console.error('[submitForReview] Error:', error);
+    console.error('[submitForReview] Error response:', error.response);
+    console.error('[submitForReview] Error data:', error.response?.data);
+    
+    // Extract ALL validation errors from backend response
+    let errorMessages = [];
+    let mainMessage = 'Validation failed';
+    
+    const errorData = error.response?.data;
+    
+    if (errorData) {
+      // Case 1: errors is an array of strings
+      if (errorData.errors && Array.isArray(errorData.errors)) {
+        errorMessages = errorData.errors;
+        mainMessage = errorData.message || 'Please fix the following issues:';
+      }
+      // Case 2: errors is an object with field names
+      else if (errorData.errors && typeof errorData.errors === 'object') {
+        errorMessages = Object.values(errorData.errors).flat();
+        mainMessage = errorData.message || 'Please fix the following issues:';
+      }
+      // Case 3: message is a string with multiple errors
+      else if (errorData.message && typeof errorData.message === 'string') {
+        // Check if message contains multiple bullet points or line breaks
+        if (errorData.message.includes('\n') || errorData.message.includes('•') || errorData.message.includes('-')) {
+          // Split by common separators
+          errorMessages = errorData.message
+            .split(/\n|•|-/)
+            .map(m => m.trim())
+            .filter(m => m.length > 0 && m.length < 200);
+        } else {
+          errorMessages = [errorData.message];
+        }
+        mainMessage = 'Course validation failed:';
+      }
+      // Case 4: direct string error
+      else if (typeof errorData === 'string') {
+        errorMessages = [errorData];
+        mainMessage = 'Validation error:';
+      }
+    }
+    
+    // If still no errors, try to extract from error.message
+    if (errorMessages.length === 0 && error.message) {
+      errorMessages = [error.message];
+    }
+    
+    console.log('[submitForReview] Extracted error messages:', errorMessages);
+    
+    return {
+      success: false,
+      message: mainMessage,
+      errors: errorMessages
+    };
   }
 };
-
 export const getReviewHistory = async (courseId) => {
   try {
     const response = await api.get(ENDPOINTS.COURSE_REVIEW_HISTORY(courseId));

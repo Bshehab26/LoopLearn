@@ -2,18 +2,15 @@
  * FilterDropdown.jsx
  *
  * Fixes:
- *  1. Categories were HARDCODED in a static array — now fetched from
- *     GET /api/Category via the useCategories hook.
- *  2. Loading & error states shown inside the dropdown.
- *  3. Course counts still computed client-side from the `courses` prop
- *     (matches DB category names dynamically instead of the old static list).
- *  4. Outside-click uses the shared useOutsideClick hook.
+ *  1. Categories fetched from GET /api/Category via useCategories hook.
+ *  2. Category counts are accurate (fetched from all courses, not just current page).
+ *  3. Filtering calls the API directly (backend filtering).
+ *  4. Removes URL navigation - filtering is handled entirely by the API.
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { HiOutlineAdjustmentsHorizontal, HiChevronDown } from 'react-icons/hi2';
 import { HiX } from 'react-icons/hi';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import useCategories from '../hooks/useCategories';
 
@@ -26,30 +23,6 @@ const ANIM = {
   animate: { opacity: 1, y: 0,  scale: 1    },
   exit:    { opacity: 0, y: -8, scale: 0.97 },
   transition: { duration: 0.18 },
-};
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/**
- * Build category-to-count map from the courses already loaded.
- * Uses the DB category names (from useCategories) so counts align correctly.
- */
-const buildCounts = (courses = [], dbCategories = []) => {
-  const map = {};
-  dbCategories.forEach(c => { map[c.name] = 0; });
-  courses.forEach(course => {
-    const cat = course.category;
-    if (cat && map[cat] !== undefined) map[cat]++;
-  });
-  return map;
-};
-
-const extractCategoryFromUrl = (params) => {
-  const raw = params.get('category') ?? params.get('categories');
-  if (!raw) return null;
-  try { return decodeURIComponent(raw); } catch { return raw; }
 };
 
 // ============================================================================
@@ -98,7 +71,9 @@ const CategoryRow = ({ name, count, selected, onSelect }) => (
       {name}
     </span>
     {count > 0 && (
-      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{count}</span>
+      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+        {count}
+      </span>
     )}
   </div>
 );
@@ -107,22 +82,19 @@ const CategoryRow = ({ name, count, selected, onSelect }) => (
 // Main Component
 // ============================================================================
 
-const FilterDropdown = ({ courses = [], onFilterChange }) => {
-  const [isOpen,   setIsOpen]   = useState(false);
-  const [selected, setSelected] = useState(null);
+const FilterDropdown = ({ onFilterChange, activeCategory = null }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState(activeCategory);
 
-  // ✅ FIX: real categories from the database
-  const { categories: dbCategories, loading: catLoading, error: catError } = useCategories();
+  // ✅ Fetch real categories with ACCURATE counts from all courses
+  const { categories, categoryCounts, loading: catLoading, error: catError } = useCategories();
 
   const dropdownRef = useRef(null);
-  const navigate    = useNavigate();
-  const location    = useLocation();
 
-  // Sync selected state from URL on mount / navigation
+  // Sync with external activeCategory prop (from parent)
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    setSelected(extractCategoryFromUrl(params));
-  }, [location.search]);
+    setSelected(activeCategory);
+  }, [activeCategory]);
 
   // Close on outside click
   useEffect(() => {
@@ -133,29 +105,23 @@ const FilterDropdown = ({ courses = [], onFilterChange }) => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ✅ Counts built from DB category names + loaded courses
-  const countMap = useMemo(
-    () => buildCounts(courses, dbCategories),
-    [courses, dbCategories]
-  );
-
   const handleSelect = useCallback((name) => {
     setSelected(prev => (prev === name ? null : name));
   }, []);
 
   const handleApply = useCallback(() => {
-    if (!selected) return;
-    navigate(`/courses?category=${encodeURIComponent(selected)}`, { replace: true });
-    onFilterChange?.({ categories: [selected] });
+    // Call the parent's onFilterChange with the selected category
+    // This will trigger the API call in the parent component
+    onFilterChange?.({ categories: selected ? [selected] : [] });
     setIsOpen(false);
-  }, [selected, navigate, onFilterChange]);
+  }, [selected, onFilterChange]);
 
   const handleClear = useCallback(() => {
     setSelected(null);
-    navigate('/courses', { replace: true });
+    // Clear filter - fetch all courses
     onFilterChange?.({ categories: [] });
     setIsOpen(false);
-  }, [navigate, onFilterChange]);
+  }, [onFilterChange]);
 
   const hasFilter = !!selected;
 
@@ -179,7 +145,10 @@ const FilterDropdown = ({ courses = [], onFilterChange }) => {
             <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-gray-100">
               <span className="text-sm font-semibold text-gray-800">Filter by Category</span>
               {hasFilter && (
-                <button onClick={handleClear} className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 transition font-medium">
+                <button 
+                  onClick={handleClear} 
+                  className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 transition font-medium"
+                >
                   <HiX size={12} /> Clear
                 </button>
               )}
@@ -208,14 +177,14 @@ const FilterDropdown = ({ courses = [], onFilterChange }) => {
                     Retry
                   </button>
                 </div>
-              ) : dbCategories.length === 0 ? (
+              ) : categories.length === 0 ? (
                 <p className="py-6 text-center text-sm text-gray-400">No categories found</p>
               ) : (
-                dbCategories.map(cat => (
+                categories.map(cat => (
                   <CategoryRow
                     key={cat.id}
                     name={cat.name}
-                    count={countMap[cat.name] ?? 0}
+                    count={categoryCounts[cat.name] ?? 0}
                     selected={selected === cat.name}
                     onSelect={handleSelect}
                   />

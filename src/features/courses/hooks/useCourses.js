@@ -16,7 +16,7 @@ import { getFilteredCourses } from '../api/course.api';
 // ============================================================================
 
 const DEFAULT_PAGE      = 1;
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 12;  // Changed from 50 to 12 for better pagination
 const DEBOUNCE_DELAY    = 500;
 
 // ============================================================================
@@ -28,7 +28,10 @@ const useCourses = (initialFilters = {}) => {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [pagination, setPagination] = useState({
-    page: DEFAULT_PAGE, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 0,
+    page: DEFAULT_PAGE, 
+    pageSize: DEFAULT_PAGE_SIZE, 
+    total: 0, 
+    totalPages: 0,
   });
 
   const [filters, setFilters] = useState({
@@ -58,7 +61,12 @@ const useCourses = (initialFilters = {}) => {
 
     try {
       const { searchTerm, categories, page, pageSize } = filtersRef.current;
+      
+      console.log('[useCourses] Fetching with filters:', { searchTerm, categories, page, pageSize });
+      
       const response = await getFilteredCourses({ searchTerm, categories, page, pageSize });
+
+      console.log('[useCourses] Response:', response);
 
       if (response.success) {
         setCourses(response.data ?? []);
@@ -68,12 +76,20 @@ const useCourses = (initialFilters = {}) => {
           total:      response.pagination?.total      ?? 0,
           totalPages: response.pagination?.totalPages ?? 0,
         });
+        
+        console.log('[useCourses] Pagination set:', {
+          page: response.pagination?.page,
+          pageSize: response.pagination?.pageSize,
+          total: response.pagination?.total,
+          totalPages: response.pagination?.totalPages,
+        });
       } else {
         setError(response.message ?? 'Failed to load courses');
         setCourses([]);
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
+        console.error('[useCourses] Error:', err);
         setError(err.message ?? 'Failed to load courses');
         setCourses([]);
       }
@@ -111,6 +127,10 @@ const useCourses = (initialFilters = {}) => {
     setFilters(prev => ({ ...prev, page: newPage }));
   }, []);
 
+  const changePageSize = useCallback((newPageSize) => {
+    setFilters(prev => ({ ...prev, pageSize: newPageSize, page: DEFAULT_PAGE }));
+  }, []);
+
   /** Debounced search — safe to call on every keystroke */
   const searchCoursesDebounced = useCallback((searchTerm) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -140,6 +160,7 @@ const useCourses = (initialFilters = {}) => {
     filters,
     updateFilters,
     changePage,
+    changePageSize,
     searchCoursesDebounced,
     filterByCategories,
     clearFilters,
