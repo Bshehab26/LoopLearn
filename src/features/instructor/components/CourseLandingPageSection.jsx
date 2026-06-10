@@ -1,211 +1,254 @@
-// src/features/instructor/components/CourseLandingPageSection.jsx (UPDATED)
-import React, { useState, useEffect } from 'react';
-import { HiChevronDown, HiChevronUp, HiPencil, HiCheck } from 'react-icons/hi';
+// src/features/instructor/components/CourseLandingPageSection.jsx
+
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HiChevronDown, HiChevronUp, HiPencil, HiCheck, HiPhotograph, HiTag, HiDocumentText, HiExclamationCircle } from 'react-icons/hi';
 import { ThumbnailUploader } from './ThumbnailUploader';
 import { TagSelector } from './TagSelector';
-import { getTags } from '../../../shared/api/preLoadData.api';
-
-// src/features/instructor/components/CourseLandingPageSection.jsx - Fix subtitle editing
 
 const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onToggle }) => {
-  const [editingField, setEditingField] = useState(null);
-  const [editValue, setEditValue] = useState('');
-  const [availableTags, setAvailableTags] = useState([]);
-  const [tagsLoading, setTagsLoading] = useState(false);
+  const [editMode, setEditMode] = useState({
+    subtitle: false,
+    description: false
+  });
+  const [editValue, setEditValue] = useState({
+    subtitle: '',
+    description: ''
+  });
 
-  // Load tags
-  useEffect(() => {
-    const loadTags = async () => {
-      setTagsLoading(true);
-      try {
-        const response = await getTags();
-        if (response.success && response.data) {
-          setAvailableTags(response.data);
-        }
-      } catch (error) {
-        console.error('Failed to load tags:', error);
-      } finally {
-        setTagsLoading(false);
-      }
-    };
-    loadTags();
-  }, []);
-
-  const handleFieldEdit = (field, value) => {
-    console.log(`[Edit] Editing ${field}:`, value);
-    setEditingField(field);
-    setEditValue(value || '');
+  const startEdit = (field, value) => {
+    setEditMode({ ...editMode, [field]: true });
+    setEditValue({ ...editValue, [field]: value || '' });
   };
 
-  const handleFieldSave = (field) => {
-    console.log(`[Save] Saving ${field}:`, editValue);
-    onUpdate({ [field]: editValue });
-    setEditingField(null);
+  const cancelEdit = (field) => {
+    setEditMode({ ...editMode, [field]: false });
+    setEditValue({ ...editValue, [field]: '' });
+  };
+
+  const saveEdit = (field) => {
+    onUpdate({ [field]: editValue[field] });
+    setEditMode({ ...editMode, [field]: false });
   };
 
   const handleTagsChange = (newTags) => {
     const tagIds = newTags.map(t => t.id);
-    console.log('[Tags] Updating tags:', { newTags, tagIds });
     onUpdate({ tagIds });
   };
 
-  const getSelectedTagObjects = () => {
-    if (!data.tagIds || !availableTags.length) return [];
-    return availableTags.filter(tag => data.tagIds.includes(tag.id));
-  };
+  // Check description length for validation
+  const descriptionLength = data.description?.length || 0;
+  const isDescriptionValid = descriptionLength >= 50;
+  const needsMoreChars = descriptionLength > 0 && descriptionLength < 50;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
       {/* Header */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition"
+        className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-            <span className="text-purple-600 font-semibold">2</span>
+          <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+            <HiDocumentText size={18} className="text-purple-600" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-800">Course Landing Page</h2>
-          <span className="text-xs text-gray-400">Thumbnail, Title, Tags & Description</span>
+          <div className="text-left">
+            <h2 className="text-lg font-semibold text-gray-800">Course Landing Page</h2>
+            <p className="text-xs text-gray-500">Thumbnail, tags, subtitle & description</p>
+          </div>
         </div>
-        {isExpanded ? <HiChevronUp size={20} /> : <HiChevronDown size={20} />}
+        {isExpanded ? <HiChevronUp size={20} className="text-gray-400" /> : <HiChevronDown size={20} className="text-gray-400" />}
       </button>
 
       {/* Content */}
-      {isExpanded && (
-        <div className="p-5 border-t border-gray-100 space-y-6">
-          {/* Thumbnail Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Course Thumbnail <span className="text-red-500">*</span>
-            </label>
-            <ThumbnailUploader
-              thumbnailUrl={data.thumbnailUrl}
-              onThumbnailChange={(url) => onUpdate({ thumbnailUrl: url })}
-              isEditable={isEditable}
-            />
-          </div>
-
-          {/* Subtitle - FIXED */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Course Subtitle
-            </label>
-            {isEditable && editingField === 'subtitle' ? (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
-                  autoFocus
-                  placeholder="e.g., Master modern web development from scratch..."
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-gray-100"
+          >
+            <div className="p-6 space-y-6">
+              {/* Thumbnail Upload Section */}
+              <div className="bg-gray-50 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <HiPhotograph size={18} className="text-purple-600" />
+                  <h3 className="font-medium text-gray-800">Course Thumbnail</h3>
+                  <span className="text-xs text-red-500">*Required</span>
+                </div>
+                <ThumbnailUploader
+                  thumbnailUrl={data.thumbnailUrl}
+                  onThumbnailChange={(url) => onUpdate({ thumbnailUrl: url })}
+                  isEditable={isEditable}
                 />
-                <button
-                  onClick={() => handleFieldSave('subtitle')}
-                  className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                >
-                  <HiCheck size={18} />
-                </button>
-                <button
-                  onClick={() => setEditingField(null)}
-                  className="px-3 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-start justify-between gap-2 p-3 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 flex-1">
-                  {data.subtitle || <span className="text-gray-400 italic">No subtitle added yet</span>}
+                <p className="text-xs text-gray-400 mt-3">
+                  Recommended: 1280x720px (16:9 ratio). Max 5MB. JPG, PNG, or WEBP.
                 </p>
-                {isEditable && (
-                  <button
-                    onClick={() => handleFieldEdit('subtitle', data.subtitle)}
-                    className="text-gray-400 hover:text-purple-600 transition"
-                  >
-                    <HiPencil size={16} />
-                  </button>
-                )}
               </div>
-            )}
-            <p className="text-xs text-gray-400 mt-1">
-              A good subtitle helps students understand what makes your course unique
-            </p>
-          </div>
 
-          {/* Tags Section */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Course Tags
-            </label>
-            <TagSelector
-              selectedTags={getSelectedTagObjects()}
-              onTagsChange={handleTagsChange}
-              isEditable={isEditable}
-              availableTags={availableTags}
-              loading={tagsLoading}
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Add relevant tags to help students discover your course
-            </p>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Course Description <span className="text-red-500">*</span>
-            </label>
-            {isEditable && editingField === 'description' ? (
-              <div className="space-y-2">
-                <textarea
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
-                  placeholder="Describe what students will learn in this course..."
-                  autoFocus
+              {/* Tags Section */}
+              <div className="bg-gray-50 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <HiTag size={18} className="text-purple-600" />
+                  <h3 className="font-medium text-gray-800">Course Tags</h3>
+                  <span className="text-xs text-gray-400">Optional</span>
+                </div>
+                <TagSelector
+                  selectedTags={[]}
+                  onTagsChange={handleTagsChange}
+                  isEditable={isEditable}
                 />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setEditingField(null)}
-                    className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleFieldSave('description')}
-                    className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                  >
-                    Save
-                  </button>
-                </div>
+                <p className="text-xs text-gray-400 mt-3">
+                  Add relevant tags to help students discover your course
+                </p>
               </div>
-            ) : (
-              <div className="relative group">
-                <div className="prose max-w-none p-3 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600 whitespace-pre-wrap">
-                    {data.description || <span className="text-gray-400 italic">No description added yet</span>}
-                  </p>
+
+              {/* Subtitle Section */}
+              <div className="bg-gray-50 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium text-gray-800">Course Subtitle</h3>
+                    <span className="text-xs text-gray-400">Optional</span>
+                  </div>
+                  {isEditable && !editMode.subtitle && (
+                    <button
+                      onClick={() => startEdit('subtitle', data.subtitle)}
+                      className="text-gray-400 hover:text-purple-600 transition"
+                    >
+                      <HiPencil size={16} />
+                    </button>
+                  )}
                 </div>
-                {isEditable && (
-                  <button
-                    onClick={() => handleFieldEdit('description', data.description)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition"
-                  >
-                    <HiPencil size={16} />
-                  </button>
+
+                {editMode.subtitle ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={editValue.subtitle}
+                      onChange={(e) => setEditValue({ ...editValue, subtitle: e.target.value })}
+                      rows={2}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none resize-none"
+                      placeholder="e.g., Master modern web development from scratch with React, Node.js, and MongoDB"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => cancelEdit('subtitle')}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => saveEdit('subtitle')}
+                        className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-white rounded-lg border border-gray-200 min-h-[80px] break-words">
+                    {data.subtitle ? (
+                      <p className="text-gray-700 break-words whitespace-pre-wrap">{data.subtitle}</p>
+                    ) : (
+                      <p className="text-gray-400 italic">No subtitle added yet. Add a compelling subtitle to attract students.</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-            {data.description && data.description.length < 50 && (
-              <p className="text-xs text-orange-500 mt-1">
-                ⚠️ Description is too short (minimum 50 characters recommended)
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+
+              {/* Description Section - FIXED CONTAINER */}
+              <div className="bg-gray-50 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium text-gray-800">Course Description</h3>
+                    <span className="text-xs text-red-500">*Required</span>
+                    {descriptionLength > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${isDescriptionValid ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {descriptionLength}/50 chars
+                      </span>
+                    )}
+                  </div>
+                  {isEditable && !editMode.description && (
+                    <button
+                      onClick={() => startEdit('description', data.description)}
+                      className="text-gray-400 hover:text-purple-600 transition"
+                    >
+                      <HiPencil size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {editMode.description ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={editValue.description}
+                      onChange={(e) => setEditValue({ ...editValue, description: e.target.value })}
+                      rows={8}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none resize-y"
+                      placeholder="Write a detailed description of your course...
+
+Example structure:
+• What will students learn?
+• What are the requirements?
+• Who is this course for?
+• What makes your course unique?"
+                      autoFocus
+                    />
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-500">
+                          {editValue.description.length} characters
+                        </p>
+                        {editValue.description.length < 50 && editValue.description.length > 0 && (
+                          <span className="text-xs text-orange-500 flex items-center gap-1">
+                            <HiExclamationCircle size={12} />
+                            Need {50 - editValue.description.length} more characters
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => cancelEdit('description')}
+                          className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => saveEdit('description')}
+                          className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-white rounded-lg border border-gray-200 max-h-[300px] overflow-y-auto break-words">
+                    {data.description ? (
+                      <div className="prose prose-sm max-w-none">
+                        <p className="text-gray-700 whitespace-pre-wrap break-words">{data.description}</p>
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 italic">No description added yet. Add a detailed description to help students understand your course.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Validation warning */}
+                {data.description && data.description.length < 50 && (
+                  <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <p className="text-xs text-orange-700 flex items-center gap-2">
+                      <HiExclamationCircle size={14} />
+                      Description must be at least 50 characters. Currently {data.description.length} characters.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

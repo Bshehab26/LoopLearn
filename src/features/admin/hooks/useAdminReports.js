@@ -1,4 +1,5 @@
 // src/features/admin/hooks/useAdminReports.js
+
 import { useState, useCallback } from 'react';
 import { getReports } from '../api/admin.api';
 
@@ -28,8 +29,6 @@ const useAdminReports = () => {
 
   const exportReport = useCallback((format = 'csv') => {
     if (!reports) return;
-    
-    // Mock export functionality
     console.log(`Exporting ${activeTab} report as ${format}`);
     alert(`Report exported as ${format.toUpperCase()}`);
   }, [reports, activeTab]);

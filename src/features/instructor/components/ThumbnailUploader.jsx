@@ -1,7 +1,8 @@
 // src/features/instructor/components/ThumbnailUploader.jsx
+
 import React, { useState, useRef } from 'react';
-import { HiUpload, HiX, HiPhotograph, HiCloudUpload, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
-import { uploadCourseThumbnail } from '../../../shared/api/upload.api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HiUpload, HiX, HiPhotograph, HiCloudUpload, HiCheckCircle, HiExclamationCircle, HiArrowUp } from 'react-icons/hi';
 
 export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable }) => {
   const [uploading, setUploading] = useState(false);
@@ -9,11 +10,13 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
   const [uploadError, setUploadError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(thumbnailUrl);
   const [dragActive, setDragActive] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const fileInputRef = useRef(null);
 
   const validateFile = (file) => {
-    if (!file.type.startsWith('image/')) {
-      return { valid: false, error: 'Please select an image file (JPEG, PNG, WEBP)' };
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      return { valid: false, error: 'Please select a valid image file (JPEG, PNG, or WEBP)' };
     }
     if (file.size > 5 * 1024 * 1024) {
       return { valid: false, error: 'Image must be less than 5MB' };
@@ -31,6 +34,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
     // Show preview immediately
     const localPreview = URL.createObjectURL(file);
     setPreviewUrl(localPreview);
+    setImageLoaded(false);
     setUploadError(null);
     setUploading(true);
     setUploadProgress(0);
@@ -38,7 +42,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
     // Simulate progress for better UX
     const progressInterval = setInterval(() => {
       setUploadProgress(prev => Math.min(prev + 10, 90));
-    }, 200);
+    }, 150);
 
     try {
       const uploadedUrl = await uploadCourseThumbnail(file);
@@ -50,14 +54,16 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
         onThumbnailChange(uploadedUrl);
         setUploading(false);
         setUploadProgress(0);
+        setImageLoaded(true);
       }, 300);
     } catch (err) {
       clearInterval(progressInterval);
       console.error('❌ Upload failed:', err);
-      setUploadError(err.message || 'Failed to upload image');
-      setPreviewUrl(thumbnailUrl); // Revert to original
+      setUploadError(err.message || 'Failed to upload image. Please try again.');
+      setPreviewUrl(thumbnailUrl);
       setUploading(false);
       setUploadProgress(0);
+      if (thumbnailUrl) setImageLoaded(true);
     }
   };
 
@@ -85,6 +91,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
 
   const handleRemove = () => {
     setPreviewUrl(null);
+    setImageLoaded(false);
     onThumbnailChange('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -93,7 +100,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
 
   if (!isEditable) {
     return (
-      <div className="relative rounded-xl overflow-hidden bg-gray-100">
+      <div className="relative rounded-xl overflow-hidden bg-gray-100 shadow-inner">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -102,8 +109,9 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
             style={{ aspectRatio: '16/9' }}
           />
         ) : (
-          <div className="flex items-center justify-center" style={{ aspectRatio: '16/9' }}>
+          <div className="flex flex-col items-center justify-center gap-2" style={{ aspectRatio: '16/9' }}>
             <HiPhotograph size={48} className="text-gray-300" />
+            <span className="text-xs text-gray-400">No thumbnail</span>
           </div>
         )}
       </div>
@@ -115,7 +123,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
       {/* Thumbnail Preview Area */}
       <div
         className={`relative rounded-xl overflow-hidden transition-all duration-200 ${
-          dragActive ? 'ring-2 ring-purple-500 ring-offset-2' : ''
+          dragActive ? 'ring-2 ring-purple-500 ring-offset-2 shadow-lg' : ''
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -123,45 +131,68 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
       >
         {previewUrl ? (
           <div className="relative group">
-            <img
+            {/* Image with fade-in animation */}
+            <motion.img
+              initial={{ opacity: 0 }}
+              animate={{ opacity: imageLoaded || !uploading ? 1 : 0.5 }}
               src={previewUrl}
               alt="Course thumbnail preview"
               className="w-full object-cover"
               style={{ aspectRatio: '16/9' }}
+              onLoad={() => setImageLoaded(true)}
             />
             
             {/* Overlay on hover */}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 bg-white rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition shadow-lg transform hover:scale-105"
-              >
-                Change
-              </button>
-              <button
-                type="button"
-                onClick={handleRemove}
-                className="px-4 py-2 bg-red-600 rounded-lg text-sm font-medium text-white hover:bg-red-700 transition shadow-lg transform hover:scale-105"
-              >
-                Remove
-              </button>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-white rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition shadow-lg transform hover:scale-105"
+                >
+                  Change Image
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  className="px-4 py-2 bg-red-600 rounded-lg text-sm font-medium text-white hover:bg-red-700 transition shadow-lg transform hover:scale-105"
+                >
+                  Remove
+                </button>
+              </div>
+              <p className="text-white text-xs opacity-80">Click to modify thumbnail</p>
             </div>
 
             {/* Upload progress overlay */}
-            {uploading && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center">
-                <div className="w-16 h-16 mb-3">
-                  <div className="w-full h-full border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-                <p className="text-white text-sm mb-2">Uploading...</p>
-                <div className="w-48 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-purple-500 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-                <p className="text-white/60 text-xs mt-2">{uploadProgress}%</p>
+            <AnimatePresence>
+              {uploading && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center"
+                >
+                  <div className="w-20 h-20 mb-4">
+                    <div className="w-full h-full border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                  <p className="text-white text-sm font-medium mb-2">Uploading...</p>
+                  <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  <p className="text-white/60 text-xs mt-2">{uploadProgress}%</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Success checkmark */}
+            {!uploading && imageLoaded && previewUrl && !uploadError && (
+              <div className="absolute top-3 right-3 bg-green-500 rounded-full p-1 shadow-lg">
+                <HiCheckCircle size={16} className="text-white" />
               </div>
             )}
           </div>
@@ -169,7 +200,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
           <label
             className={`flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
               dragActive
-                ? 'border-purple-500 bg-purple-50'
+                ? 'border-purple-500 bg-purple-50 scale-[1.02]'
                 : 'border-2 border-dashed border-gray-300 bg-gray-50 hover:border-purple-400 hover:bg-purple-50/30'
             }`}
             style={{ aspectRatio: '16/9' }}
@@ -182,39 +213,77 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
               className="hidden"
               disabled={uploading}
             />
-            <HiCloudUpload size={40} className={`mb-3 ${dragActive ? 'text-purple-500' : 'text-gray-400'}`} />
-            <p className="text-sm font-medium text-gray-700">
-              {dragActive ? 'Drop your image here' : 'Click or drag to upload'}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              JPEG, PNG, WEBP up to 5MB
-            </p>
-            <p className="text-xs text-purple-500 mt-2">
-              Recommended: 1280x720px (16:9)
-            </p>
+            <motion.div
+              initial={{ scale: 1 }}
+              animate={{ scale: dragActive ? 1.05 : 1 }}
+              className="text-center"
+            >
+              {dragActive ? (
+                <>
+                  <HiArrowUp size={48} className="mx-auto mb-3 text-purple-500 animate-bounce" />
+                  <p className="text-sm font-medium text-purple-600">Drop your image here</p>
+                </>
+              ) : (
+                <>
+                  <HiCloudUpload size={48} className="mx-auto mb-3 text-gray-400 group-hover:text-purple-500 transition" />
+                  <p className="text-sm font-medium text-gray-700">
+                    Click or drag to upload
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    JPEG, PNG, WEBP up to 5MB
+                  </p>
+                </>
+              )}
+            </motion.div>
           </label>
         )}
       </div>
 
       {/* Status Messages */}
-      {uploading && !previewUrl && (
-        <div className="flex items-center gap-2 text-sm text-purple-600 bg-purple-50 p-2 rounded-lg">
-          <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-          Uploading your thumbnail...
-        </div>
-      )}
+      <AnimatePresence>
+        {uploading && !previewUrl && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2 text-sm text-purple-600 bg-purple-50 p-3 rounded-lg"
+          >
+            <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+            Uploading your thumbnail...
+          </motion.div>
+        )}
 
-      {uploadError && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-          <HiExclamationCircle size={18} />
-          {uploadError}
-        </div>
-      )}
+        {uploadError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200"
+          >
+            <HiExclamationCircle size={18} />
+            {uploadError}
+          </motion.div>
+        )}
 
-      {!uploading && !uploadError && previewUrl && (
-        <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded-lg">
-          <HiCheckCircle size={16} />
-          Thumbnail uploaded successfully
+        {!uploading && !uploadError && previewUrl && imageLoaded && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200"
+          >
+            <HiCheckCircle size={16} />
+            Thumbnail uploaded successfully! Your course image is ready.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview tip */}
+      {previewUrl && !uploading && (
+        <div className="text-center">
+          <p className="text-xs text-gray-400">
+            Hover over the image to change or remove
+          </p>
         </div>
       )}
     </div>

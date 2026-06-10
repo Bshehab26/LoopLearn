@@ -1,4 +1,5 @@
 // src/features/admin/components/CategoryManager.jsx
+
 import { HiPencil, HiTrash, HiPlus } from 'react-icons/hi';
 import { motion } from 'framer-motion';
 
@@ -47,7 +48,7 @@ const CategoryManager = ({ categories, loading, onEdit, onDelete, onAdd }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all"
+            className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all"
           >
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -55,7 +56,7 @@ const CategoryManager = ({ categories, loading, onEdit, onDelete, onAdd }) => {
                   <span className="text-2xl">📁</span>
                   <h4 className="font-semibold text-gray-800">{category.name}</h4>
                 </div>
-                <p className="text-sm text-gray-500 mb-3">{category.description}</p>
+                <p className="text-sm text-gray-500 mb-3 line-clamp-2">{category.description}</p>
                 <div className="flex items-center gap-4 text-xs text-gray-400">
                   <span>{category.courseCount || 0} courses</span>
                   <span>Created: {new Date(category.createdAt).toLocaleDateString()}</span>

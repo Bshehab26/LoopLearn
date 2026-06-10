@@ -1,4 +1,5 @@
 // src/features/admin/pages/Categories.jsx
+
 import CategoryManager from '../components/CategoryManager';
 import CategoryForm from '../components/CategoryForm';
 import useAdminCategories from '../hooks/useAdminCategories';

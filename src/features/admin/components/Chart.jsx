@@ -1,4 +1,5 @@
 // src/features/admin/components/Chart.jsx
+
 import { useEffect, useRef } from 'react';
 
 const Chart = ({ data, type = 'line', height = 300, color = '#534AB7' }) => {
@@ -15,7 +16,6 @@ const Chart = ({ data, type = 'line', height = 300, color = '#534AB7' }) => {
     canvas.width = width;
     canvas.height = heightValue;
 
-    // Clear canvas
     ctx.clearRect(0, 0, width, heightValue);
 
     if (!data.labels?.length || !data.values?.length) return;
@@ -31,17 +31,15 @@ const Chart = ({ data, type = 'line', height = 300, color = '#534AB7' }) => {
     ctx.strokeStyle = '#E5E7EB';
     ctx.lineWidth = 1;
     
-    // Y-axis
     ctx.moveTo(padding.left, padding.top);
     ctx.lineTo(padding.left, heightValue - padding.bottom);
     ctx.stroke();
     
-    // X-axis
     ctx.moveTo(padding.left, heightValue - padding.bottom);
     ctx.lineTo(width - padding.right, heightValue - padding.bottom);
     ctx.stroke();
 
-    // Draw grid lines and Y-axis labels
+    // Draw grid lines
     const gridLines = 5;
     for (let i = 0; i <= gridLines; i++) {
       const y = heightValue - padding.bottom - (i / gridLines) * chartHeight;
@@ -97,23 +95,6 @@ const Chart = ({ data, type = 'line', height = 300, color = '#534AB7' }) => {
         ctx.arc(x, y, 2, 0, Math.PI * 2);
         ctx.fill();
       });
-    } else if (type === 'bar') {
-      const barWidth = xStep * 0.6;
-      
-      data.values.forEach((value, i) => {
-        const x = padding.left + i * xStep - barWidth / 2;
-        const barHeight = (value / maxValue) * chartHeight;
-        const y = heightValue - padding.bottom - barHeight;
-        
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y, barWidth, barHeight);
-        
-        // Rounded top
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.roundRect(x, y, barWidth, 4, 4);
-        ctx.fill();
-      });
     }
 
   }, [data, type, height, color]);
@@ -132,23 +113,5 @@ const Chart = ({ data, type = 'line', height = 300, color = '#534AB7' }) => {
     </div>
   );
 };
-
-// Helper for rounded rect
-if (!CanvasRenderingContext2D.prototype.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-    if (w < 2 * r) r = w / 2;
-    if (h < 2 * r) r = h / 2;
-    this.moveTo(x+r, y);
-    this.lineTo(x+w-r, y);
-    this.quadraticCurveTo(x+w, y, x+w, y+r);
-    this.lineTo(x+w, y+h-r);
-    this.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-    this.lineTo(x+r, y+h);
-    this.quadraticCurveTo(x, y+h, x, y+h-r);
-    this.lineTo(x, y+r);
-    this.quadraticCurveTo(x, y, x+r, y);
-    return this;
-  };
-}
 
 export default Chart;

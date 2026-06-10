@@ -1,4 +1,5 @@
 // src/features/admin/pages/Reports.jsx
+
 import { useEffect } from 'react';
 import { HiDownload, HiTrendingUp, HiUsers, HiBookOpen, HiCurrencyDollar } from 'react-icons/hi';
 import ReportCard from '../components/ReportCard';
@@ -15,7 +16,6 @@ const Reports = () => {
   const tabs = [
     { id: 'revenue', label: 'Revenue', icon: HiCurrencyDollar },
     { id: 'enrollments', label: 'Enrollments', icon: HiUsers },
-    { id: 'courses', label: 'Courses', icon: HiBookOpen },
   ];
 
   const getChartData = () => {
@@ -23,8 +23,8 @@ const Reports = () => {
     
     if (activeTab === 'revenue') {
       return {
-        labels: reports.revenue?.labels || ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-        values: reports.revenue?.monthly || [45000, 52000, 48900, 58450],
+        labels: reports.revenue?.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        values: reports.revenue?.monthly || [45000, 52000, 48900, 58450, 62000, 71000],
       };
     } else if (activeTab === 'enrollments') {
       return {
@@ -64,14 +64,12 @@ const Reports = () => {
         </button>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
         {summaryCards.map((card, index) => (
           <ReportCard key={card.title} {...card} delay={index * 0.1} />
         ))}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b border-gray-200">
         {tabs.map((tab) => (
           <button
@@ -89,15 +87,12 @@ const Reports = () => {
         ))}
       </div>
 
-      {/* Chart */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
         <h3 className="font-semibold text-gray-800 mb-4 capitalize">{activeTab} Trends</h3>
         <Chart data={getChartData()} type="line" color="#534AB7" />
       </div>
 
-      {/* Top Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Courses */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <HiTrendingUp size={18} className="text-purple-600" />
@@ -119,7 +114,6 @@ const Reports = () => {
           </div>
         </div>
 
-        {/* Top Instructors */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <HiUsers size={18} className="text-purple-600" />

@@ -41,8 +41,9 @@ const InstructorStudentEnrolled = lazy(() => import('../features/instructor/page
 
 // Admin
 const AdminDashboard = lazy(() => import('../features/admin/pages/Dashboard'));
+const PendingCourses = lazy(() => import('../features/admin/pages/PendingCourses'));
+const AllCourses = lazy(() => import('../features/admin/pages/AllCourses'));
 const AdminUsers = lazy(() => import('../features/admin/pages/Users'));
-const AdminCourses = lazy(() => import('../features/admin/pages/Courses'));
 const AdminCategories = lazy(() => import('../features/admin/pages/Categories'));
 const AdminReports = lazy(() => import('../features/admin/pages/Reports'));
 
@@ -135,15 +136,17 @@ const AppRouter = () => {
         </Route>
 
         {/* Admin Layout */}
-        <Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
-          <Route element={<AdminLayout />}>
-            <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
-            <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
-            <Route path={ROUTES.ADMIN_COURSES} element={<AdminCourses />} />
-            <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategories />} />
-            <Route path={ROUTES.ADMIN_REPORTS} element={<AdminReports />} />
-          </Route>
-        </Route>
+       
+<Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
+  <Route element={<AdminLayout />}>
+    <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
+    <Route path={ROUTES.ADMIN_PENDING_COURSES} element={<PendingCourses />} />
+    <Route path={ROUTES.ADMIN_ALL_COURSES} element={<AllCourses />} />
+    <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
+    <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategories />} />
+    <Route path={ROUTES.ADMIN_REPORTS} element={<AdminReports />} />
+  </Route>
+</Route>
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />

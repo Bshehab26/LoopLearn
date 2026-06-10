@@ -1,49 +1,36 @@
 // src/features/admin/components/CourseFilters.jsx
+
 import { useState } from 'react';
 import { HiSearch } from 'react-icons/hi';
 
 const CourseFilters = ({ filters, onFilterChange }) => {
   const [search, setSearch] = useState(filters.search || '');
   const [status, setStatus] = useState(filters.status || '');
-  const [category, setCategory] = useState(filters.category || '');
 
   const handleSearch = () => {
-    onFilterChange({ search, status, category, page: 1 });
+    onFilterChange({ search, status, page: 1 });
   };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
   };
 
-  const handleStatusChange = (e) => {
-    const newStatus = e.target.value;
-    setStatus(newStatus);
-    onFilterChange({ search, status: newStatus, category, page: 1 });
-  };
-
-  const handleCategoryChange = (e) => {
-    const newCategory = e.target.value;
-    setCategory(newCategory);
-    onFilterChange({ search, status, category: newCategory, page: 1 });
-  };
-
   const clearFilters = () => {
     setSearch('');
     setStatus('');
-    setCategory('');
-    onFilterChange({ search: '', status: '', category: '', page: 1 });
+    onFilterChange({ search: '', status: '', page: 1 });
   };
 
-  const hasFilters = search || status || category;
+  const hasFilters = search || status;
 
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-6">
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6">
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
           <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
-            placeholder="Search by course title..."
+            placeholder="Search by course title or instructor..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyPress={handleKeyPress}
@@ -53,7 +40,10 @@ const CourseFilters = ({ filters, onFilterChange }) => {
 
         <select
           value={status}
-          onChange={handleStatusChange}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            onFilterChange({ search, status: e.target.value, page: 1 });
+          }}
           className="px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
         >
           <option value="">All Status</option>
@@ -61,19 +51,6 @@ const CourseFilters = ({ filters, onFilterChange }) => {
           <option value="Pending">Pending</option>
           <option value="Draft">Draft</option>
           <option value="Rejected">Rejected</option>
-        </select>
-
-        <select
-          value={category}
-          onChange={handleCategoryChange}
-          className="px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
-        >
-          <option value="">All Categories</option>
-          <option value="Programming">Programming</option>
-          <option value="Data Science">Data Science</option>
-          <option value="Design">Design</option>
-          <option value="Business">Business</option>
-          <option value="Cybersecurity">Cybersecurity</option>
         </select>
 
         <button

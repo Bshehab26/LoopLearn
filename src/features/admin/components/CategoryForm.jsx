@@ -1,4 +1,5 @@
 // src/features/admin/components/CategoryForm.jsx
+
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiX } from 'react-icons/hi';
@@ -44,14 +45,6 @@ const CategoryForm = ({ isOpen, category, onSave, onClose, loading }) => {
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: null }));
-    }
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -59,14 +52,14 @@ const CategoryForm = ({ isOpen, category, onSave, onClose, loading }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white rounded-2xl p-6 max-w-md w-full mx-4"
+            className="bg-white rounded-2xl p-6 max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
@@ -90,7 +83,7 @@ const CategoryForm = ({ isOpen, category, onSave, onClose, loading }) => {
                   type="text"
                   name="name"
                   value={formData.name}
-                  onChange={handleChange}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Web Development"
                   className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                     errors.name ? 'border-red-500' : 'border-gray-200'
@@ -106,7 +99,7 @@ const CategoryForm = ({ isOpen, category, onSave, onClose, loading }) => {
                 <textarea
                   name="description"
                   value={formData.description}
-                  onChange={handleChange}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Describe what this category covers..."
                   rows={3}
                   className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${

@@ -1,4 +1,5 @@
 // src/features/admin/pages/Dashboard.jsx
+
 import { HiUsers, HiBookOpen, HiCurrencyDollar, HiStar } from 'react-icons/hi';
 import StatsCard from '../components/StatsCard';
 import useAdminStats from '../hooks/useAdminStats';
@@ -28,7 +29,6 @@ const Dashboard = () => {
         <p className="text-gray-500 mt-1">Overview of platform statistics</p>
       </div>
 
-      {/* ✅ Fixed: No spread operator on props */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {statCards.map((card, index) => (
           <StatsCard
@@ -45,15 +45,13 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pending Courses */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
           <h3 className="font-semibold text-gray-800 mb-4">Pending Approval</h3>
           <p className="text-3xl font-bold text-purple-600">{stats?.pendingCourses || 0}</p>
           <p className="text-sm text-gray-500 mt-2">Courses waiting for review</p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
           <h3 className="font-semibold text-gray-800 mb-4">Quick Stats</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">

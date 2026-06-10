@@ -21,10 +21,11 @@ export const ROUTES = {
   INSTRUCTOR_STUDENTS: '/instructor/students',
   INSTRUCTOR_PROFILE: '/instructor/profile',
   
-  // Admin
-  ADMIN_DASHBOARD: '/admin',
+  // Admin Routes
+  ADMIN_DASHBOARD: '/admin/dashboard',
+  ADMIN_PENDING_COURSES: '/admin/courses/pending',
+  ADMIN_ALL_COURSES: '/admin/courses/all',
   ADMIN_USERS: '/admin/users',
-  ADMIN_COURSES: '/admin/courses',
   ADMIN_CATEGORIES: '/admin/categories',
   ADMIN_REPORTS: '/admin/reports',
 };

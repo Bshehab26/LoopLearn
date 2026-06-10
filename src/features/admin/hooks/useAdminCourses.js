@@ -1,79 +1,74 @@
 // src/features/admin/hooks/useAdminCourses.js
-import { useState, useCallback } from 'react';
-import { getAdminCourses, approveCourse, rejectCourse, deleteCourse } from '../api/admin.api';
+// USED FOR PENDING COURSES PAGE - REAL API
+
+import { useState, useCallback, useEffect } from 'react';
+import { getPendingCourses, approveCourse, rejectCourse } from '../api/admin.api';
 
 const useAdminCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  });
 
-  const fetchCourses = useCallback(async (params = {}) => {
+  const fetchCourses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getAdminCourses({ ...params, page: params.page || pagination.page });
+      const response = await getPendingCourses();
+      
+      console.log('[useAdminCourses] Response:', response);
       
       if (response.success) {
-        setCourses(response.data);
-        setPagination({
-          page: response.pagination?.page || 1,
-          limit: response.pagination?.limit || 10,
-          total: response.pagination?.total || 0,
-          totalPages: response.pagination?.totalPages || 0,
-        });
+        setCourses(response.data || []);
       } else {
-        setError(response.message);
+        setError(response.message || 'Failed to load pending courses');
+        setCourses([]);
       }
     } catch (err) {
+      console.error('[useAdminCourses] Error:', err);
       setError(err.message || 'Failed to load courses');
+      setCourses([]);
     } finally {
       setLoading(false);
     }
-  }, [pagination.page]);
+  }, []);
 
   const approveCourseById = useCallback(async (courseId) => {
-    const response = await approveCourse(courseId);
-    if (response.success) {
-      setCourses(prev => prev.map(c => 
-        c.id === courseId ? { ...c, status: 'Published' } : c
-      ));
+    try {
+      const response = await approveCourse(courseId);
+      if (response.success) {
+        setCourses(prev => prev.filter(c => c.id !== courseId));
+        return { success: true, message: response.message };
+      }
+      return { success: false, message: response.message };
+    } catch (err) {
+      return { success: false, message: err.message };
     }
-    return response;
   }, []);
 
   const rejectCourseById = useCallback(async (courseId, reason) => {
-    const response = await rejectCourse(courseId, reason);
-    if (response.success) {
-      setCourses(prev => prev.map(c => 
-        c.id === courseId ? { ...c, status: 'Rejected' } : c
-      ));
+    try {
+      const response = await rejectCourse(courseId, reason);
+      if (response.success) {
+        setCourses(prev => prev.filter(c => c.id !== courseId));
+        return { success: true, message: response.message };
+      }
+      return { success: false, message: response.message };
+    } catch (err) {
+      return { success: false, message: err.message };
     }
-    return response;
   }, []);
 
-  const removeCourse = useCallback(async (courseId) => {
-    const response = await deleteCourse(courseId);
-    if (response.success) {
-      setCourses(prev => prev.filter(c => c.id !== courseId));
-    }
-    return response;
-  }, []);
+  useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
 
   return {
     courses,
     loading,
     error,
-    pagination,
     fetchCourses,
     approveCourseById,
     rejectCourseById,
-    removeCourse,
   };
 };
 

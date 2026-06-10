@@ -1,4 +1,5 @@
 // src/features/admin/pages/Users.jsx
+
 import { useState, useEffect } from 'react';
 import UserTable from '../components/UserTable';
 import UserFilters from '../components/UserFilters';
@@ -55,7 +56,6 @@ const Users = () => {
           onActivate={activateUserAccount}
         />
 
-        {/* Pagination */}
         {pagination.totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 py-4 border-t border-gray-100">
             <button
