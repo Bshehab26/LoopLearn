@@ -1,10 +1,11 @@
 // src/features/instructor/components/CourseLandingPageSection.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiChevronDown, HiChevronUp, HiPencil, HiCheck, HiPhotograph, HiTag, HiDocumentText, HiExclamationCircle } from 'react-icons/hi';
 import { ThumbnailUploader } from './ThumbnailUploader';
 import { TagSelector } from './TagSelector';
+import { getTags } from '../../../shared/api/preLoadData.api';
 
 const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onToggle }) => {
   const [editMode, setEditMode] = useState({
@@ -15,6 +16,34 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
     subtitle: '',
     description: ''
   });
+  
+  // ✅ Store selected tags as objects
+  const [selectedTagObjects, setSelectedTagObjects] = useState([]);
+  const [availableTags, setAvailableTags] = useState([]);
+  const [tagsLoaded, setTagsLoaded] = useState(false);
+
+  // Load available tags and convert stored tagIds to tag objects
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const response = await getTags();
+        if (response.success && response.data) {
+          setAvailableTags(response.data);
+          
+          // Convert stored tagIds to tag objects
+          if (data.tagIds && Array.isArray(data.tagIds) && data.tagIds.length > 0) {
+            const selected = response.data.filter(tag => data.tagIds.includes(tag.id));
+            setSelectedTagObjects(selected);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load tags:', error);
+      } finally {
+        setTagsLoaded(true);
+      }
+    };
+    loadTags();
+  }, [data.tagIds]);
 
   const startEdit = (field, value) => {
     setEditMode({ ...editMode, [field]: true });
@@ -31,15 +60,18 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
     setEditMode({ ...editMode, [field]: false });
   };
 
+  // ✅ FIXED: Handle tags change properly - store tag objects and update backend
   const handleTagsChange = (newTags) => {
+    console.log('[CourseLandingPage] Tags changed:', newTags);
+    setSelectedTagObjects(newTags);
     const tagIds = newTags.map(t => t.id);
+    console.log('[CourseLandingPage] Tag IDs to save:', tagIds);
     onUpdate({ tagIds });
   };
 
   // Check description length for validation
   const descriptionLength = data.description?.length || 0;
   const isDescriptionValid = descriptionLength >= 50;
-  const needsMoreChars = descriptionLength > 0 && descriptionLength < 50;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
@@ -87,7 +119,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                 </p>
               </div>
 
-              {/* Tags Section */}
+              {/* Tags Section - FIXED: Pass actual selected tags */}
               <div className="bg-gray-50 rounded-xl p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <HiTag size={18} className="text-purple-600" />
@@ -95,7 +127,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                   <span className="text-xs text-gray-400">Optional</span>
                 </div>
                 <TagSelector
-                  selectedTags={[]}
+                  selectedTags={selectedTagObjects}
                   onTagsChange={handleTagsChange}
                   isEditable={isEditable}
                 />
@@ -157,7 +189,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                 )}
               </div>
 
-              {/* Description Section - FIXED CONTAINER */}
+              {/* Description Section */}
               <div className="bg-gray-50 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
-// src/features/instructor/components/TagSelector.jsx
+// src/features/instructor/components/TagSelector.jsx - Make sure it receives selectedTags correctly
 
 import React, { useState, useEffect, useRef } from 'react';
-import { HiSearch, HiX, HiPlus, HiTag, HiCheck } from 'react-icons/hi';
+import { HiSearch, HiX, HiPlus, HiTag } from 'react-icons/hi';
 import { getTags } from '../../../shared/api/preLoadData.api';
 
 export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => {
@@ -18,6 +18,7 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
       setLoading(true);
       try {
         const response = await getTags();
+        console.log('[TagSelector] Loaded tags:', response);
         if (response.success && response.data) {
           setAvailableTags(response.data);
         }
@@ -30,10 +31,15 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
     loadTags();
   }, []);
 
+  // Log when selectedTags change (for debugging)
+  useEffect(() => {
+    console.log('[TagSelector] Selected tags updated:', selectedTags);
+  }, [selectedTags]);
+
   // Filter available tags (exclude selected ones)
   const getAvailableTags = () => {
     return availableTags.filter(tag => 
-      !selectedTags.some(selected => selected.id === tag.id) &&
+      !selectedTags.some(selected => selected?.id === tag.id) &&
       tag.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
@@ -41,14 +47,23 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
   const availableTagsList = getAvailableTags();
 
   const handleAddTag = (tag) => {
-    if (!selectedTags.some(t => t.id === tag.id)) {
-      onTagsChange([...selectedTags, tag]);
+    console.log('[TagSelector] Adding tag:', tag);
+    console.log('[TagSelector] Current selectedTags:', selectedTags);
+    
+    if (!selectedTags.some(t => t?.id === tag.id)) {
+      const newSelectedTags = [...selectedTags, tag];
+      console.log('[TagSelector] New selectedTags:', newSelectedTags);
+      onTagsChange(newSelectedTags);
     }
     setSearchTerm('');
+    setIsOpen(false);
   };
 
   const handleRemoveTag = (tagId) => {
-    onTagsChange(selectedTags.filter(tag => tag.id !== tagId));
+    console.log('[TagSelector] Removing tag id:', tagId);
+    const newSelectedTags = selectedTags.filter(tag => tag.id !== tagId);
+    console.log('[TagSelector] New selectedTags after remove:', newSelectedTags);
+    onTagsChange(newSelectedTags);
   };
 
   // Close dropdown when clicking outside
@@ -84,7 +99,7 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
 
   return (
     <div className="w-full" ref={dropdownRef}>
-      {/* Selected Tags - Display all selected tags prominently */}
+      {/* Selected Tags Display */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Selected Tags ({selectedTags.length})
@@ -142,7 +157,7 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
             </div>
           </div>
 
-          {/* Tags Grid - All available tags visible */}
+          {/* Tags Grid */}
           <div className="p-3 max-h-64 overflow-y-auto">
             {loading ? (
               <div className="text-center py-6">

@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiUpload, HiX, HiPhotograph, HiCloudUpload, HiCheckCircle, HiExclamationCircle, HiArrowUp } from 'react-icons/hi';
+import { uploadCourseThumbnail } from '../../../shared/api/upload.api';  // ✅ ADD THIS IMPORT
 
 export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable }) => {
   const [uploading, setUploading] = useState(false);
@@ -45,7 +46,9 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
     }, 150);
 
     try {
+      console.log('[ThumbnailUploader] Uploading file:', file.name);
       const uploadedUrl = await uploadCourseThumbnail(file);
+      console.log('[ThumbnailUploader] Upload success:', uploadedUrl);
       clearInterval(progressInterval);
       setUploadProgress(100);
       
