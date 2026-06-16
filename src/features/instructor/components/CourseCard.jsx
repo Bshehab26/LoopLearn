@@ -94,7 +94,7 @@ const CourseCard = ({ course, onEdit, onDelete, onSubmit, onView, isSubmitting =
             <span>{course.averageRating || 0} ({course.enrollmentCount || 0})</span>
           </div>
           <div className="font-semibold text-purple-600">
-            {course.isFree ? 'Free' : `$${course.price}`}
+            {course.isFree ? 'Free' : `EGP ${course.price}`}
           </div>
         </div>
 

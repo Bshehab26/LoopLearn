@@ -1,20 +1,21 @@
 // src/features/courses/hooks/useCourseDetails.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { getCourseById, calculateTotalDuration, calculateTotalLessons } from '../api/course.api';
+import { useAuth } from '../../../store/AppProvider';
 
 // ============================================================================
 // Hook
 // ============================================================================
 
-/**
- * useCourseDetails - Hook for fetching and managing single course details
- */
 const useCourseDetails = (courseId) => {
+  const { user, isAuthenticated } = useAuth();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeSection, setActiveSection] = useState(null);
-  const [activeLesson, setActiveLesson] = useState(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [userProgress, setUserProgress] = useState(null);
 
   // Fetch course details
   const fetchCourseDetails = useCallback(async () => {
@@ -38,19 +39,23 @@ const useCourseDetails = (courseId) => {
           ...courseData,
           totalDuration: calculateTotalDuration(courseData.sections),
           totalLessons: calculateTotalLessons(courseData.sections),
+          // Mark which lessons are free/preview
+          sections: courseData.sections?.map(section => ({
+            ...section,
+            lessons: section.lessons?.map(lesson => ({
+              ...lesson,
+              isAccessible: lesson.isPreview || false // Preview lessons are free
+            }))
+          }))
         };
         
         setCourse(enhancedCourse);
         
-        // Set default active section/lesson
-        if (enhancedCourse.sections?.length > 0) {
-          const firstSection = enhancedCourse.sections[0];
-          setActiveSection(firstSection);
-          
-          if (firstSection.lessons?.length > 0) {
-            setActiveLesson(firstSection.lessons[0]);
-          }
-        }
+        // TODO: Check enrollment status from API
+        // For now, mock based on user role or localStorage
+        const mockEnrolled = localStorage.getItem(`enrolled_${courseId}`) === 'true';
+        setIsEnrolled(mockEnrolled);
+        
       } else {
         setError(response.message || 'Failed to load course details');
         setCourse(null);
@@ -63,33 +68,42 @@ const useCourseDetails = (courseId) => {
     }
   }, [courseId]);
 
-  // Set active section and reset lesson
-  const setActiveSectionHandler = useCallback((section) => {
-    setActiveSection(section);
-    // Reset to first lesson of new section
-    if (section?.lessons?.length > 0) {
-      setActiveLesson(section.lessons[0]);
-    } else {
-      setActiveLesson(null);
+  // Enroll in course
+  const enrollInCourse = useCallback(async () => {
+    if (!isAuthenticated) {
+      return { success: false, requiresAuth: true };
     }
-  }, []);
+    
+    try {
+      // TODO: Call enrollment API
+      // const response = await enrollInCourse(courseId);
+      
+      // Mock success
+      setIsEnrolled(true);
+      localStorage.setItem(`enrolled_${courseId}`, 'true');
+      return { success: true };
+    } catch (error) {
+      console.error('Enrollment failed:', error);
+      return { success: false, error: error.message };
+    }
+  }, [courseId, isAuthenticated]);
 
-  // Set active lesson
-  const setActiveLessonHandler = useCallback((lesson) => {
-    setActiveLesson(lesson);
-  }, []);
+  // Toggle save/wishlist
+  const toggleSave = useCallback(async () => {
+    if (!isAuthenticated) {
+      return { success: false, requiresAuth: true };
+    }
+    
+    setIsSaved(prev => !prev);
+    // TODO: Call wishlist API
+    return { success: true };
+  }, [isAuthenticated]);
 
-  // Check if user is enrolled
-  const isEnrolled = useCallback(() => {
-    // This will be connected to enrollment API later
-    return course?.isEnrolled || false;
-  }, [course]);
-
-  // Get progress percentage
-  const getProgress = useCallback(() => {
-    // This will be connected to progress tracking API later
-    return course?.progress || 0;
-  }, [course]);
+  // Check if lesson is accessible (free preview OR user is enrolled)
+  const isLessonAccessible = useCallback((lesson) => {
+    if (isEnrolled) return true;
+    return lesson?.isPreview === true;
+  }, [isEnrolled]);
 
   // Fetch on mount or courseId change
   useEffect(() => {
@@ -100,12 +114,12 @@ const useCourseDetails = (courseId) => {
     course,
     loading,
     error,
-    activeSection,
-    activeLesson,
-    setActiveSection: setActiveSectionHandler,
-    setActiveLesson: setActiveLessonHandler,
     isEnrolled,
-    getProgress,
+    isSaved,
+    userProgress,
+    enrollInCourse,
+    toggleSave,
+    isLessonAccessible,
     refetch: fetchCourseDetails,
   };
 };

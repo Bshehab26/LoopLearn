@@ -1,13 +1,7 @@
-/**
- * Comments.jsx
- * Course reviews and comments component with rating system.
- * Features: Rating stars, comment submission, likes, sorting, and reply functionality.
- * 
- * @module features/courses/components/Comments
- */
+// src/features/courses/components/Comments.jsx
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useAuth, useUI } from '../../../store/AppProvider';
+import { useAuth } from '../../../store/AppProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   HiOutlineHeart, HiOutlineChat, HiOutlineFlag, 
@@ -18,7 +12,6 @@ import {
 // Constants
 // ============================================================================
 
-/** Avatar color variants for user initials */
 const AVATAR_COLORS = [
   { bg: '#EEEDFE', color: '#534AB7' },
   { bg: '#FEF3C7', color: '#92400E' },
@@ -27,13 +20,9 @@ const AVATAR_COLORS = [
   { bg: '#DBEAFE', color: '#1E40AF' },
 ];
 
-/** Maximum comment length */
 const MAX_COMMENT_LENGTH = 500;
-
-/** Comment display truncation length */
 const TRUNCATE_LENGTH = 200;
 
-/** Sort options for comments */
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest First' },
   { value: 'oldest', label: 'Oldest First' },
@@ -41,10 +30,8 @@ const SORT_OPTIONS = [
   { value: 'highest-rated', label: 'Highest Rated' },
 ];
 
-/** Rating star values */
 const RATING_STARS = [1, 2, 3, 4, 5];
 
-/** Mock comments for development (remove when backend is ready) */
 const MOCK_COMMENTS = [
   { 
     id: 1, 
@@ -95,32 +82,17 @@ const MOCK_COMMENTS = [
 // Helper Functions
 // ============================================================================
 
-/**
- * Gets avatar color based on username
- * @param {string} username - User's username
- * @returns {Object} Color object with bg and color properties
- */
 const getAvatarColor = (username) => {
   if (!username) return AVATAR_COLORS[0];
   const index = username.charCodeAt(0) % AVATAR_COLORS.length;
   return AVATAR_COLORS[index];
 };
 
-/**
- * Gets user initials from username
- * @param {string} username - User's username
- * @returns {string} User initials (2 letters)
- */
 const getUserInitials = (username) => {
   if (!username) return '??';
   return username.slice(0, 2).toUpperCase();
 };
 
-/**
- * Formats date to "time ago" string
- * @param {string} dateStr - ISO date string
- * @returns {string} Formatted time ago
- */
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
   
@@ -143,11 +115,6 @@ const timeAgo = (dateStr) => {
   return `${diffYears} year${diffYears !== 1 ? 's' : ''} ago`;
 };
 
-/**
- * Calculates rating distribution for display
- * @param {Array} comments - List of comments
- * @returns {Array} Rating distribution data
- */
 const calculateRatingDistribution = (comments) => {
   const totalComments = comments.length;
   if (totalComments === 0) return [];
@@ -159,11 +126,6 @@ const calculateRatingDistribution = (comments) => {
   }).reverse();
 };
 
-/**
- * Calculates average rating from comments
- * @param {Array} comments - List of comments
- * @returns {number} Average rating
- */
 const calculateAverageRating = (comments) => {
   if (comments.length === 0) return 0;
   const sum = comments.reduce((acc, c) => acc + (c.rating || 5), 0);
@@ -174,9 +136,6 @@ const calculateAverageRating = (comments) => {
 // Subcomponents
 // ============================================================================
 
-/**
- * Rating Stars Component
- */
 const RatingStars = ({ rating, setRating, interactive = false, size = 'md', showLabel = false }) => {
   const [hoverRating, setHoverRating] = useState(0);
   
@@ -224,9 +183,6 @@ const RatingStars = ({ rating, setRating, interactive = false, size = 'md', show
   );
 };
 
-/**
- * Individual Comment Card Component
- */
 const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onReport, onReply }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -258,7 +214,6 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
       onMouseLeave={() => setShowActions(false)}
     >
       <div className='flex gap-3'>
-        {/* Avatar */}
         <div
           className='w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0'
           style={{ background: color.bg, color: color.color }}
@@ -266,9 +221,7 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
           {initials}
         </div>
         
-        {/* Content */}
         <div className='flex-1 min-w-0'>
-          {/* Header */}
           <div className='flex items-center justify-between gap-2 mb-1 flex-wrap'>
             <div className='flex items-center gap-2 flex-wrap'>
               <span className='text-sm font-semibold text-gray-800'>
@@ -293,12 +246,10 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
             </span>
           </div>
           
-          {/* Comment Text */}
           <p className='text-sm text-gray-600 leading-relaxed whitespace-pre-wrap'>
             {displayText}
           </p>
           
-          {/* Read More Button */}
           {needsTruncation && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
@@ -308,10 +259,8 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
             </button>
           )}
           
-          {/* Action Buttons */}
           <div className='flex items-center gap-4 mt-3'>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={() => onLike(comment.id)}
               className={`flex items-center gap-1.5 text-xs transition-all ${
                 comment.liked ? 'text-purple-600' : 'text-gray-400 hover:text-purple-500'
@@ -319,46 +268,34 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
             >
               <HiOutlineHeart size={14} className={comment.liked ? 'fill-purple-600' : ''} />
               <span>{comment.likes > 0 ? comment.likes : 'Like'}</span>
-            </motion.button>
+            </button>
             
-            <AnimatePresence>
-              {showActions && (
-                <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className='flex gap-3 overflow-hidden'
-                >
-                  <button 
-                    onClick={() => setShowReplyForm(!showReplyForm)}
-                    className='flex items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition'
-                  >
-                    <HiOutlineChat size={13} /> Reply
-                  </button>
-                  
-                  {!isOwner && (
-                    <button
-                      onClick={() => onReport(comment.id)}
-                      className='flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition'
-                    >
-                      <HiOutlineFlag size={13} /> Report
-                    </button>
-                  )}
-                  
-                  {isOwner && (
-                    <button
-                      onClick={() => onDelete(comment.id)}
-                      className='text-xs text-red-400 hover:text-red-600 transition'
-                    >
-                      Delete
-                    </button>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <button 
+              onClick={() => setShowReplyForm(!showReplyForm)}
+              className='flex items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition'
+            >
+              <HiOutlineChat size={13} /> Reply
+            </button>
+            
+            {!isOwner && (
+              <button
+                onClick={() => onReport(comment.id)}
+                className='flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition'
+              >
+                <HiOutlineFlag size={13} /> Report
+              </button>
+            )}
+            
+            {isOwner && (
+              <button
+                onClick={() => onDelete(comment.id)}
+                className='text-xs text-red-400 hover:text-red-600 transition'
+              >
+                Delete
+              </button>
+            )}
           </div>
           
-          {/* Reply Form */}
           <AnimatePresence>
             {showReplyForm && (
               <motion.div
@@ -393,7 +330,6 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
             )}
           </AnimatePresence>
           
-          {/* Replies */}
           {comment.replies?.length > 0 && (
             <div className="mt-3 pl-4 border-l-2 border-gray-100 space-y-3">
               {comment.replies.map((reply) => (
@@ -416,9 +352,6 @@ const CommentCard = ({ comment, isOwner, isInstructor, onLike, onDelete, onRepor
   );
 };
 
-/**
- * Sort Dropdown Component
- */
 const SortDropdown = ({ sortBy, onSortChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -478,9 +411,6 @@ const SortDropdown = ({ sortBy, onSortChange }) => {
   );
 };
 
-/**
- * Rating Summary Component
- */
 const RatingSummary = ({ comments }) => {
   const averageRating = useMemo(() => calculateAverageRating(comments), [comments]);
   const ratingDistribution = useMemo(() => calculateRatingDistribution(comments), [comments]);
@@ -489,11 +419,7 @@ const RatingSummary = ({ comments }) => {
   if (totalReviews === 0) return null;
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className='flex flex-col md:flex-row gap-6 p-5 rounded-2xl bg-gradient-to-r from-purple-50 to-white border border-purple-100 mb-8'
-    >
+    <div className='flex flex-col md:flex-row gap-6 p-5 rounded-2xl bg-gradient-to-r from-purple-50 to-white border border-purple-100 mb-8'>
       <div className='text-center md:text-left'>
         <div className='text-5xl font-bold text-purple-600'>{averageRating.toFixed(1)}</div>
         <RatingStars rating={averageRating} size='md' />
@@ -514,13 +440,10 @@ const RatingSummary = ({ comments }) => {
           </div>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
-/**
- * Comment Form Component
- */
 const CommentForm = ({ onSubmit, loading, user, isAuthenticated }) => {
   const [text, setText] = useState('');
   const [rating, setRating] = useState(5);
@@ -546,23 +469,14 @@ const CommentForm = ({ onSubmit, loading, user, isAuthenticated }) => {
   
   if (!isAuthenticated) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className='mb-10 p-4 rounded-xl text-sm text-center bg-purple-50 border border-purple-200 text-purple-700'
-      >
+      <div className='mb-10 p-4 rounded-xl text-sm text-center bg-purple-50 border border-purple-200 text-purple-700'>
         Please <a href='/signin' className='font-medium underline hover:no-underline'>sign in</a> to leave a review
-      </motion.div>
+      </div>
     );
   }
   
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      onSubmit={handleSubmit}
-      className='mb-10 p-5 rounded-2xl bg-gray-50 border border-gray-100'
-    >
+    <form onSubmit={handleSubmit} className='mb-10 p-5 rounded-2xl bg-gray-50 border border-gray-100'>
       <div className='flex gap-3'>
         <div className='w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 bg-purple-100 text-purple-600'>
           {user?.username?.slice(0, 2).toUpperCase() || 'U'}
@@ -589,41 +503,22 @@ const CommentForm = ({ onSubmit, loading, user, isAuthenticated }) => {
           />
           
           {error && (
-            <motion.p
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className='text-xs mt-1 text-red-500'
-            >
-              {error}
-            </motion.p>
+            <p className='text-xs mt-1 text-red-500'>{error}</p>
           )}
           
           <div className='flex justify-end items-center gap-3 mt-3'>
             <p className='text-xs text-gray-400'>{text.length}/{MAX_COMMENT_LENGTH} characters</p>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               type='submit'
               disabled={loading || !text.trim()}
-              className='px-5 py-2 rounded-xl text-sm font-medium text-white transition disabled:opacity-50'
-              style={{ background: 'linear-gradient(135deg, #534AB7 0%, #3C3489 100%)' }}
+              className='px-5 py-2 rounded-xl text-sm font-medium text-white transition disabled:opacity-50 bg-purple-600 hover:bg-purple-700'
             >
-              {loading ? (
-                <span className='flex items-center gap-2'>
-                  <svg className='animate-spin h-4 w-4' viewBox='0 0 24 24'>
-                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' fill='none' />
-                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z' />
-                  </svg>
-                  Posting...
-                </span>
-              ) : (
-                'Post Review'
-              )}
-            </motion.button>
+              {loading ? 'Posting...' : 'Post Review'}
+            </button>
           </div>
         </div>
       </div>
-    </motion.form>
+    </form>
   );
 };
 
@@ -631,36 +526,24 @@ const CommentForm = ({ onSubmit, loading, user, isAuthenticated }) => {
 // Main Component
 // ============================================================================
 
-/**
- * Comments - Course reviews and comments section
- * @param {Object} props
- * @param {string|number} props.courseId - ID of the course
- */
-const Comments = ({ courseId }) => {
-  const { user, isAuthenticated } = useAuth();  // ✅ Fixed: using useAuth instead of AppContext
+const Comments = ({ courseId, canPost = true, readOnly = false, isEnrolled = false }) => {
+  const { user, isAuthenticated } = useAuth();
   
-  // State
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
   
-  // Use mock data flag (set to false when backend is ready)
   const USE_MOCK_DATA = true;
   
-  // Fetch comments
   useEffect(() => {
     const fetchComments = async () => {
       setLoading(true);
       
       if (USE_MOCK_DATA) {
-        // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 600));
         setComments(MOCK_COMMENTS);
       } else {
-        // TODO: Replace with actual API call when backend is ready
-        // const response = await getCourseComments(courseId);
-        // if (response.success) setComments(response.data);
         setComments(MOCK_COMMENTS);
       }
       
@@ -670,7 +553,6 @@ const Comments = ({ courseId }) => {
     fetchComments();
   }, [courseId]);
   
-  // Submit new comment
   const handleSubmit = useCallback(async (text, rating) => {
     setSubmitting(true);
     
@@ -687,23 +569,17 @@ const Comments = ({ courseId }) => {
     };
     
     if (USE_MOCK_DATA) {
-      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
       setComments(prev => [newComment, ...prev]);
       setSubmitting(false);
       return true;
     }
     
-    // TODO: Replace with actual API call when backend is ready
-    // const response = await createComment(courseId, { text, rating });
-    // if (response.success) setComments(prev => [response.data, ...prev]);
-    
     setComments(prev => [newComment, ...prev]);
     setSubmitting(false);
     return true;
-  }, [user, courseId]);
+  }, [user]);
   
-  // Like comment
   const handleLike = useCallback((commentId) => {
     setComments(prev => prev.map(comment => {
       if (comment.id === commentId) {
@@ -727,18 +603,14 @@ const Comments = ({ courseId }) => {
     }));
   }, []);
   
-  // Delete comment
   const handleDelete = useCallback((commentId) => {
     setComments(prev => prev.filter(comment => comment.id !== commentId));
   }, []);
   
-  // Report comment
   const handleReport = useCallback((commentId) => {
     alert('Thank you for reporting. We will review this comment.');
-    // TODO: Implement API call for reporting
   }, []);
   
-  // Reply to comment
   const handleReply = useCallback((commentId, replyText) => {
     const newReply = {
       id: Date.now(),
@@ -761,7 +633,6 @@ const Comments = ({ courseId }) => {
     }));
   }, [user]);
   
-  // Sort comments
   const sortedComments = useMemo(() => {
     const sorted = [...comments];
     switch(sortBy) {
@@ -777,7 +648,6 @@ const Comments = ({ courseId }) => {
     }
   }, [comments, sortBy]);
   
-  // Loading skeleton
   if (loading) {
     return (
       <div className="mt-6">
@@ -811,13 +681,24 @@ const Comments = ({ courseId }) => {
       {/* Rating Summary */}
       <RatingSummary comments={comments} />
       
-      {/* Comment Form */}
-      <CommentForm 
-        onSubmit={handleSubmit}
-        loading={submitting}
-        user={user}
-        isAuthenticated={isAuthenticated}
-      />
+      {/* Comment Form - Only show if canPost is true */}
+      {canPost && (
+        <CommentForm 
+          onSubmit={handleSubmit}
+          loading={submitting}
+          user={user}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
+      
+      {/* Read-only message */}
+      {readOnly && isAuthenticated && !isEnrolled && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-xl text-center">
+          <p className="text-sm text-gray-500">
+            📚 You need to be enrolled to leave a review
+          </p>
+        </div>
+      )}
       
       {/* Comments List */}
       <AnimatePresence mode='wait'>

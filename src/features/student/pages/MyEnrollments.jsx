@@ -1,161 +1,255 @@
 // src/features/student/pages/MyEnrollments.jsx
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../store/AppProvider';  // ✅ Changed
+//
+// CHANGED: replaced fake setTimeout data with real API via useEnrollments hook.
+// Data now comes from GET /api/enrollment/courses → EnrolledCourseDTO[].
+// EnrolledCourseDTO: { courseId, title, subtitle, thumbnailUrl, instructorName,
+//                      progressPercentage, isCourseAvailable, isCompleted,
+//                      enrolledAt, lastAccessAt, completedAt }
 
+import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import useEnrollments from '../hooks/useEnrollments';
+
+// ── Skeleton ────────────────────────────────────────────────────────────────
 const Shimmer = ({ style = {} }) => (
-  <div style={{ background: '#EEEDFE', borderRadius: 8, overflow: 'hidden', position: 'relative', ...style }}>
-    <div style={{
-      position: 'absolute', inset: 0,
-      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)',
-      animation: 'shimmer 1.5s infinite',
-    }} />
+  <div
+    style={{
+      background: '#EEEDFE',
+      borderRadius: 8,
+      overflow: 'hidden',
+      position: 'relative',
+      ...style,
+    }}
+  >
+    <div
+      style={{
+        position: 'absolute', inset: 0,
+        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)',
+        animation: 'shimmer 1.5s infinite',
+      }}
+    />
   </div>
 );
 
-const MyEnrollmentsSkeleton = () => (
-  <div className='md:px-36 px-4 py-10 bg-gray-50 min-h-screen'>
-    <style>{`@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }`}</style>
-    <div style={{ marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
+const Skeleton = () => (
+  <div className="md:px-36 px-4 py-10 bg-gray-50 min-h-screen">
+    <style>{`@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}`}</style>
+    <div className="mb-8 flex flex-col gap-2.5">
       <Shimmer style={{ height: 32, width: 220 }} />
       <Shimmer style={{ height: 16, width: 180 }} />
     </div>
-    <div style={{ background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-      <div style={{ background: '#F3F4F6', padding: '16px 24px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 16 }}>
-        {['Course', 'Duration', 'Progress', 'Status'].map((h) => (
+    <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-gray-50 px-6 py-4 grid grid-cols-4 gap-4">
+        {['Course', 'Instructor', 'Progress', 'Status'].map((h) => (
           <Shimmer key={h} style={{ height: 14, width: '60%' }} />
         ))}
       </div>
-      {[...Array(5)].map((_, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 16, padding: '20px 24px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {[...Array(4)].map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-gray-50 items-center"
+        >
+          <div className="flex items-center gap-3">
             <Shimmer style={{ width: 64, height: 48, flexShrink: 0 }} />
-            <Shimmer style={{ height: 14, flex: 1 }} />
+            <div className="flex-1 flex flex-col gap-1.5">
+              <Shimmer style={{ height: 13, width: '90%' }} />
+              <Shimmer style={{ height: 11, width: '60%' }} />
+            </div>
           </div>
-          <Shimmer style={{ height: 14, width: '70%' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <Shimmer style={{ height: 12, width: '80%' }} />
-            <Shimmer style={{ height: 8, width: '100%', borderRadius: 99 }} />
+          <Shimmer style={{ height: 13, width: '70%' }} />
+          <div className="flex flex-col gap-1.5">
+            <Shimmer style={{ height: 11, width: '50%' }} />
+            <Shimmer style={{ height: 7, width: '100%', borderRadius: 99 }} />
           </div>
-          <Shimmer style={{ height: 36, width: 90, borderRadius: 8 }} />
+          <Shimmer style={{ height: 34, width: 90, borderRadius: 8 }} />
         </div>
       ))}
     </div>
   </div>
 );
 
+// ── Progress bar ────────────────────────────────────────────────────────────
+const ProgressBar = ({ pct }) => (
+  <div className="flex flex-col gap-1">
+    <span className="text-xs text-gray-500">{Math.round(pct)}% complete</span>
+    <div className="w-full bg-gray-100 rounded-full h-1.5">
+      <div
+        className="h-1.5 rounded-full transition-all"
+        style={{
+          width: `${pct}%`,
+          background: pct >= 100 ? '#10B981' : '#7C3AED',
+        }}
+      />
+    </div>
+  </div>
+);
+
+// ── Main ────────────────────────────────────────────────────────────────────
 const MyEnrollments = () => {
-  const { user } = useAuth();  // ✅ Changed
-  const navigate = (path) => window.location.href = path;
+  const navigate = useNavigate();
+  const {
+    currentCourses,
+    currentPage,
+    totalPages,
+    loading,
+    goToPage,
+    isEmpty,
+  } = useEnrollments();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const coursesPerPage = 5;
-  const [loading, setLoading] = useState(true);
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
-  const [progressArray] = useState([
-    { lectureCompleted: 2, totalLectures: 4 },
-    { lectureCompleted: 1, totalLectures: 5 },
-    { lectureCompleted: 3, totalLectures: 6 },
-    { lectureCompleted: 4, totalLectures: 4 },
-    { lectureCompleted: 0, totalLectures: 3 },
-  ]);
-
-  useEffect(() => {
-    // Simulate loading - replace with actual API call
-    const timer = setTimeout(() => {
-      setEnrolledCourses([
-        { _id: 1, courseTitle: 'React Masterclass', courseThumbnail: 'https://via.placeholder.com/64x48' },
-        { _id: 2, courseTitle: 'Node.js Advanced', courseThumbnail: 'https://via.placeholder.com/64x48' },
-        { _id: 3, courseTitle: 'Tailwind CSS Pro', courseThumbnail: 'https://via.placeholder.com/64x48' },
-        { _id: 4, courseTitle: 'TypeScript Guide', courseThumbnail: 'https://via.placeholder.com/64x48' },
-        { _id: 5, courseTitle: 'Next.js 15', courseThumbnail: 'https://via.placeholder.com/64x48' },
-      ]);
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const indexOfLastCourse = currentPage * coursesPerPage;
-  const indexOfFirstCourse = indexOfLastCourse - coursesPerPage;
-  const currentCourses = enrolledCourses.slice(indexOfFirstCourse, indexOfLastCourse);
-  const totalPages = Math.ceil(enrolledCourses.length / coursesPerPage);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage]);
-
-  if (loading) return <MyEnrollmentsSkeleton />;
-
-  const calculateCourseDuration = (course) => {
-    return '2h 30m'; // Placeholder
-  };
+  if (loading) return <Skeleton />;
 
   return (
-    <div className='md:px-36 px-4 py-10 bg-gray-50 min-h-screen'>
-      <div className='mb-8'>
-        <h1 className='text-3xl font-bold text-gray-800'>My Enrollments</h1>
-        <p className='text-gray-500 mt-2 text-sm'>
-          <span className='text-purple-600 cursor-pointer hover:underline' onClick={() => navigate('/')}>Home</span>
-          <span className='mx-2'>/</span>
+    <div className="md:px-36 px-4 py-10 bg-gray-50 min-h-screen">
+      <style>{`@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}`}</style>
+
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">My Enrollments</h1>
+        <p className="text-gray-500 mt-2 text-sm flex items-center gap-1.5">
+          <Link to="/" className="text-purple-600 hover:underline">Home</Link>
+          <span>/</span>
           My Enrollments
         </p>
       </div>
 
-      <div className='bg-white shadow-md rounded-xl overflow-hidden'>
-        <table className='w-full'>
-          <thead className='bg-gray-100 text-gray-700 text-sm max-sm:hidden'>
-            <tr>
-              <th className='px-6 py-4 text-left font-semibold'>Course</th>
-              <th className='px-6 py-4 text-left font-semibold'>Duration</th>
-              <th className='px-6 py-4 text-left font-semibold'>Progress</th>
-              <th className='px-6 py-4 text-left font-semibold'>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentCourses.map((course, index) => {
-              const globalIndex = indexOfFirstCourse + index;
-              const progress = progressArray[globalIndex % progressArray.length];
-              const completed = progress?.lectureCompleted === progress?.totalLectures;
-              const progressPct = progress ? (progress.lectureCompleted / progress.totalLectures) * 100 : 0;
+      {/* Empty state */}
+      {isEmpty && (
+        <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
+          <p className="text-5xl mb-4">📚</p>
+          <p className="text-xl font-semibold text-gray-700 mb-2">No courses yet</p>
+          <p className="text-gray-400 text-sm mb-6">
+            Enroll in a course to start learning.
+          </p>
+          <button
+            onClick={() => navigate('/courses')}
+            className="px-6 py-2.5 bg-purple-600 text-white rounded-full text-sm font-medium hover:bg-purple-700 transition"
+          >
+            Browse Courses
+          </button>
+        </div>
+      )}
 
-              return (
-                <tr key={course._id} className='border-b last:border-none hover:bg-gray-50 transition'>
-                  <td className='px-6 py-4'>
-                    <div className='flex items-center gap-4'>
-                      <img src={course.courseThumbnail} alt='course' className='w-16 h-12 object-cover rounded-md shadow-sm' />
-                      <p className='font-medium text-gray-800 max-sm:text-sm'>{course.courseTitle}</p>
-                    </div>
-                  </td>
-                  <td className='px-6 py-4 text-gray-600 max-sm:hidden'>{calculateCourseDuration(course)}</td>
-                  <td className='px-6 py-4 max-sm:hidden'>
-                    <div className='flex flex-col gap-1'>
-                      <span className='text-sm text-gray-700'>{progress?.lectureCompleted || 0}/{progress?.totalLectures || 0} Lectures</span>
-                      <div className='w-full bg-gray-200 rounded-full h-2'>
-                        <div className='bg-purple-500 h-2 rounded-full transition-all' style={{ width: `${progressPct}%` }} />
-                      </div>
-                    </div>
-                  </td>
-                  <td className='px-6 py-4 max-sm:text-right'>
-                    <button
-                      onClick={() => navigate(`/watch/${course._id}`)}
-                      className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition ${completed ? 'bg-green-500 hover:bg-green-600' : 'bg-purple-500 hover:bg-purple-600'}`}
-                    >
-                      {completed ? 'Completed' : 'Continue'}
-                    </button>
-                  </td>
+      {/* Table */}
+      {!isEmpty && (
+        <>
+          <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
+            <table className="w-full">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="px-6 py-3.5 text-left font-medium">Course</th>
+                  <th className="px-6 py-3.5 text-left font-medium max-sm:hidden">Instructor</th>
+                  <th className="px-6 py-3.5 text-left font-medium max-sm:hidden">Progress</th>
+                  <th className="px-6 py-3.5 text-left font-medium">Action</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {currentCourses.map((course) => {
+                  const pct = course.progressPercentage ?? 0;
+                  const done = course.isCompleted || pct >= 100;
 
-      <div className='flex justify-center items-center mt-8 gap-2 flex-wrap'>
-        <button onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage === 1} className='px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50'>Prev</button>
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button key={i} onClick={() => setCurrentPage(i + 1)} className={`px-4 py-2 rounded-lg transition ${currentPage === i + 1 ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-200 hover:bg-gray-300'}`}>{i + 1}</button>
-        ))}
-        <button onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className='px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50'>Next</button>
-      </div>
+                  return (
+                    <tr
+                      key={course.courseId}
+                      className="hover:bg-gray-50/60 transition-colors"
+                    >
+                      {/* Course */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {course.thumbnailUrl ? (
+                            <img
+                              src={course.thumbnailUrl}
+                              alt={course.title}
+                              className="w-16 h-12 object-cover rounded-md shadow-sm flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-16 h-12 rounded-md bg-purple-50 flex items-center justify-center text-xl flex-shrink-0">
+                              📚
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 text-sm leading-tight truncate max-w-[180px]">
+                              {course.title}
+                            </p>
+                            {course.subtitle && (
+                              <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">
+                                {course.subtitle}
+                              </p>
+                            )}
+                            {!course.isCourseAvailable && (
+                              <span className="inline-block text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full mt-1">
+                                Course unavailable
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Instructor */}
+                      <td className="px-6 py-4 max-sm:hidden">
+                        <span className="text-sm text-gray-600">{course.instructorName || '—'}</span>
+                      </td>
+
+                      {/* Progress */}
+                      <td className="px-6 py-4 max-sm:hidden min-w-[140px]">
+                        <ProgressBar pct={pct} />
+                      </td>
+
+                      {/* Action */}
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => navigate(`/watch/${course.courseId}`)}
+                          disabled={!course.isCourseAvailable}
+                          className={`px-4 py-2 rounded-lg text-white text-xs font-medium transition
+                            disabled:opacity-40 disabled:cursor-not-allowed ${
+                            done
+                              ? 'bg-green-500 hover:bg-green-600'
+                              : 'bg-purple-500 hover:bg-purple-600'
+                          }`}
+                        >
+                          {done ? '✓ Completed' : pct > 0 ? 'Continue' : 'Start'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-8 gap-2 flex-wrap">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-40 text-sm"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goToPage(i + 1)}
+                  className={`px-4 py-2 rounded-lg text-sm transition ${
+                    currentPage === i + 1
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-40 text-sm"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

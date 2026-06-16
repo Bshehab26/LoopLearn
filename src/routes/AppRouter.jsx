@@ -5,9 +5,8 @@ import { useAuth } from '../store/AppProvider';
 import StudentLayout from '../layouts/StudentLayout';
 import InstructorLayout from '../layouts/InstructorLayout';
 import AdminLayout from '../layouts/AdminLayout';
-import ProtectedRoute from './ProtectedRoute';  // ✅ Fixed: removed space
+import ProtectedRoute from './ProtectedRoute';
 import { ROUTES } from '../shared/constants/routes';
-
 
 // ============================================================================
 // Lazy Imports
@@ -18,38 +17,42 @@ const SignIn = lazy(() => import('../features/auth/pages/SignIn'));
 const SignUp = lazy(() => import('../features/auth/pages/SignUp'));
 
 // Student
-const Home = lazy(() => import('../features/student/pages/Home'));
-const MyEnrollments = lazy(() => import('../features/student/pages/MyEnrollments'));
+const Home           = lazy(() => import('../features/student/pages/Home'));
+const MyEnrollments  = lazy(() => import('../features/student/pages/MyEnrollments'));
 
-// Profile (unified - works for all roles)
+// Profile
 const Profile = lazy(() => import('../features/profile/pages/Profile'));
 
 // Courses
-const CoursesList = lazy(() => import('../features/courses/pages/CoursesList'));
+const CoursesList   = lazy(() => import('../features/courses/pages/CoursesList'));
 const CourseDetails = lazy(() => import('../features/courses/pages/CourseDetails'));
-const WatchWindow = lazy(() => import('../features/courses/pages/WatchWindow'));
+const WatchWindow   = lazy(() => import('../features/courses/pages/WatchWindow'));
 
 // Chat
 const Chat = lazy(() => import('../features/chat/pages/Chat'));
 
+// ── Payment (NEW) ─────────────────────────────────────────────────────────────
+const PaymentSuccessPage  = lazy(() => import('../features/payment/pages/PaymentSuccessPage'));
+const PaymentCancelPage   = lazy(() => import('../features/payment/pages/PaymentCancelPage'));
+const PaymentHistoryPage  = lazy(() => import('../features/payment/pages/PaymentHistoryPage'));
+
 // Instructor
-const InstructorDashboard = lazy(() => import('../features/instructor/pages/Dashboard'));
-const InstructorAddCourse = lazy(() => import('../features/instructor/pages/AddCourseWizard'));
-const InstructorEditCourse = lazy(() => import('../features/instructor/pages/EditCourse'));
-const InstructorMyCourses = lazy(() => import('../features/instructor/pages/MyCourses'));
+const InstructorDashboard       = lazy(() => import('../features/instructor/pages/Dashboard'));
+const InstructorAddCourse       = lazy(() => import('../features/instructor/pages/AddCourseWizard'));
+const InstructorEditCourse      = lazy(() => import('../features/instructor/pages/EditCourse'));
+const InstructorMyCourses       = lazy(() => import('../features/instructor/pages/MyCourses'));
 const InstructorStudentEnrolled = lazy(() => import('../features/instructor/pages/StudentEnrolled'));
 
 // Admin
-const AdminDashboard = lazy(() => import('../features/admin/pages/Dashboard'));
-const PendingCourses = lazy(() => import('../features/admin/pages/PendingCourses'));
-const AllCourses = lazy(() => import('../features/admin/pages/AllCourses'));
-const AdminUsers = lazy(() => import('../features/admin/pages/Users'));
+const AdminDashboard  = lazy(() => import('../features/admin/pages/Dashboard'));
+const PendingCourses  = lazy(() => import('../features/admin/pages/PendingCourses'));
+const AllCourses      = lazy(() => import('../features/admin/pages/AllCourses'));
+const AdminUsers      = lazy(() => import('../features/admin/pages/Users'));
 const AdminCategories = lazy(() => import('../features/admin/pages/Categories'));
-const AdminReports = lazy(() => import('../features/admin/pages/Reports'));
-
+const AdminReports    = lazy(() => import('../features/admin/pages/Reports'));
 
 // ============================================================================
-// Components
+// Helpers
 // ============================================================================
 
 const PageLoader = () => (
@@ -60,14 +63,11 @@ const PageLoader = () => (
 
 const AuthGuard = ({ children }) => {
   const { isAuthenticated, isStudent, isInstructor, isAdmin, loading } = useAuth();
-  
   if (loading) return <PageLoader />;
   if (!isAuthenticated) return children;
-  
-  if (isAdmin) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
-  if (isInstructor) return <Navigate to={ROUTES.INSTRUCTOR_DASHBOARD} replace />;
-  if (isStudent) return <Navigate to={ROUTES.HOME} replace />;
-  
+  if (isAdmin)       return <Navigate to={ROUTES.ADMIN_DASHBOARD}      replace />;
+  if (isInstructor)  return <Navigate to={ROUTES.INSTRUCTOR_DASHBOARD} replace />;
+  if (isStudent)     return <Navigate to={ROUTES.HOME}                 replace />;
   return <Navigate to={ROUTES.HOME} replace />;
 };
 
@@ -91,64 +91,68 @@ const NotFound = () => (
 );
 
 // ============================================================================
-// Main Router
+// Router
 // ============================================================================
 
 const AppRouter = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {/* Auth Routes */}
+        {/* ── Auth ─────────────────────────────────────────────────────────── */}
         <Route path={ROUTES.SIGN_IN} element={<AuthGuard><SignIn /></AuthGuard>} />
         <Route path={ROUTES.SIGN_UP} element={<AuthGuard><SignUp /></AuthGuard>} />
 
-        {/* Student Layout - Public + Student Routes */}
+        {/* ── Student Layout (public + student) ────────────────────────────── */}
         <Route element={<StudentLayout />}>
           {/* Public */}
-          <Route path={ROUTES.HOME} element={<Home />} />
-          <Route path={ROUTES.COURSE_LIST} element={<CoursesList />} />
-          {/* ✅ Now ROUTES.COURSE_DETAILS exists */}
+          <Route path={ROUTES.HOME}           element={<Home />} />
+          <Route path={ROUTES.COURSE_LIST}    element={<CoursesList />} />
           <Route path={ROUTES.COURSE_DETAILS} element={<CourseDetails />} />
-          
+
+          {/* Payment pages — public so Stripe can redirect without auth issues */}
+          <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          <Route path="/payment/cancel"  element={<PaymentCancelPage />} />
+
           {/* Any authenticated user */}
           <Route element={<ProtectedRoute allowedRoles={['Student', 'Instructor', 'Admin', 'SuperAdmin']} />}>
             <Route path={ROUTES.CHAT} element={<Chat />} />
           </Route>
-          
+
           {/* Student only */}
           <Route element={<ProtectedRoute allowedRoles={['Student']} />}>
-            <Route path={ROUTES.MY_ENROLLMENTS} element={<MyEnrollments />} />
-            <Route path={ROUTES.PROFILE} element={<Profile />} />
-            <Route path={ROUTES.WATCH(':courseId')} element={<WatchWindow />} />
+            <Route path={ROUTES.MY_ENROLLMENTS}        element={<MyEnrollments />} />
+            <Route path={ROUTES.PROFILE}               element={<Profile />} />
+            <Route path={ROUTES.WATCH(':courseId')}    element={<WatchWindow />} />
+            {/* NEW: Payment history — student only */}
+            <Route path="/my-payments" element={<PaymentHistoryPage />} />
           </Route>
         </Route>
 
-        {/* Instructor Layout */}
+        {/* ── Instructor Layout ─────────────────────────────────────────────── */}
         <Route element={<ProtectedRoute allowedRoles={['Instructor', 'Admin', 'SuperAdmin']} />}>
           <Route element={<InstructorLayout />}>
             <Route path={ROUTES.INSTRUCTOR_DASHBOARD} element={<InstructorDashboard />} />
-            <Route path={ROUTES.INSTRUCTOR_COURSES} element={<InstructorMyCourses />} />
-            <Route path={ROUTES.INSTRUCTOR_ADD} element={<InstructorAddCourse />} />
+            <Route path={ROUTES.INSTRUCTOR_COURSES}   element={<InstructorMyCourses />} />
+            <Route path={ROUTES.INSTRUCTOR_ADD}       element={<InstructorAddCourse />} />
             <Route path={ROUTES.INSTRUCTOR_EDIT(':id')} element={<InstructorEditCourse />} />
-            <Route path={ROUTES.INSTRUCTOR_STUDENTS} element={<InstructorStudentEnrolled />} />
-            <Route path={ROUTES.INSTRUCTOR_PROFILE} element={<Profile />} />
+            <Route path={ROUTES.INSTRUCTOR_STUDENTS}  element={<InstructorStudentEnrolled />} />
+            <Route path={ROUTES.INSTRUCTOR_PROFILE}   element={<Profile />} />
           </Route>
         </Route>
 
-        {/* Admin Layout */}
-       
-<Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
-  <Route element={<AdminLayout />}>
-    <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
-    <Route path={ROUTES.ADMIN_PENDING_COURSES} element={<PendingCourses />} />
-    <Route path={ROUTES.ADMIN_ALL_COURSES} element={<AllCourses />} />
-    <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
-    <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategories />} />
-    <Route path={ROUTES.ADMIN_REPORTS} element={<AdminReports />} />
-  </Route>
-</Route>
+        {/* ── Admin Layout ──────────────────────────────────────────────────── */}
+        <Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
+          <Route element={<AdminLayout />}>
+            <Route path={ROUTES.ADMIN_DASHBOARD}      element={<AdminDashboard />} />
+            <Route path={ROUTES.ADMIN_PENDING_COURSES} element={<PendingCourses />} />
+            <Route path={ROUTES.ADMIN_ALL_COURSES}    element={<AllCourses />} />
+            <Route path={ROUTES.ADMIN_USERS}          element={<AdminUsers />} />
+            <Route path={ROUTES.ADMIN_CATEGORIES}     element={<AdminCategories />} />
+            <Route path={ROUTES.ADMIN_REPORTS}        element={<AdminReports />} />
+          </Route>
+        </Route>
 
-        {/* 404 */}
+        {/* ── 404 ───────────────────────────────────────────────────────────── */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
