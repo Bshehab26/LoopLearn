@@ -12,6 +12,14 @@ const COURSE_ENDPOINTS = {
   BY_ID: (id) => `/Course/${id}`,
   SEARCH: (term) => `/Course/search/${encodeURIComponent(term)}`,
   BY_CATEGORIES: '/Course/categories',
+  WATCH_ENDPOINT : (courseId) => `/student/courses/${courseId}/watch`,
+  LESSON_PROGRESS : (lessonId) => `/student/lessons/${lessonId}/progress`,
+  COMMENT_BY_ID : (commentId) => `/student/comments/${commentId}`,
+  QUIZ_BY_ID : (quizId) => `/student/quizzes/${quizId}`,
+  QUIZ_ATTEMPT : (quizId) => `/student/quizzes/${quizId}/attempt`,
+  COURSE_FEEDBACKS : (courseId) => `/Course/${courseId}/feedbacks`,
+  COURSE_FEEDBACK : (courseId) => `/Course/${courseId}/feedback`,
+  LESSON_COMMENTS : (lessonId) => `/student/lessons/${lessonId}/comments`
 };
 
 const DEFAULT_PAGE = 1;
@@ -209,6 +217,115 @@ export const getFilteredCourses = async (filters = {}) => {
   return getAllCourses(page, pageSize);
 };
 
+// --- Watch ---
+export const getWatchContent = async (courseId) => {
+  try {
+    const response = await api.get(COURSE_ENDPOINTS.WATCH_ENDPOINT(courseId));
+    return response.data; // { success, data: WatchCourseDTO }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// --- Lesson Progress ---
+export const updateLessonProgress = async (lessonId, lastSecondWatched, totalSeconds) => {
+  try {
+    const response = await api.post(COURSE_ENDPOINTS.LESSON_PROGRESS(lessonId), {
+      lastSecondWatched,
+      totalSeconds,
+    });
+    return response.data; // { success, data: LessonProgressResultDTO }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// --- Lesson Comments ---
+export const getLessonComments = async (lessonId) => {
+  try {
+    const response = await api.get(COURSE_ENDPOINTS.LESSON_COMMENTS(lessonId));
+    return response.data; // { success, data: CommentResponseDTO[] }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const addLessonComment = async (lessonId, comment, parentCommentId = null) => {
+  try {
+    const response = await api.post(COURSE_ENDPOINTS.LESSON_COMMENTS(lessonId), {
+      comment,
+      parentCommentId,
+    });
+    return response.data; // { success, data: CommentResponseDTO }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const updateComment = async (commentId, comment) => {
+  try {
+    const response = await api.put(COURSE_ENDPOINTS.COMMENT_BY_ID(commentId), { comment });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const deleteComment = async (commentId) => {
+  try {
+    const response = await api.delete(COURSE_ENDPOINTS.COMMENT_BY_ID(commentId));
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// --- Quiz ---
+export const getQuiz = async (quizId) => {
+  try {
+    const response = await api.get(COURSE_ENDPOINTS.QUIZ_BY_ID(quizId));
+    return response.data; // { success, data: QuizDTO }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const submitQuiz = async (quizId, answers) => {
+  try {
+    const response = await api.post(COURSE_ENDPOINTS.QUIZ_ATTEMPT(quizId), { answers });
+    return response.data; // { success, data: QuizAttemptResultDTO }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// --- Course Feedback ---
+export const getCourseFeedbacks = async (courseId) => {
+  try {
+    const response = await api.get(COURSE_ENDPOINTS.COURSE_FEEDBACKS(courseId));
+    return response.data; // { success, data: FeedbacksDTO[] }
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const addOrUpdateFeedback = async (courseId, rating, comment) => {
+  try {
+    const response = await api.post(COURSE_ENDPOINTS.COURSE_FEEDBACK(courseId), { rating, comment });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const deleteFeedback = async (courseId) => {
+  try {
+    const response = await api.delete(COURSE_ENDPOINTS.COURSE_FEEDBACK(courseId));
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
 // ============================================================================
 // Helper Functions
 // ============================================================================

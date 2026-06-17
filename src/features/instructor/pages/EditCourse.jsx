@@ -115,7 +115,7 @@ const handleSave = async (shouldNavigate = false, navigateTo = null) => {
 
   const payload = {
     description: course.description,
-    thumbnailUrl: course.thumbnailUrl,
+    thumbnailUrl: course.thumbnailUrl || '',
     subtitle: course.subtitle,        // ✅ Make sure this is included
     language: course.language,
     level: course.level,
