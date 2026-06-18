@@ -1,28 +1,35 @@
 // src/features/courses/components/QuizView.jsx
-
 import React, { useState, useEffect } from 'react';
 import { getQuiz, submitQuiz } from '../api/course.api';
-import { motion, AnimatePresence } from 'framer-motion';
-import { HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineClock, HiOutlineEye, HiOutlinePlay } from 'react-icons/hi';
+import { HiOutlineEye, HiOutlinePlay } from 'react-icons/hi';
+import Modal from '../../../shared/components/Modal';
 
 const QuizView = ({ quizId, onComplete }) => {
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mode, setMode] = useState('overview'); // 'overview' | 'taking' | 'details'
+  const [mode, setMode] = useState('overview');
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
-  const [fullQuiz, setFullQuiz] = useState(null); // for details mode
+  const [fullQuiz, setFullQuiz] = useState(null);
 
+  // Modal state – only for errors and info messages
+  const [modal, setModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+  const showModal = (title, message, onConfirm = null, type = 'info') => {
+    setModal({ isOpen: true, title, message, onConfirm, type });
+  };
+  const closeModal = () => {
+    setModal({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+  };
+
+  // Fetch quiz overview
   useEffect(() => {
     const fetchQuizOverview = async () => {
       try {
         const response = await getQuiz(quizId);
         if (response.success) {
           setQuiz(response.data);
-          // For overview, we don't need the questions yet.
-          // We'll fetch them only when taking or viewing details.
         } else {
           setError(response.message);
         }
@@ -35,29 +42,30 @@ const QuizView = ({ quizId, onComplete }) => {
     fetchQuizOverview();
   }, [quizId]);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   const handleTakeQuiz = () => {
-    // Load the full quiz with questions if not already loaded
     if (fullQuiz) {
       setMode('taking');
-      // initialize selectedAnswers
       const initial = {};
       fullQuiz.questions.forEach(q => { initial[q.id] = null; });
       setSelectedAnswers(initial);
     } else {
-      // Fetch full quiz
       setLoading(true);
-      getQuiz(quizId).then(response => {
-        if (response.success) {
-          setFullQuiz(response.data);
-          const initial = {};
-          response.data.questions.forEach(q => { initial[q.id] = null; });
-          setSelectedAnswers(initial);
-          setMode('taking');
-        } else {
-          alert(response.message);
-        }
-        setLoading(false);
-      });
+      getQuiz(quizId)
+        .then(response => {
+          if (response.success) {
+            setFullQuiz(response.data);
+            const initial = {};
+            response.data.questions.forEach(q => { initial[q.id] = null; });
+            setSelectedAnswers(initial);
+            setMode('taking');
+          } else {
+            showModal('Error', response.message || 'Could not load quiz.');
+          }
+        })
+        .catch(err => showModal('Error', err.message))
+        .finally(() => setLoading(false));
     }
   };
 
@@ -66,15 +74,17 @@ const QuizView = ({ quizId, onComplete }) => {
       setMode('details');
     } else {
       setLoading(true);
-      getQuiz(quizId).then(response => {
-        if (response.success) {
-          setFullQuiz(response.data);
-          setMode('details');
-        } else {
-          alert(response.message);
-        }
-        setLoading(false);
-      });
+      getQuiz(quizId)
+        .then(response => {
+          if (response.success) {
+            setFullQuiz(response.data);
+            setMode('details');
+          } else {
+            showModal('Error', response.message || 'Could not load quiz.');
+          }
+        })
+        .catch(err => showModal('Error', err.message))
+        .finally(() => setLoading(false));
     }
   };
 
@@ -82,13 +92,9 @@ const QuizView = ({ quizId, onComplete }) => {
     setSelectedAnswers(prev => ({ ...prev, [questionId]: optionId }));
   };
 
-  const handleSubmit = async () => {
-    // check all answered
-    const allAnswered = fullQuiz.questions.every(q => selectedAnswers[q.id] !== null);
-    if (!allAnswered) {
-      alert('Please answer all questions before submitting.');
-      return;
-    }
+  // ── Submission logic ──────────────────────────────────────────────────────
+
+  const performSubmission = async () => {
     setSubmitting(true);
     try {
       const answers = fullQuiz.questions.map(q => ({
@@ -98,21 +104,36 @@ const QuizView = ({ quizId, onComplete }) => {
       const response = await submitQuiz(quizId, answers);
       if (response.success) {
         setResult(response.data);
-        setMode('overview'); // go back to overview with updated attempt
+        setMode('overview');
         if (onComplete) onComplete();
-        // Optionally refresh the quiz overview
+        // Refresh quiz overview
         const updated = await getQuiz(quizId);
         if (updated.success) {
           setQuiz(updated.data);
         }
+        // Show success message (optional)
+        showModal('Success', 'Quiz submitted successfully!');
       } else {
-        alert(response.message);
+        showModal('Error', response.message || 'Submission failed.');
       }
     } catch (err) {
-      alert('Failed to submit quiz.');
+      console.error('Submit error:', err);
+      showModal('Error', err.message || 'Failed to submit quiz.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Direct submit – no confirmation
+  const handleSubmit = () => {
+    // Check all questions answered
+    const allAnswered = fullQuiz.questions.every(q => selectedAnswers[q.id] !== null);
+    if (!allAnswered) {
+      showModal('Incomplete', 'Please answer all questions before submitting.');
+      return;
+    }
+    // Submit immediately
+    performSubmission();
   };
 
   const handleBackToOverview = () => {
@@ -120,11 +141,14 @@ const QuizView = ({ quizId, onComplete }) => {
     setResult(null);
   };
 
+  // ── Loading / Error ──────────────────────────────────────────────────────
+
   if (loading) return <div className="text-center py-12">Loading...</div>;
   if (error) return <div className="text-center py-12 text-red-500">Error: {error}</div>;
   if (!quiz) return <div className="text-center py-12">Quiz not found</div>;
 
   // ── Overview mode ──────────────────────────────────────────────────────────
+
   if (mode === 'overview') {
     const hasAttempt = !!quiz.previousAttempt;
     return (
@@ -186,6 +210,7 @@ const QuizView = ({ quizId, onComplete }) => {
   }
 
   // ── Taking mode ────────────────────────────────────────────────────────────
+
   if (mode === 'taking' && fullQuiz) {
     return (
       <div className="bg-white rounded-xl shadow p-6">
@@ -241,15 +266,14 @@ const QuizView = ({ quizId, onComplete }) => {
     );
   }
 
-  // ── Details mode (shows previous attempt with all options, highlighting correct/chosen) ──
+  // ── Details mode ───────────────────────────────────────────────────────────
+
   if (mode === 'details' && fullQuiz && quiz.previousAttempt) {
     const attempt = quiz.previousAttempt;
-    // Build map of questionId -> selectedOptionId
     const selectedMap = {};
     attempt.answers.forEach(ans => {
       selectedMap[ans.questionId] = ans.selectedOptionId;
     });
-    // Build map of questionId -> correctOptionId
     const correctMap = {};
     attempt.answers.forEach(ans => {
       correctMap[ans.questionId] = ans.correctOptionId;
@@ -340,7 +364,20 @@ const QuizView = ({ quizId, onComplete }) => {
     );
   }
 
-  return null;
+  // ── Render modal ──────────────────────────────────────────────────────────
+
+  return (
+    <Modal
+      isOpen={modal.isOpen}
+      onClose={closeModal}
+      title={modal.title}
+      message={modal.message}
+      onConfirm={modal.onConfirm}
+      type={modal.type}
+      confirmText={modal.type === 'danger' ? 'Delete' : 'OK'}
+      cancelText="Cancel"
+    />
+  );
 };
 
 export default QuizView;

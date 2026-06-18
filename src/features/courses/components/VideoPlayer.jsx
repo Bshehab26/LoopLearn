@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import YouTube from 'react-youtube';
 import { HiOutlineClock, HiOutlineCheckCircle, HiOutlinePlay } from 'react-icons/hi';
 import { updateLessonProgress } from '../api/course.api';
-import { getYouTubeId, formatDuration } from '../../../shared/utils/helpers'; // create helpers
+import { getYouTubeId, formatDuration } from '../../../shared/utils/helpers';
 
-const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext }) => {
+const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext, onProgress }) => {
   const [player, setPlayer] = useState(null);
   const [showNext, setShowNext] = useState(false);
   const [lastReportedSecond, setLastReportedSecond] = useState(0);
@@ -15,18 +15,25 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext }) => {
   const videoId = lecture?.videoUrl ? getYouTubeId(lecture.videoUrl) : null;
 
   const reportProgress = useCallback(
-    async (currentTime, duration) => {
+    async (currentTime, duration, force = false) => {
       if (!lecture) return;
       const lastSecond = Math.floor(currentTime);
-      if (lastSecond <= lastReportedSecond) return;
+      if (!force && lastSecond <= lastReportedSecond) return;
       setLastReportedSecond(lastSecond);
+      
+      // Notify parent for UI update immediately
+      if (onProgress) {
+        onProgress(lecture.id, lastSecond, duration);
+      }
+
       try {
         await updateLessonProgress(lecture.id, lastSecond, duration);
+        console.log(`Progress updated: ${lastSecond}/${duration}`);
       } catch (err) {
         console.error('Progress update failed:', err);
       }
     },
-    [lecture, lastReportedSecond]
+    [lecture, lastReportedSecond, onProgress]
   );
 
   const handleReady = (event) => {
@@ -37,9 +44,13 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext }) => {
   };
 
   const handleStateChange = (event) => {
-    if (event.data === 0 && !isCompleted) {
+    if (event.data === 0) {
+      // Video ended – send final progress
+      const duration = player.getDuration();
+      reportProgress(duration, duration, true);
       setShowNext(true);
     }
+
     if (event.data === 1) {
       const duration = player.getDuration();
       progressTimer.current = setInterval(() => {
@@ -55,10 +66,10 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext }) => {
     return () => clearInterval(progressTimer.current);
   }, []);
 
-const handleMarkComplete = () => {
-  onComplete();
-  setShowNext(false);
-};
+  const handleMarkComplete = () => {
+    onComplete();
+    setShowNext(false);
+  };
 
   if (!lecture) {
     return (
@@ -95,7 +106,7 @@ const handleMarkComplete = () => {
           iframeClassName="w-full aspect-video"
           opts={{
             playerVars: {
-              autoplay: 1,
+              autoplay: 0,
               modestbranding: 1,
               rel: 0,
               controls: 1,

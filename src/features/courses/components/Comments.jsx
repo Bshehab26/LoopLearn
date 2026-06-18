@@ -9,6 +9,7 @@ import {
 } from 'react-icons/hi';
 import { getLessonComments, addLessonComment, deleteComment, updateComment } from '../api/course.api';
 import RatingStars from './RatingStars';
+import Modal from '../../../shared/components/Modal'; // ✅ import Modal
 
 // ============================================================================
 // Constants & Helpers
@@ -273,6 +274,14 @@ const Comments = ({ lessonId }) => {
   const [submitting, setSubmitting] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [error, setError] = useState('');
+  // ✅ modal state
+  const [modal, setModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+
+  const showModal = (title, message, onConfirm = null, type = 'info') => {
+    setModal({ isOpen: true, title, message, onConfirm, type });
+  };
+
+  const closeModal = () => setModal({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
 
   const fetchComments = useCallback(async () => {
     if (!lessonId) return;
@@ -297,22 +306,22 @@ const Comments = ({ lessonId }) => {
 
   const handleAddComment = async (text, parentId = null) => {
     if (!isAuthenticated) {
-      alert('Please sign in to comment.');
+      showModal('Sign in required', 'Please sign in to comment.');
       return;
     }
     setSubmitting(true);
     try {
       const response = await addLessonComment(lessonId, text, parentId);
       if (response.success) {
-        await fetchComments(); // re-fetch to get updated tree
+        await fetchComments();
         setNewComment('');
         return true;
       } else {
-        alert(response.message);
+        showModal('Error', response.message);
         return false;
       }
     } catch (err) {
-      alert('Failed to add comment.');
+      showModal('Error', 'Failed to add comment.');
       return false;
     } finally {
       setSubmitting(false);
@@ -320,17 +329,24 @@ const Comments = ({ lessonId }) => {
   };
 
   const handleDelete = async (commentId) => {
-    if (!window.confirm('Delete this comment?')) return;
-    try {
-      const response = await deleteComment(commentId);
-      if (response.success) {
-        await fetchComments();
-      } else {
-        alert(response.message);
-      }
-    } catch (err) {
-      alert('Failed to delete.');
-    }
+    showModal(
+      'Delete Comment',
+      'Are you sure you want to delete this comment?',
+      async () => {
+        try {
+          const response = await deleteComment(commentId);
+          if (response.success) {
+            await fetchComments();
+          } else {
+            showModal('Error', response.message);
+          }
+        } catch (err) {
+          showModal('Error', 'Failed to delete.');
+        }
+        closeModal();
+      },
+      'danger'
+    );
   };
 
   const handleUpdate = async (commentId, newText) => {
@@ -339,10 +355,10 @@ const Comments = ({ lessonId }) => {
       if (response.success) {
         await fetchComments();
       } else {
-        alert(response.message);
+        showModal('Error', response.message);
       }
     } catch (err) {
-      alert('Failed to update.');
+      showModal('Error', 'Failed to update.');
     }
   };
 
@@ -351,13 +367,11 @@ const Comments = ({ lessonId }) => {
   };
 
   const handleLike = (commentId) => {
-    // Like endpoint not implemented yet – we'll just show a toast or ignore
-    // You can implement later
     console.log('Like comment', commentId);
   };
 
   const handleReport = (commentId) => {
-    alert('Thank you for reporting. We will review this comment.');
+    showModal('Report Sent', 'Thank you for reporting. We will review this comment.');
   };
 
   const handleSubmit = async (e) => {
@@ -454,6 +468,18 @@ const Comments = ({ lessonId }) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        type={modal.type}
+        confirmText={modal.type === 'danger' ? 'Delete' : 'OK'}
+        cancelText="Cancel"
+      />
     </div>
   );
 };

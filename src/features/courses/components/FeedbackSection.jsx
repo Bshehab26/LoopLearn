@@ -4,6 +4,7 @@ import { getCourseFeedbacks, addOrUpdateFeedback, deleteFeedback } from '../api/
 import RatingStars from './RatingStars';
 import { motion } from 'framer-motion';
 import { HiOutlineTrash, HiOutlinePencil } from 'react-icons/hi';
+import Modal from '../../../shared/components/Modal';
 
 const FeedbackSection = ({ courseId }) => {
   const { user, isAuthenticated } = useAuth();
@@ -16,25 +17,27 @@ const FeedbackSection = ({ courseId }) => {
   const [submitting, setSubmitting] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  const [modal, setModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+  const showModal = (title, message, onConfirm = null, type = 'info') =>
+    setModal({ isOpen: true, title, message, onConfirm, type });
+  const closeModal = () => setModal({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+
   const fetchFeedbacks = async () => {
     try {
       const response = await getCourseFeedbacks(courseId);
       if (response.success) {
         const data = response.data || [];
-        const rated = response.ishadRate || false;
-        setHasRated(rated);
         setFeedbacks(data);
 
-        // Find user's own feedback by studentId
+        // Determine if the current user has already given feedback
         if (user && user.id) {
           const own = data.find(f => f.studentId === user.id);
           setUserFeedback(own || null);
+          setHasRated(!!own);
           if (own) {
             setRating(own.rating);
             setComment(own.comment);
           } else {
-            // If hasRated is true but we didn't find the feedback, something is inconsistent
-            // but we'll handle gracefully.
             setRating(5);
             setComment('');
           }
@@ -42,6 +45,7 @@ const FeedbackSection = ({ courseId }) => {
       }
     } catch (err) {
       console.error(err);
+      showModal('Error', 'Failed to load feedback.');
     } finally {
       setLoading(false);
     }
@@ -49,12 +53,13 @@ const FeedbackSection = ({ courseId }) => {
 
   useEffect(() => {
     if (courseId) fetchFeedbacks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isAuthenticated) {
-      alert('Please sign in to leave feedback.');
+      showModal('Sign in required', 'Please sign in to leave feedback.');
       return;
     }
     setSubmitting(true);
@@ -64,32 +69,39 @@ const FeedbackSection = ({ courseId }) => {
         await fetchFeedbacks();
         setEditing(false);
       } else {
-        alert(response.message);
+        showModal('Error', response.message || 'Failed to submit feedback.');
       }
     } catch (err) {
-      alert('Failed to submit feedback.');
+      showModal('Error', 'Failed to submit feedback.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete your feedback?')) return;
-    try {
-      const response = await deleteFeedback(courseId);
-      if (response.success) {
-        await fetchFeedbacks();
-        setUserFeedback(null);
-        setHasRated(false);
-        setRating(5);
-        setComment('');
-        setEditing(false);
-      } else {
-        alert(response.message);
-      }
-    } catch (err) {
-      alert('Failed to delete feedback.');
-    }
+    showModal(
+      'Delete Feedback',
+      'Are you sure you want to delete your feedback?',
+      async () => {
+        try {
+          const response = await deleteFeedback(courseId);
+          if (response.success) {
+            await fetchFeedbacks();
+            setUserFeedback(null);
+            setHasRated(false);
+            setRating(5);
+            setComment('');
+            setEditing(false);
+          } else {
+            showModal('Error', response.message || 'Failed to delete feedback.');
+          }
+        } catch (err) {
+          showModal('Error', 'Failed to delete feedback.');
+        }
+        closeModal();
+      },
+      'danger'
+    );
   };
 
   const handleEdit = () => {
@@ -123,7 +135,6 @@ const FeedbackSection = ({ courseId }) => {
         <p className="text-gray-500 text-sm mb-6">No feedback yet. Be the first to share your thoughts!</p>
       )}
 
-      {/* List all feedbacks (including user's own) */}
       <div className="space-y-4 mb-8">
         {feedbacks.map((fb, idx) => {
           const isOwn = user && user.id && fb.studentId === user.id;
@@ -167,11 +178,10 @@ const FeedbackSection = ({ courseId }) => {
         })}
       </div>
 
-      {/* ── User's own feedback section ────────────────────────────────────── */}
+      {/* User's own feedback form / display */}
       {isAuthenticated && (
         <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
           {hasRated && userFeedback && !editing ? (
-            // Show existing feedback with Edit/Delete buttons
             <div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -240,6 +250,17 @@ const FeedbackSection = ({ courseId }) => {
           )}
         </div>
       )}
+
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        type={modal.type}
+        confirmText={modal.type === 'danger' ? 'Delete' : 'OK'}
+        cancelText="Cancel"
+      />
     </div>
   );
 };

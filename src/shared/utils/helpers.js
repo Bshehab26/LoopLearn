@@ -26,6 +26,6 @@ export const parseDurationToSeconds = (duration) => {
     if (parts.length === 2) return parts[0] * 60 + parts[1];
     if (parts.length === 1) return parts[0];
   }
-  if (typeof duration === 'object' && duration.totalSeconds) return duration.totalSeconds;
+  if (duration && typeof duration === 'object' && duration.totalSeconds) return duration.totalSeconds;
   return 0;
 };
