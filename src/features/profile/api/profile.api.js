@@ -1,5 +1,6 @@
 // src/features/profile/api/profile.api.js
 import api from "../../../services/api/axios";
+import { handleApiError } from "../../../services/api/errorHandler"; // ✅ Added missing import
 
 const PROFILE_ENDPOINTS = {
   BASE: "/Profile",
@@ -11,7 +12,6 @@ const PROFILE_ENDPOINTS = {
 export const getProfile = async () => {
   try {
     const response = await api.get(PROFILE_ENDPOINTS.BASE);
-    // response.data is { success, data, message }
     if (response.data.success) {
       return response.data.data;
     } else {

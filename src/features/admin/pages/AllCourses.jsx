@@ -1,52 +1,98 @@
 // src/features/admin/pages/AllCourses.jsx
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { HiSearch, HiDownload } from 'react-icons/hi';
-import CourseTable from '../components/CourseTable';
-import CourseFilters from '../components/CourseFilters';
-import useAdminAllCourses from '../hooks/useAdminAllCourses';
+import React, { useState } from 'react';
+import PageHeader from '../components/common/PageHeader';
+import CourseFilters from '../components/courses/CourseFilters';
+import CourseTable from '../components/courses/CourseTable';
+import CourseDetailDrawer from '../components/courses/CourseDetailDrawer';
+import RejectCourseModal from '../components/courses/RejectCourseModal';
+import useAdminCourses from '../hooks/useAdminCourses';
+import useAdminCourseActions from '../hooks/useAdminCourseActions';
 
 const AllCourses = () => {
-  const navigate = useNavigate();
-  const { courses, loading, fetchCourses, deleteCourse } = useAdminAllCourses();
-  const [filters, setFilters] = useState({ search: '', status: '', page: 1 });
+  const {
+    courses,
+    loading,
+    error,
+    status,
+    setStatus,
+    search,
+    setSearch,
+    page,
+    setPage,
+    pagination,
+    refetch,
+  } = useAdminCourses();
 
-  useEffect(() => {
-    fetchCourses(filters);
-  }, [filters]);
+  const { approve, reject, loading: actionLoading, error: actionError, clearError } = useAdminCourseActions();
 
-  const handleViewCourse = (courseId) => {
-    navigate(`/course/${courseId}`);
+  const [detailCourseId, setDetailCourseId] = useState(null);
+  const [rejectCourse, setRejectCourse] = useState(null);
+
+  const handleApprove = async (course) => {
+    const result = await approve(course.id);
+    if (result.ok) refetch();
   };
 
-  const handleDeleteCourse = async (courseId) => {
-    if (window.confirm('Are you sure you want to delete this course?')) {
-      await deleteCourse(courseId);
+  const handleReject = async (courseId, reason) => {
+    const result = await reject(courseId, reason);
+    if (result.ok) {
+      setRejectCourse(null);
+      refetch();
+    }
+    return result.ok;
+  };
+
+  const handleDelete = (course) => {
+    // Delete functionality will be implemented when backend endpoint is ready
+    if (window.confirm(`Are you sure you want to delete "${course.title}"?`)) {
+      console.log('Delete course:', course.id);
+      // TODO: Implement delete API call
     }
   };
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">All Courses</h1>
-        <p className="text-gray-500 mt-1">Manage all courses on the platform</p>
-      </div>
+      <PageHeader
+        title="All Courses"
+        subtitle="Manage all courses across the platform."
+      />
 
-      <CourseFilters filters={filters} onFilterChange={setFilters} />
-
-      <div className="mb-4 text-sm text-gray-500">
-        Showing {courses.length} courses
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <CourseFilters
+          search={search}
+          onSearchChange={setSearch}
+          status={status}
+          onStatusChange={setStatus}
+        />
         <CourseTable
           courses={courses}
           loading={loading}
-          onDelete={handleDeleteCourse}
-          onView={handleViewCourse}
+          error={error}
+          onRetry={refetch}
+          onViewDetails={(course) => setDetailCourseId(course.id)}
+          onApprove={handleApprove}
+          onReject={(course) => setRejectCourse(course)}
+          onDelete={handleDelete}
+          pagination={pagination}
+          onPageChange={setPage}
         />
       </div>
+
+      <CourseDetailDrawer
+        courseId={detailCourseId}
+        open={!!detailCourseId}
+        onClose={() => setDetailCourseId(null)}
+      />
+
+      <RejectCourseModal
+        open={!!rejectCourse}
+        onClose={() => { setRejectCourse(null); clearError(); }}
+        course={rejectCourse}
+        onSubmit={handleReject}
+        loading={actionLoading}
+        error={actionError}
+      />
     </div>
   );
 };

@@ -1,74 +1,93 @@
 // src/features/admin/hooks/useAdminCourses.js
-// USED FOR PENDING COURSES PAGE - REAL API
 
-import { useState, useCallback, useEffect } from 'react';
-import { getPendingCourses, approveCourse, rejectCourse } from '../api/admin.api';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getAdminCourses } from '../api/admin.api';
+
+const PAGE_SIZE = 10;
 
 const useAdminCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [statusCounts, setStatusCounts] = useState({});
+
+  const [status, setStatusState] = useState('all');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ totalCount: 0, totalPages: 1 });
 
   const fetchCourses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getPendingCourses();
-      
-      console.log('[useAdminCourses] Response:', response);
-      
-      if (response.success) {
-        setCourses(response.data || []);
+
+      const apiStatus = status === 'all' ? undefined : status;
+      const res = await getAdminCourses({ status: apiStatus, page, pageSize: PAGE_SIZE });
+
+      console.log('[useAdminCourses] Response:', res);
+
+      if (res.success) {
+        setCourses(res.data || []);
+        setStatusCounts(res.coursesStatusCounts || {});
+        setMeta({
+          totalCount: res.pagination?.totalCount || 0,
+          totalPages: res.pagination?.totalPages || 1,
+        });
       } else {
-        setError(response.message || 'Failed to load pending courses');
+        setError(res.message || 'Failed to load courses');
         setCourses([]);
       }
     } catch (err) {
-      console.error('[useAdminCourses] Error:', err);
-      setError(err.message || 'Failed to load courses');
-      setCourses([]);
+      if (err.response?.status === 404) {
+        setCourses([]);
+        setMeta({ totalCount: 0, totalPages: 1 });
+      } else {
+        setError(err.response?.data?.message || 'Something went wrong while loading courses.');
+        setCourses([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const approveCourseById = useCallback(async (courseId) => {
-    try {
-      const response = await approveCourse(courseId);
-      if (response.success) {
-        setCourses(prev => prev.filter(c => c.id !== courseId));
-        return { success: true, message: response.message };
-      }
-      return { success: false, message: response.message };
-    } catch (err) {
-      return { success: false, message: err.message };
-    }
-  }, []);
-
-  const rejectCourseById = useCallback(async (courseId, reason) => {
-    try {
-      const response = await rejectCourse(courseId, reason);
-      if (response.success) {
-        setCourses(prev => prev.filter(c => c.id !== courseId));
-        return { success: true, message: response.message };
-      }
-      return { success: false, message: response.message };
-    } catch (err) {
-      return { success: false, message: err.message };
-    }
-  }, []);
+  }, [status, page]);
 
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
 
+  const setStatus = useCallback((nextStatus) => {
+    setStatusState(nextStatus);
+    setPage(1);
+  }, []);
+
+  const visibleCourses = useMemo(() => {
+    if (!search.trim()) return courses;
+    const q = search.trim().toLowerCase();
+    return courses.filter((c) =>
+      c.title?.toLowerCase().includes(q) ||
+      c.instructorName?.toLowerCase().includes(q) ||
+      c.category?.toLowerCase().includes(q)
+    );
+  }, [courses, search]);
+
   return {
-    courses,
+    courses: visibleCourses,
+    allCourses: courses,
     loading,
     error,
-    fetchCourses,
-    approveCourseById,
-    rejectCourseById,
+    status,
+    setStatus,
+    search,
+    setSearch,
+    page,
+    setPage,
+    statusCounts,
+    pagination: {
+      page,
+      pageSize: PAGE_SIZE,
+      totalCount: meta.totalCount,
+      totalPages: meta.totalPages,
+    },
+    refetch: fetchCourses,
   };
 };
 

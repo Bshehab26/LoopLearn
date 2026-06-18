@@ -23,13 +23,13 @@ const HiOutlineHome = HiHome;
 const HiOutlineMenuAlt2 = HiMenuAlt2;
 
 // ============================================================================
-// Sidebar Navigation Configuration
+// Sidebar Navigation Configuration - ONLY EXISTING ROUTES
 // ============================================================================
 
 const NAVIGATION = {
   main: [
     { 
-      path: ROUTES.ADMIN_DASHBOARD, 
+      path: ROUTES.ADMIN_DASHBOARD,
       label: 'Dashboard', 
       icon: HiOutlineLayoutDashboard,
       description: 'Overview & key metrics',
@@ -38,14 +38,14 @@ const NAVIGATION = {
   ],
   courses: [
     { 
-      path: ROUTES.ADMIN_PENDING_COURSES, 
+      path: ROUTES.ADMIN_PENDING_COURSES,
       label: 'Pending Reviews', 
       icon: HiOutlineClock,
       description: 'Courses awaiting approval',
       badge: 'pending'
     },
     { 
-      path: ROUTES.ADMIN_ALL_COURSES, 
+      path: ROUTES.ADMIN_ALL_COURSES,
       label: 'All Courses', 
       icon: HiOutlineBookOpen,
       description: 'Manage all courses',
@@ -54,28 +54,10 @@ const NAVIGATION = {
   ],
   users: [
     { 
-      path: ROUTES.ADMIN_USERS, 
+      path: ROUTES.ADMIN_USERS,
       label: 'Users', 
       icon: HiOutlineUsers,
       description: 'Manage platform users',
-      badge: null
-    },
-  ],
-  content: [
-    { 
-      path: ROUTES.ADMIN_CATEGORIES, 
-      label: 'Categories', 
-      icon: HiOutlineTag,
-      description: 'Course categories',
-      badge: null
-    },
-  ],
-  analytics: [
-    { 
-      path: ROUTES.ADMIN_REPORTS, 
-      label: 'Reports', 
-      icon: HiOutlineChartBar,
-      description: 'Analytics & insights',
       badge: null
     },
   ],
@@ -100,12 +82,6 @@ const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const userRole = user?.role || 'Administrator';
 
   const isActivePath = (path) => {
-    if (path === ROUTES.ADMIN_PENDING_COURSES && location.pathname.includes('/admin/courses')) {
-      return location.pathname === ROUTES.ADMIN_PENDING_COURSES;
-    }
-    if (path === ROUTES.ADMIN_ALL_COURSES && location.pathname.includes('/admin/courses')) {
-      return location.pathname === ROUTES.ADMIN_ALL_COURSES;
-    }
     return location.pathname === path;
   };
 
@@ -220,8 +196,6 @@ const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
             <NavSection title="MAIN" items={NAVIGATION.main} />
             <NavSection title="COURSE MANAGEMENT" items={NAVIGATION.courses} />
             <NavSection title="USER MANAGEMENT" items={NAVIGATION.users} />
-            <NavSection title="CONTENT" items={NAVIGATION.content} />
-            <NavSection title="ANALYTICS" items={NAVIGATION.analytics} />
           </nav>
 
           {/* Footer Actions */}
@@ -285,7 +259,6 @@ const AdminLayout = () => {
     localStorage.setItem('adminSidebarCollapsed', isCollapsed);
   }, [isCollapsed]);
 
-  // Close sidebar on route change on mobile
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768 && sidebarOpen) {
@@ -296,22 +269,18 @@ const AdminLayout = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [sidebarOpen]);
 
-  // Get current page title from location
   const location = useLocation();
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path.includes(ROUTES.ADMIN_PENDING_COURSES)) return 'Pending Reviews';
-    if (path.includes(ROUTES.ADMIN_ALL_COURSES)) return 'All Courses';
-    if (path.includes(ROUTES.ADMIN_USERS)) return 'User Management';
-    if (path.includes(ROUTES.ADMIN_CATEGORIES)) return 'Categories';
-    if (path.includes(ROUTES.ADMIN_REPORTS)) return 'Reports';
-    if (path.includes(ROUTES.ADMIN_DASHBOARD)) return 'Dashboard';
+    if (path === ROUTES.ADMIN_DASHBOARD) return 'Dashboard';
+    if (path === ROUTES.ADMIN_PENDING_COURSES) return 'Pending Reviews';
+    if (path === ROUTES.ADMIN_ALL_COURSES) return 'All Courses';
+    if (path === ROUTES.ADMIN_USERS) return 'User Management';
     return 'Admin Panel';
   };
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar - DARK VERSION */}
       <AdminSidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}
@@ -319,7 +288,6 @@ const AdminLayout = () => {
         onToggleCollapse={() => setIsCollapsed(prev => !prev)}
       />
 
-      {/* Mobile Menu Button - Only visible on mobile */}
       <button
         onClick={() => setSidebarOpen(true)}
         className="fixed bottom-4 right-4 z-30 md:hidden p-3 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition"
@@ -327,14 +295,11 @@ const AdminLayout = () => {
         <HiOutlineMenuAlt2 size={20} />
       </button>
 
-      {/* Main Content Area - NO TOP NAV */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Simple page header - minimal, no nav elements */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <h1 className="text-2xl font-bold text-gray-800">{getPageTitle()}</h1>
         </div>
 
-        {/* Page Content */}
         <main className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6 lg:p-8">
             <Outlet />

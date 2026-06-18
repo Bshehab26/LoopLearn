@@ -1,7 +1,7 @@
 // src/features/admin/hooks/useAdminStats.js
 
 import { useState, useEffect, useCallback } from 'react';
-import { getDashboardStats } from '../api/admin.api';
+import { getAdminDashboardStats } from '../api/admin.api';
 
 const useAdminStats = () => {
   const [stats, setStats] = useState(null);
@@ -12,14 +12,18 @@ const useAdminStats = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getDashboardStats();
-      if (response.success) {
-        setStats(response.data);
+      const res = await getAdminDashboardStats();
+      
+      console.log('[useAdminStats] Response:', res); // Debug log
+      
+      if (res.success) {
+        setStats(res.data);
       } else {
-        setError(response.message);
+        setError(res.message || 'Failed to load dashboard stats.');
       }
     } catch (err) {
-      setError(err.message || 'Failed to load stats');
+      console.error('[useAdminStats] Error:', err);
+      setError(err.response?.data?.message || 'Failed to load dashboard stats.');
     } finally {
       setLoading(false);
     }

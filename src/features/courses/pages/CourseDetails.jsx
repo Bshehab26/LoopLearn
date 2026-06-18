@@ -1,15 +1,26 @@
 // src/features/courses/pages/CourseDetails.jsx
 //
 // CHANGED:
-//   • handleEnroll removed — CoursePurchaseCard now uses EnrollButton internally
-//   • CoursePurchaseCard now receives onAuthRequired + onSuccess instead of onEnroll
-//   • StickyCTABar still receives onEnroll (it has its own simple button)
-//   • All other logic unchanged
+//   • Layout: hero/stats and tabs/content used to live in two separate
+//     full-width sections, with the purchase card only spanning the hero
+//     row. That's what left dead white space and pushed Overview far down
+//     the page. Now it's a single CSS grid: the purchase card spans both
+//     rows as a sticky sidebar next to the hero AND the tab content, so
+//     Overview lands directly under the hero instead of in its own section.
+//   • Enrollment state: onSuccess now calls markEnrolled() (instant,
+//     optimistic) instead of refetch() (slow, re-reads stale state, flashes
+//     the whole-page loading spinner).
+//   • handleStickyEnroll (which called the broken enrollInCourse mock) is
+//     replaced with handleQuickEnroll, using the same real
+//     useEnrollment/useCheckout hooks EnrollButton uses — used by the
+//     Reviews tab CTA. StickyCTABar now manages its own real enroll call.
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth, useUI } from '../../../store/AppProvider';
 import useCourseDetails from '../hooks/useCourseDetails';
+import useEnrollment from '../../payment/hooks/useEnrollment';
+import useCheckout from '../../payment/hooks/useCheckout';
 import CourseHero       from '../components/course-details/CourseHero';
 import CoursePurchaseCard from '../components/course-details/CoursePurchaseCard';
 import CourseTabs       from '../components/course-details/CourseTabs';
@@ -34,11 +45,17 @@ const CourseDetails = () => {
   const {
     course, loading, error,
     isEnrolled, isSaved,
-    enrollInCourse,   // kept for StickyCTABar fallback
+    markEnrolled,
     toggleSave,
     isLessonAccessible,
     refetch,
   } = useCourseDetails(id);
+
+  // Same hooks EnrollButton uses internally — kept here for the sticky bar
+  // fallback and the Reviews tab's "enroll" prompt, so behaviour (free vs
+  // paid routing) stays identical everywhere it appears on the page.
+  const { enroll: enrollFreeCourse } = useEnrollment();
+  const { startCheckout } = useCheckout();
 
   const [activeTab, setActiveTab]           = useState('overview');
   const [isStickyVisible, setIsStickyVisible] = useState(false);
@@ -78,7 +95,10 @@ const CourseDetails = () => {
     ];
   }, [normalisedCourse]);
 
-  // ── Sticky CTA ──────────────────────────────────────────────────────────────
+  // ── Sticky CTA visibility ───────────────────────────────────────────────────
+  // heroRef stays on just the hero+stats card (not the whole left column) so
+  // the mobile bar appears as soon as the hero scrolls out of view, not only
+  // after the user scrolls past all the tab content too.
   useEffect(() => {
     const onScroll = () => {
       if (heroRef.current) {
@@ -92,19 +112,26 @@ const CourseDetails = () => {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  // Used by StickyCTABar (simple button, not EnrollButton)
-  const handleStickyEnroll = async () => {
+  const handleAuthRequired = () => navigate('/signin', { state: { from: `/course/${id}` } });
+
+  // Used by the Reviews tab's "enroll" prompt. Mirrors EnrollButton's own
+  // logic so free vs paid routing matches everywhere else on the page.
+  const handleQuickEnroll = async () => {
     if (!isAuthenticated) {
-      navigate('/signin', { state: { from: `/course/${id}` } });
+      handleAuthRequired();
       return;
     }
-    const r = await enrollInCourse();
-    if (r?.success) refetch();
+    if (normalisedCourse.isFree) {
+      const result = await enrollFreeCourse(normalisedCourse.id);
+      if (result.ok) markEnrolled();
+    } else {
+      await startCheckout(normalisedCourse.id);
+    }
   };
 
   const handleSave = async () => {
     if (!isAuthenticated) {
-      navigate('/signin', { state: { from: `/course/${id}` } });
+      handleAuthRequired();
       return;
     }
     await toggleSave();
@@ -140,88 +167,96 @@ const CourseDetails = () => {
   }
 
   return (
-    <>
-      {/* ── Hero Section ─────────────────────────────────────────────────────── */}
-      <div ref={heroRef} className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col lg:flex-row gap-8">
+    <div className="bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/*
+          Grid layout: on desktop the purchase card occupies column 2 and
+          spans both rows (row-span-2), so it sits beside the hero AND
+          continues sticky alongside the tabs/content below — no more dead
+          space, and Overview now lands directly under the hero.
+          On mobile it's a single column; `order-*` keeps the sensible
+          reading order: hero → purchase card → tabs/content.
+        */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_24rem] gap-6 lg:gap-8">
 
-            {/* Left — hero content + stats */}
-            <div className="flex-1 min-w-0">
-              <CourseHero course={normalisedCourse} />
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-6">
-                {stats.map((stat, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100"
-                  >
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <stat.icon size={14} className="text-purple-600" />
-                      <span className="text-xs font-medium text-gray-700">{stat.value}</span>
-                    </div>
-                    <div className="text-[10px] text-gray-400">{stat.label}</div>
+          {/* Hero + stats */}
+          <div
+            ref={heroRef}
+            className="order-1 lg:order-none lg:col-start-1 lg:row-start-1
+              bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6"
+          >
+            <CourseHero course={normalisedCourse} />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-6">
+              {stats.map((stat, idx) => (
+                <div
+                  key={idx}
+                  className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100"
+                >
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <stat.icon size={14} className="text-purple-600" />
+                    <span className="text-xs font-medium text-gray-700">{stat.value}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right — purchase card (sticky) */}
-            <div className="lg:w-96 flex-shrink-0">
-              <div className="sticky top-24">
-                <CoursePurchaseCard
-                  course={normalisedCourse}
-                  currency={currency}
-                  isEnrolled={isEnrolled}
-                  isSaved={isSaved}
-                  isAuthenticated={isAuthenticated}
-                  // ── NEW: EnrollButton props ──────────────────────────────
-                  onAuthRequired={() =>
-                    navigate('/signin', { state: { from: `/course/${id}` } })
-                  }
-                  onSuccess={() => refetch()}
-                  // ── Legacy: save / share ─────────────────────────────────
-                  onSave={handleSave}
-                  onShare={() => {}}
-                />
-              </div>
+                  <div className="text-[10px] text-gray-400">{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── Tabs Section ─────────────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CourseTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          {/* Purchase card — sticky sidebar spanning both grid rows */}
+          <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <div className="lg:sticky lg:top-24">
+              <CoursePurchaseCard
+                course={normalisedCourse}
+                currency={currency}
+                isEnrolled={isEnrolled}
+                isSaved={isSaved}
+                isAuthenticated={isAuthenticated}
+                onAuthRequired={handleAuthRequired}
+                onSuccess={() => markEnrolled()}
+                onSave={handleSave}
+                onShare={() => {}}
+              />
+            </div>
+          </div>
 
-        <div className="mt-6">
-          {activeTab === 'overview' && (
-            <CourseOverview course={normalisedCourse} />
-          )}
-          {activeTab === 'curriculum' && (
-            <CourseCurriculum
-              course={normalisedCourse}
-              isEnrolled={isEnrolled}
-              isLessonAccessible={isLessonAccessible}
-              onPlayLesson={handlePlayLesson}
-            />
-          )}
-          {activeTab === 'reviews' && (
-            <CourseReviews
-              courseId={normalisedCourse.id}
-              isEnrolled={isEnrolled}
-              onEnroll={handleStickyEnroll}
-              isAuthenticated={isAuthenticated}
-            />
-          )}
-          {activeTab === 'instructor' && (
-            <InstructorCard
-              instructorName={normalisedCourse.instructorName}
-              instructorBio={normalisedCourse.instructorBio}
-              instructorRating={normalisedCourse.instructorRating}
-              instructorStudents={normalisedCourse.instructorStudents}
-              instructorCourses={normalisedCourse.instructorCourses}
-            />
-          )}
+          {/* Tabs + content */}
+          <div
+            className="order-3 lg:order-none lg:col-start-1 lg:row-start-2
+              bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6"
+          >
+            <CourseTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+            <div className="mt-6">
+              {activeTab === 'overview' && (
+                <CourseOverview course={normalisedCourse} />
+              )}
+              {activeTab === 'curriculum' && (
+                <CourseCurriculum
+                  course={normalisedCourse}
+                  isEnrolled={isEnrolled}
+                  isLessonAccessible={isLessonAccessible}
+                  onPlayLesson={handlePlayLesson}
+                />
+              )}
+              {activeTab === 'reviews' && (
+                <CourseReviews
+                  courseId={normalisedCourse.id}
+                  isEnrolled={isEnrolled}
+                  onEnroll={handleQuickEnroll}
+                  isAuthenticated={isAuthenticated}
+                />
+              )}
+              {activeTab === 'instructor' && (
+                <InstructorCard
+                  instructorName={normalisedCourse.instructorName}
+                  instructorBio={normalisedCourse.instructorBio}
+                  instructorRating={normalisedCourse.instructorRating}
+                  instructorStudents={normalisedCourse.instructorStudents}
+                  instructorCourses={normalisedCourse.instructorCourses}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -231,9 +266,11 @@ const CourseDetails = () => {
         currency={currency}
         isVisible={isStickyVisible && !isEnrolled}
         isEnrolled={isEnrolled}
-        onEnroll={handleStickyEnroll}
+        isAuthenticated={isAuthenticated}
+        onAuthRequired={handleAuthRequired}
+        onSuccess={() => markEnrolled()}
       />
-    </>
+    </div>
   );
 };
 
