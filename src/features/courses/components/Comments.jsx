@@ -248,7 +248,6 @@ const CommentItem = ({
                   comment={reply}
                   depth={depth + 1}
                   isOwner={reply.studentId === comment.studentId} // adjust based on user
-                  onLike={onLike}
                   onDelete={onDelete}
                   onReport={onReport}
                   onReply={onReply}
