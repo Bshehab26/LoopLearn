@@ -31,7 +31,7 @@ const WatchWindow   = lazy(() => import('../features/courses/pages/WatchWindow')
 // Chat
 const Chat = lazy(() => import('../features/chat/pages/Chat'));
 
-// ── Payment (NEW) ─────────────────────────────────────────────────────────────
+// Payment
 const PaymentSuccessPage  = lazy(() => import('../features/payment/pages/PaymentSuccessPage'));
 const PaymentCancelPage   = lazy(() => import('../features/payment/pages/PaymentCancelPage'));
 const PaymentHistoryPage  = lazy(() => import('../features/payment/pages/PaymentHistoryPage'));
@@ -48,8 +48,6 @@ const AdminDashboard  = lazy(() => import('../features/admin/pages/Dashboard'));
 const PendingCourses  = lazy(() => import('../features/admin/pages/PendingCourses'));
 const AllCourses      = lazy(() => import('../features/admin/pages/AllCourses'));
 const AdminUsers      = lazy(() => import('../features/admin/pages/Users'));
-const AdminCategories = lazy(() => import('../features/admin/pages/Categories'));
-const AdminReports    = lazy(() => import('../features/admin/pages/Reports'));
 
 // ============================================================================
 // Helpers
@@ -102,14 +100,14 @@ const AppRouter = () => {
         <Route path={ROUTES.SIGN_IN} element={<AuthGuard><SignIn /></AuthGuard>} />
         <Route path={ROUTES.SIGN_UP} element={<AuthGuard><SignUp /></AuthGuard>} />
 
-        {/* ── Student Layout (public + student) ────────────────────────────── */}
+        {/* ── Student Layout ────────────────────────────────────────────────── */}
         <Route element={<StudentLayout />}>
           {/* Public */}
           <Route path={ROUTES.HOME}           element={<Home />} />
           <Route path={ROUTES.COURSE_LIST}    element={<CoursesList />} />
           <Route path={ROUTES.COURSE_DETAILS} element={<CourseDetails />} />
 
-          {/* Payment pages — public so Stripe can redirect without auth issues */}
+          {/* Payment */}
           <Route path="/payment/success" element={<PaymentSuccessPage />} />
           <Route path="/payment/cancel"  element={<PaymentCancelPage />} />
 
@@ -123,7 +121,6 @@ const AppRouter = () => {
             <Route path={ROUTES.MY_ENROLLMENTS}        element={<MyEnrollments />} />
             <Route path={ROUTES.PROFILE}               element={<Profile />} />
             <Route path={ROUTES.WATCH(':courseId')}    element={<WatchWindow />} />
-            {/* NEW: Payment history — student only */}
             <Route path="/my-payments" element={<PaymentHistoryPage />} />
           </Route>
         </Route>
@@ -143,12 +140,10 @@ const AppRouter = () => {
         {/* ── Admin Layout ──────────────────────────────────────────────────── */}
         <Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
           <Route element={<AdminLayout />}>
-            <Route path={ROUTES.ADMIN_DASHBOARD}      element={<AdminDashboard />} />
-            <Route path={ROUTES.ADMIN_PENDING_COURSES} element={<PendingCourses />} />
-            <Route path={ROUTES.ADMIN_ALL_COURSES}    element={<AllCourses />} />
-            <Route path={ROUTES.ADMIN_USERS}          element={<AdminUsers />} />
-            <Route path={ROUTES.ADMIN_CATEGORIES}     element={<AdminCategories />} />
-            <Route path={ROUTES.ADMIN_REPORTS}        element={<AdminReports />} />
+            <Route path={ROUTES.ADMIN_DASHBOARD}        element={<AdminDashboard />} />
+            <Route path={ROUTES.ADMIN_PENDING_COURSES}   element={<PendingCourses />} />
+            <Route path={ROUTES.ADMIN_ALL_COURSES}       element={<AllCourses />} />
+            <Route path={ROUTES.ADMIN_USERS}             element={<AdminUsers />} />
           </Route>
         </Route>
 

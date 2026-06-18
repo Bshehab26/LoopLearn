@@ -1,42 +1,72 @@
 // src/features/admin/index.js
+
 // API
 export {
-  getDashboardStats,
-  getUsers,
+  getAdminUsers,
+  getAdminUserById,
+  updateUserStatus,
   updateUserRole,
-  deleteUser,
+  getAdminDashboardStats,
   getAdminCourses,
+  getAdminCourseById,
+  getPendingCourses,
   approveCourse,
   rejectCourse,
-  deleteCourse,
-  getCategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getReports,
 } from './api/admin.api';
 
 // Hooks
 export { default as useAdminStats } from './hooks/useAdminStats';
 export { default as useAdminUsers } from './hooks/useAdminUsers';
+export { default as useAdminUserActions } from './hooks/useAdminUserActions';
+export { default as useAdminUserDetail } from './hooks/useAdminUserDetail';
 export { default as useAdminCourses } from './hooks/useAdminCourses';
-export { default as useAdminCategories } from './hooks/useAdminCategories';
-export { default as useAdminReports } from './hooks/useAdminReports';
+export { default as useAdminCourseActions } from './hooks/useAdminCourseActions';
+export { default as useAdminCourseDetail } from './hooks/useAdminCourseDetail';
 
-// Components
-export { default as StatsCard } from './components/StatsCard';
-export { default as UserTable } from './components/UserTable';
-export { default as UserFilters } from './components/UserFilters';
-export { default as CourseTable } from './components/CourseTable';
-export { default as CourseFilters } from './components/CourseFilters';
-export { default as CategoryManager } from './components/CategoryManager';
-export { default as CategoryForm } from './components/CategoryForm';
-export { default as ReportCard } from './components/ReportCard';
-export { default as Chart } from './components/Chart';
+// Components - Common
+export { default as Avatar } from './components/common/Avatar';
+export { default as Drawer } from './components/common/Drawer';
+export { default as EmptyState } from './components/common/EmptyState';
+export { default as ErrorState } from './components/common/ErrorState';
+export { default as Modal } from './components/common/Modal';
+export { default as PageHeader } from './components/common/PageHeader';
+export { default as StatusBadge } from './components/common/StatusBadge';
+export { default as TableSkeleton } from './components/common/TableSkeleton';
+
+// Components - Courses
+export { default as CourseActionsMenu } from './components/courses/CourseActionsMenu';
+export { default as CourseDetailDrawer } from './components/courses/CourseDetailDrawer';
+export { default as CourseFilters } from './components/courses/CourseFilters';
+export { default as CourseStatusBadge } from './components/courses/CourseStatusBadge';
+export { default as CourseTable } from './components/courses/CourseTable';
+export { default as RejectCourseModal } from './components/courses/RejectCourseModal';
+
+// Components - Dashboard
+export { default as Chart } from './components/dashboard/Chart';
+export { default as ChartCard } from './components/dashboard/ChartCard';
+export { default as CourseStatusChart } from './components/dashboard/CourseStatusChart';
+export { default as DashboardPanel } from './components/dashboard/DashboardPanel';
+export { default as EnrollmentStatusChart } from './components/dashboard/EnrollmentStatusChart';
+export { default as PaymentStatusChart } from './components/dashboard/PaymentStatusChart';
+export { default as StatsCard } from './components/dashboard/StatsCard';
+export { default as StatsGrid } from './components/dashboard/StatsGrid';
+export { default as UserRoleChart } from './components/dashboard/UserRoleChart';
+
+// Components - Users
+export { default as UserActionsMenu } from './components/users/UserActionsMenu';
+export { default as UserBanModal } from './components/users/UserBanModal';
+export { default as UserDetailDrawer } from './components/users/UserDetailDrawer';
+export { default as UserFilters } from './components/users/UserFilters';
+export { default as UserManagementPanel } from './components/users/UserManagementPanel';
+export { default as UserRoleBadge } from './components/users/UserRoleBadge';
+export { default as UserRoleChangeModal } from './components/users/UserRoleChangeModal';
+export { default as UserTable } from './components/users/UserTable';
 
 // Pages
 export { default as Dashboard } from './pages/Dashboard';
+export { default as PendingCourses } from './pages/PendingCourses';
+export { default as AllCourses } from './pages/AllCourses';
 export { default as Users } from './pages/Users';
-export { default as Courses } from './pages/Courses';
-export { default as Categories } from './pages/Categories';
-export { default as Reports } from './pages/Reports';
+
+// Utils
+export { formatCurrency, formatNumber } from './utils/format';

@@ -1,84 +1,93 @@
 // src/features/admin/hooks/useAdminUsers.js
 
-import { useState, useCallback } from 'react';
-import { getUsers, updateUserRole, deleteUser, suspendUser, activateUser } from '../api/admin.api';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getAdminUsers } from '../api/admin.api';
+
+const PAGE_SIZE = 10;
+const ROLE_OPTIONS = ['All', 'SuperAdmin', 'Admin', 'Instructor', 'Student'];
 
 const useAdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  });
 
-  const fetchUsers = useCallback(async (params = {}) => {
+  const [role, setRoleState] = useState('All');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ totalCount: 0, totalPages: 1 });
+
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getUsers({ ...params, page: params.page || pagination.page });
-      if (response.success) {
-        setUsers(response.data);
-        setPagination({
-          page: response.pagination?.page || 1,
-          limit: response.pagination?.limit || 10,
-          total: response.pagination?.total || 0,
-          totalPages: response.pagination?.totalPages || 0,
+
+      const apiRole = role === 'All' ? undefined : role;
+      const res = await getAdminUsers({ role: apiRole, page, pageSize: PAGE_SIZE });
+
+      console.log('[useAdminUsers] Response:', res); // Debug log
+
+      if (res.success) {
+        setUsers(res.data || []);
+        setMeta({
+          totalCount: res.pagination?.totalCount || 0,
+          totalPages: res.pagination?.totalPages || 1,
         });
       } else {
-        setError(response.message);
+        setError(res.message || 'Failed to load users');
+        setUsers([]);
       }
     } catch (err) {
-      setError(err.message || 'Failed to load users');
+      // The backend returns 404 when a role filter matches zero users
+      if (err.response?.status === 404) {
+        setUsers([]);
+        setMeta({ totalCount: 0, totalPages: 1 });
+      } else {
+        setError(err.response?.data?.message || 'Something went wrong while loading users.');
+        setUsers([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [pagination.page]);
+  }, [role, page]);
 
-  const changeUserRole = useCallback(async (userId, newRole) => {
-    const response = await updateUserRole(userId, newRole);
-    if (response.success) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    }
-    return response;
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Changing the role filter should always reset back to page 1
+  const setRole = useCallback((nextRole) => {
+    setRoleState(nextRole);
+    setPage(1);
   }, []);
 
-  const removeUser = useCallback(async (userId) => {
-    const response = await deleteUser(userId);
-    if (response.success) {
-      setUsers(prev => prev.filter(u => u.id !== userId));
-    }
-    return response;
-  }, []);
-
-  const suspendUserAccount = useCallback(async (userId) => {
-    const response = await suspendUser(userId);
-    if (response.success) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Suspended' } : u));
-    }
-    return response;
-  }, []);
-
-  const activateUserAccount = useCallback(async (userId) => {
-    const response = await activateUser(userId);
-    if (response.success) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Active' } : u));
-    }
-    return response;
-  }, []);
+  const visibleUsers = useMemo(() => {
+    if (!search.trim()) return users;
+    const q = search.trim().toLowerCase();
+    return users.filter((u) =>
+      u.fullName?.toLowerCase().includes(q) ||
+      u.userName?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q)
+    );
+  }, [users, search]);
 
   return {
-    users,
+    users: visibleUsers,
     loading,
     error,
-    pagination,
-    fetchUsers,
-    changeUserRole,
-    removeUser,
-    suspendUserAccount,
-    activateUserAccount,
+    role,
+    setRole,
+    search,
+    setSearch,
+    page,
+    setPage,
+    pagination: {
+      page,
+      pageSize: PAGE_SIZE,
+      totalCount: meta.totalCount,
+      totalPages: meta.totalPages,
+    },
+    roleOptions: ROLE_OPTIONS,
+    refetch: fetchUsers,
   };
 };
 

@@ -1,8 +1,9 @@
-// src/features/profile/pages/Profile.jsx
+// src/features/profile/pages/Profile.jsx - FIXED
+
 import ProfileHeader from '../components/ProfileHeader';
 import ProfileInfo from '../components/ProfileInfo';
 import ChangePasswordSection from '../components/ChangePasswordSection';
-import { useAuth ,useProfile } from '../../../store/AppProvider';
+import { useAuth, useProfile } from '../../../store/AppProvider';
 import { 
   HiOutlineAcademicCap, HiOutlineUserGroup, HiOutlineCurrencyDollar, HiOutlineChartBar,
   HiOutlineBookOpen, HiOutlineStar, HiOutlineTrendingUp, HiOutlineShieldCheck
@@ -42,13 +43,11 @@ const Profile = () => {
     return result.success;
   };
 
-  // Get role from auth
   const userRole = user?.role || 'Student';
   const isUserInstructor = isInstructor || userRole === 'Instructor';
   const isUserStudent = isStudent || userRole === 'Student';
   const isUserAdmin = isAdmin || userRole === 'Admin' || userRole === 'SuperAdmin';
 
-  // Merge profile with auth role for header
   const profileWithRole = {
     ...profile,
     role: userRole,
@@ -101,83 +100,55 @@ const Profile = () => {
   );
 
   // ============================================================================
-  // Admin Stats
+  // Admin Stats - Only for Admin/SuperAdmin
   // ============================================================================
   const AdminStats = () => (
-    <div className="grid grid-cols-4 gap-4 mb-6">
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineUserGroup className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.totalUsers || 0}</p>
-        <p className="text-xs text-gray-500">Total Users</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineBookOpen className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.totalCourses || 0}</p>
-        <p className="text-xs text-gray-500">Total Courses</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineTrendingUp className="w-6 h-6 text-green-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.pendingCourses || 0}</p>
-        <p className="text-xs text-gray-500">Pending Review</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineCurrencyDollar className="w-6 h-6 text-amber-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">${profile?.totalRevenue || 0}</p>
-        <p className="text-xs text-gray-500">Total Revenue</p>
-      </div>
-    </div>
-  );
-
-  // ============================================================================
-  // Admin Platform Stats (Second Row)
-  // ============================================================================
-  const AdminPlatformStats = () => (
-    <div className="grid grid-cols-4 gap-4 mb-6">
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineAcademicCap className="w-6 h-6 text-indigo-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.totalStudents || 0}</p>
-        <p className="text-xs text-gray-500">Students</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineUserGroup className="w-6 h-6 text-cyan-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.totalInstructors || 0}</p>
-        <p className="text-xs text-gray-500">Instructors</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineStar className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.averageRating || 0}</p>
-        <p className="text-xs text-gray-500">Avg Rating</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-        <HiOutlineShieldCheck className="w-6 h-6 text-red-600 mx-auto mb-2" />
-        <p className="text-2xl font-bold text-gray-800">{profile?.totalAdmins || 0}</p>
-        <p className="text-xs text-gray-500">Admins</p>
-      </div>
-    </div>
-  );
-
-  // ============================================================================
-  // Instructor Bio Section
-  // ============================================================================
-  const InstructorBio = () => (
-    <div className="rounded-2xl p-6 bg-white border border-gray-100 shadow-sm mb-6">
-      <h3 className="text-base font-semibold text-gray-800 mb-4">About Me</h3>
-      <p className="text-gray-600 text-sm leading-relaxed">
-        {profile?.bio || 'No bio added yet. Tell students about yourself, your expertise, and what they will learn from your courses.'}
-      </p>
-      {profile?.expertise && (
-        <div className="mt-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">Expertise</p>
-          <div className="flex flex-wrap gap-2">
-            {profile.expertise.split(',').map((skill, index) => (
-              <span key={index} className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-600">
-                {skill.trim()}
-              </span>
-            ))}
-          </div>
+    <>
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineUserGroup className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.totalUsers || 0}</p>
+          <p className="text-xs text-gray-500">Total Users</p>
         </div>
-      )}
-    </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineBookOpen className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.totalCourses || 0}</p>
+          <p className="text-xs text-gray-500">Total Courses</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineTrendingUp className="w-6 h-6 text-green-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.pendingCourses || 0}</p>
+          <p className="text-xs text-gray-500">Pending Review</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineCurrencyDollar className="w-6 h-6 text-amber-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">${profile?.totalRevenue || 0}</p>
+          <p className="text-xs text-gray-500">Total Revenue</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineAcademicCap className="w-6 h-6 text-indigo-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.totalStudents || 0}</p>
+          <p className="text-xs text-gray-500">Students</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineUserGroup className="w-6 h-6 text-cyan-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.totalInstructors || 0}</p>
+          <p className="text-xs text-gray-500">Instructors</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineStar className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.averageRating || 0}</p>
+          <p className="text-xs text-gray-500">Avg Rating</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+          <HiOutlineShieldCheck className="w-6 h-6 text-red-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-gray-800">{profile?.totalAdmins || 0}</p>
+          <p className="text-xs text-gray-500">Admins</p>
+        </div>
+      </div>
+    </>
   );
 
   // ============================================================================
@@ -206,7 +177,6 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Toast Notification */}
         {toast && (
           <div className={`fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg animate-slideIn ${
             toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'
@@ -216,35 +186,28 @@ const Profile = () => {
         )}
 
         <div className="space-y-6">
-          {/* Profile Header with role from auth */}
           <ProfileHeader
             profile={profileWithRole}
             onAvatarChange={handleAvatarChange}
             saving={saving}
           />
 
-          {/* Role-specific Stats */}
+          {/* ✅ Only show stats based on role */}
           {isUserStudent && !isUserInstructor && !isUserAdmin && <StudentStats />}
           {isUserInstructor && !isUserAdmin && <InstructorStats />}
           {isUserAdmin && (
             <>
               <AdminStats />
-              <AdminPlatformStats />
               <AdminQuickActions />
             </>
           )}
 
-          {/* Instructor Bio (only for instructors) */}
-          {isUserInstructor && !isUserAdmin && <InstructorBio />}
-
-          {/* Personal Information (same for all roles) */}
           <ProfileInfo
             profile={profile}
             onSave={handleProfileSave}
             saving={saving}
           />
 
-          {/* Change Password Section - Inline */}
           <ChangePasswordSection
             onChangePassword={handlePasswordChange}
             saving={saving}
