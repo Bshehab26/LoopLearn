@@ -1,18 +1,22 @@
 // src/features/admin/components/courses/CourseStatusBadge.jsx
+//
+// Maps CourseStatus enum strings (Published, PendingReview, Rejected,
+// Draft, Archived) to StatusBadge tones. Keep in sync with
+// CourseStatus.cs enum values.
 
 import React from 'react';
 import StatusBadge from '../common/StatusBadge';
 
-const STATUS_CONFIG = {
-  Published: { tone: 'green', label: 'Published' },
-  PendingReview: { tone: 'amber', label: 'Pending Review' },
-  Draft: { tone: 'gray', label: 'Draft' },
-  Rejected: { tone: 'red', label: 'Rejected' },
-  Archived: { tone: 'gray', label: 'Archived' },
+const STATUS_MAP = {
+  Published:     { label: 'Published',      tone: 'green'  },
+  PendingReview: { label: 'Pending Review', tone: 'amber'  },
+  Rejected:      { label: 'Rejected',       tone: 'red'    },
+  Draft:         { label: 'Draft',          tone: 'gray'   },
+  Archived:      { label: 'Archived',       tone: 'blue'   },
 };
 
 const CourseStatusBadge = ({ status }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.Draft;
+  const config = STATUS_MAP[status] || { label: status || 'Unknown', tone: 'gray' };
   return <StatusBadge label={config.label} tone={config.tone} dot />;
 };
 

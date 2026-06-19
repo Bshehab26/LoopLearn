@@ -1,6 +1,6 @@
 // src/features/admin/api/admin.api.js
 
-import api from '../../../services/api/axios';  // ✅ Fixed: Use 'api' not 'axiosClient'
+import api from '../../../services/api/axios';
 import { handleApiError } from '../../../services/api/errorHandler';
 
 // The backend returns pagination info in response headers, not the JSON body
@@ -13,152 +13,118 @@ const buildPagination = (headers, fallbackPage, fallbackPageSize) => {
   return { totalCount, pageSize, page, totalPages };
 };
 
-/**
- * GET /api/Admin/users
- * @param {{ role?: string, page?: number, pageSize?: number }} params
- * @returns {Promise<{ success: boolean, data: Array, pagination: object }>}
- */
+/** GET /api/Admin/users */
 export const getAdminUsers = async ({ role, page = 1, pageSize = 10 } = {}) => {
   try {
-    const response = await api.get('/Admin/users', {  // ✅ Fixed: /Admin/users
-      params: { role, page, pageSize },
-    });
-    return {
-      ...response.data,
-      pagination: buildPagination(response.headers, page, pageSize),
-    };
+    const response = await api.get('/Admin/users', { params: { role, page, pageSize } });
+    return { ...response.data, pagination: buildPagination(response.headers, page, pageSize) };
   } catch (error) {
-    console.error('[AdminAPI] getAdminUsers error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * GET /api/Admin/users/{id}
- * @returns {Promise<{ success: boolean, data: object }>}
- */
+/** GET /api/Admin/users/{id} */
 export const getAdminUserById = async (userId) => {
   try {
-    const response = await api.get(`/Admin/users/${userId}`);  // ✅ Fixed
+    const response = await api.get(`/Admin/users/${userId}`);
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] getAdminUserById error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * PATCH /api/Admin/users/{id}/status — ban or unban a user.
- * @param {string} userId
- * @param {{ isBanned: boolean, reason?: string }} payload
- */
+/** PATCH /api/Admin/users/{id}/status */
 export const updateUserStatus = async (userId, payload) => {
   try {
-    const response = await api.patch(`/Admin/users/${userId}/status`, payload);  // ✅ Fixed
+    const response = await api.patch(`/Admin/users/${userId}/status`, payload);
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] updateUserStatus error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * PATCH /api/Admin/users/{id}/role
- * @param {string} userId
- * @param {{ newRole: string }} payload
- */
+/** PATCH /api/Admin/users/{id}/role */
 export const updateUserRole = async (userId, payload) => {
   try {
-    const response = await api.patch(`/Admin/users/${userId}/role`, payload);  // ✅ Fixed
+    const response = await api.patch(`/Admin/users/${userId}/role`, payload);
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] updateUserRole error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * GET /api/Admin/dashboard/stats
- * Returns { courseStats, userStats, enrollmentStats, paymentStats }
- */
+/** GET /api/Admin/dashboard/stats */
 export const getAdminDashboardStats = async () => {
   try {
-    const response = await api.get('/Admin/dashboard/stats');  // ✅ Fixed
+    const response = await api.get('/Admin/dashboard/stats');
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] getAdminDashboardStats error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * GET /api/Admin/courses
- * Gets all courses with optional status filter
- */
+/** GET /api/Admin/courses */
 export const getAdminCourses = async ({ page = 1, pageSize = 10, status = null } = {}) => {
   try {
     const params = { page, pageSize };
     if (status) params.status = status;
-    
-    const response = await api.get('/Admin/courses', { params });  // ✅ Fixed
-    return {
-      ...response.data,
-      pagination: buildPagination(response.headers, page, pageSize),
-    };
+    const response = await api.get('/Admin/courses', { params });
+    return { ...response.data, pagination: buildPagination(response.headers, page, pageSize) };
   } catch (error) {
-    console.error('[AdminAPI] getAdminCourses error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * GET /api/Admin/courses/{id}
- */
+/** GET /api/Admin/courses/{id} — full CourseDetailDTO (sections, lessons, quizzes, tags, etc.) */
 export const getAdminCourseById = async (courseId) => {
   try {
     const response = await api.get(`/Admin/courses/${courseId}`);
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] getAdminCourseById error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * GET /api/Admin/courses/pending
- */
+/** GET /api/Admin/courses/pending */
 export const getPendingCourses = async () => {
   try {
     const response = await api.get('/Admin/courses/pending');
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] getPendingCourses error:', error);
     return handleApiError(error);
   }
 };
 
 /**
- * POST /api/Admin/courses/{id}/approve
+ * GET /api/Admin/courses/{id}/review-history
+ * Returns [ { id, action, comment, performedBy, performedAt } ] ordered
+ * newest-first. action is "Approved" | "Rejected" (string from enum).
  */
+export const getAdminCourseReviewHistory = async (courseId) => {
+  try {
+    const response = await api.get(`/Admin/courses/${courseId}/review-history`);
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+/** POST /api/Admin/courses/{id}/approve */
 export const approveCourse = async (courseId) => {
   try {
     const response = await api.post(`/Admin/courses/${courseId}/approve`);
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] approveCourse error:', error);
     return handleApiError(error);
   }
 };
 
-/**
- * POST /api/Admin/courses/{id}/reject
- */
+/** POST /api/Admin/courses/{id}/reject — payload: { comment: string } */
 export const rejectCourse = async (courseId, comment) => {
   try {
     const response = await api.post(`/Admin/courses/${courseId}/reject`, { comment });
     return response.data;
   } catch (error) {
-    console.error('[AdminAPI] rejectCourse error:', error);
     return handleApiError(error);
   }
 };

@@ -44,10 +44,12 @@ const InstructorMyCourses       = lazy(() => import('../features/instructor/page
 const InstructorStudentEnrolled = lazy(() => import('../features/instructor/pages/StudentEnrolled'));
 
 // Admin
-const AdminDashboard  = lazy(() => import('../features/admin/pages/Dashboard'));
-const PendingCourses  = lazy(() => import('../features/admin/pages/PendingCourses'));
-const AllCourses      = lazy(() => import('../features/admin/pages/AllCourses'));
-const AdminUsers      = lazy(() => import('../features/admin/pages/Users'));
+const AdminDashboard      = lazy(() => import('../features/admin/pages/Dashboard'));
+const PendingCourses      = lazy(() => import('../features/admin/pages/PendingCourses'));
+const AllCourses          = lazy(() => import('../features/admin/pages/AllCourses'));
+const AdminUsers          = lazy(() => import('../features/admin/pages/Users'));
+const AdminCourseDetail   = lazy(() => import('../features/admin/pages/AdminCourseDetailPage'));
+const AdminUserDetail     = lazy(() => import('../features/admin/pages/AdminUserDetailPage'));
 
 // ============================================================================
 // Helpers
@@ -140,10 +142,12 @@ const AppRouter = () => {
         {/* ── Admin Layout ──────────────────────────────────────────────────── */}
         <Route element={<ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']} />}>
           <Route element={<AdminLayout />}>
-            <Route path={ROUTES.ADMIN_DASHBOARD}        element={<AdminDashboard />} />
-            <Route path={ROUTES.ADMIN_PENDING_COURSES}   element={<PendingCourses />} />
-            <Route path={ROUTES.ADMIN_ALL_COURSES}       element={<AllCourses />} />
-            <Route path={ROUTES.ADMIN_USERS}             element={<AdminUsers />} />
+            <Route path={ROUTES.ADMIN_DASHBOARD}                    element={<AdminDashboard />} />
+            <Route path={ROUTES.ADMIN_PENDING_COURSES}              element={<PendingCourses />} />
+            <Route path={ROUTES.ADMIN_ALL_COURSES}                  element={<AllCourses />} />
+            <Route path="/admin/courses/:id"                        element={<AdminCourseDetail />} />
+            <Route path={ROUTES.ADMIN_USERS}                        element={<AdminUsers />} />
+            <Route path="/admin/users/:id"                          element={<AdminUserDetail />} />
           </Route>
         </Route>
 

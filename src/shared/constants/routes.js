@@ -25,7 +25,9 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_PENDING_COURSES: '/admin/courses/pending',
   ADMIN_ALL_COURSES: '/admin/courses/all',
+  ADMIN_COURSE_DETAIL: (id) => `/admin/courses/${id}`,   // AdminCourseDetailPage
   ADMIN_USERS: '/admin/users',
+  ADMIN_USER_DETAIL: (id) => `/admin/users/${id}`,       // AdminUserDetailPage
   ADMIN_CATEGORIES: '/admin/categories',
   ADMIN_REPORTS: '/admin/reports',
 };
