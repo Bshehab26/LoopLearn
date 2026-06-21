@@ -1,3 +1,13 @@
+// src/features/courses/components/FeedbackSection.jsx
+//
+// Added `readOnly` prop (default false).
+// When readOnly={true}:
+//   • The write UI (form, edit, delete buttons) is hidden entirely.
+//   • All reviews are still fetched and displayed.
+//   • The empty-state message is neutral ("No reviews yet" instead of "Be the first").
+//   • The Modal and all write-related state/handlers are still defined but
+//     simply never triggered — no dead-code removal needed.
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../store/AppProvider';
 import { getCourseFeedbacks, addOrUpdateFeedback, deleteFeedback } from '../api/course.api';
@@ -6,7 +16,7 @@ import { motion } from 'framer-motion';
 import { HiOutlineTrash, HiOutlinePencil } from 'react-icons/hi';
 import Modal from '../../../shared/components/Modal';
 
-const FeedbackSection = ({ courseId }) => {
+const FeedbackSection = ({ courseId, readOnly = false }) => {
   const { user, isAuthenticated } = useAuth();
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +39,6 @@ const FeedbackSection = ({ courseId }) => {
         const data = response.data || [];
         setFeedbacks(data);
 
-        // Determine if the current user has already given feedback
         if (user && user.id) {
           const own = data.find(f => f.studentId === user.id);
           setUserFeedback(own || null);
@@ -124,26 +133,33 @@ const FeedbackSection = ({ courseId }) => {
   };
 
   if (loading) {
-    return <div className="animate-pulse h-32 bg-gray-100 rounded-xl"></div>;
+    return <div className="animate-pulse h-32 bg-gray-100 rounded-xl" />;
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Course Feedback</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Student Reviews</h2>
 
-      {feedbacks.length === 0 && !hasRated && (
-        <p className="text-gray-500 text-sm mb-6">No feedback yet. Be the first to share your thoughts!</p>
+      {feedbacks.length === 0 && (
+        <p className="text-gray-500 text-sm mb-6">
+          {readOnly
+            ? 'No reviews yet for this course.'
+            : 'No feedback yet. Be the first to share your thoughts!'}
+        </p>
       )}
 
+      {/* ── All reviews list ─────────────────────────────────────────────── */}
       <div className="space-y-4 mb-8">
         {feedbacks.map((fb, idx) => {
-          const isOwn = user && user.id && fb.studentId === user.id;
+          const isOwn = !readOnly && user && user.id && fb.studentId === user.id;
           return (
             <motion.div
               key={idx}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className={`bg-gray-50 p-4 rounded-xl border ${isOwn ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100'}`}
+              className={`bg-gray-50 p-4 rounded-xl border ${
+                isOwn ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100'
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -178,8 +194,8 @@ const FeedbackSection = ({ courseId }) => {
         })}
       </div>
 
-      {/* User's own feedback form / display */}
-      {isAuthenticated && (
+      {/* ── Write UI — hidden when readOnly={true} ───────────────────────── */}
+      {!readOnly && isAuthenticated && (
         <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
           {hasRated && userFeedback && !editing ? (
             <div>
@@ -206,7 +222,6 @@ const FeedbackSection = ({ courseId }) => {
               <p className="text-sm text-gray-600 mt-2">{userFeedback.comment}</p>
             </div>
           ) : (
-            // Show form if user hasn't rated or is editing
             (!hasRated || editing) && (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -229,11 +244,7 @@ const FeedbackSection = ({ courseId }) => {
                     disabled={submitting}
                     className="px-5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
                   >
-                    {submitting
-                      ? 'Saving...'
-                      : editing
-                      ? 'Update Feedback'
-                      : 'Post Feedback'}
+                    {submitting ? 'Saving...' : editing ? 'Update Feedback' : 'Post Feedback'}
                   </button>
                   {editing && (
                     <button

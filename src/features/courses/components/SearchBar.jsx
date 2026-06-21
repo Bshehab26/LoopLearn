@@ -1,30 +1,24 @@
 /**
  * SearchBar.jsx
- * Fixed:
- *  - Double navigation: handleChange no longer navigates automatically.
- *    Navigation only happens on explicit submit or suggestion click.
- *  - Removed 800ms debounce navigation that fired WHILE typing (bad UX + causes
- *    re-render loop when SearchBar lives inside CoursesList).
- *  - Suggestions still filter in real-time (local only, no side-effects).
- *  - Added keyboard navigation (↑ ↓ Enter Escape) for accessibility.
  *
- * @module features/courses/components/SearchBar
+ * FIXES:
+ *  1. Double clear button: `type="search"` was giving the browser its own ×
+ *     in addition to the custom HiX button. Changed to `type="text"` so only
+ *     the custom clear button exists.
+ *  2. Hardcoded POPULAR_SUGGESTIONS replaced with real categories fetched from
+ *     GET /api/Category via useCategories hook. Suggestions now show actual
+ *     category names from the database, with a loading shimmer while fetching.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { HiSearch, HiX } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import useCategories from '../hooks/useCategories';
 
 // ============================================================================
 // Constants
 // ============================================================================
-
-const POPULAR_SUGGESTIONS = [
-  'Web Development', 'Data Science', 'UI/UX Design', 'Mobile Apps',
-  'AI & ML', 'Cybersecurity', 'DevOps', 'React', 'JavaScript',
-  'Python', 'Machine Learning', 'Cloud Computing',
-];
 
 const MAX_SUGGESTIONS = 8;
 
@@ -41,21 +35,25 @@ const DROP_ANIM = {
 
 const normalize = (str = '') => str.toLowerCase().trim().replace(/\s+/g, ' ');
 
-const filterSuggestions = (query) => {
+/**
+ * Filter category names by the current query.
+ * Returns scored matches sorted by relevance.
+ */
+const filterSuggestions = (query, categoryNames) => {
   const q = normalize(query);
-  if (!q) return [];
+  if (!q || !categoryNames.length) return [];
 
-  return POPULAR_SUGGESTIONS
-    .map(s => {
-      const ns = normalize(s);
+  return categoryNames
+    .map((name) => {
+      const ns = normalize(name);
       let score = 0;
-      if (ns === q)              score = 100;
-      else if (ns.startsWith(q)) score = 80;
-      else if (ns.includes(q))   score = 60;
-      else if (ns.split(' ').some(w => w.startsWith(q))) score = 40;
-      return { label: s, score };
+      if (ns === q)               score = 100;
+      else if (ns.startsWith(q))  score = 80;
+      else if (ns.includes(q))    score = 60;
+      else if (ns.split(' ').some((w) => w.startsWith(q))) score = 40;
+      return { label: name, score };
     })
-    .filter(x => x.score > 0)
+    .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_SUGGESTIONS);
 };
@@ -66,7 +64,9 @@ const Highlight = ({ text, query }) => {
   return (
     <>
       {text.slice(0, idx)}
-      <span className="font-semibold text-violet-600">{text.slice(idx, idx + query.length)}</span>
+      <span className="font-semibold text-violet-600">
+        {text.slice(idx, idx + query.length)}
+      </span>
       {text.slice(idx + query.length)}
     </>
   );
@@ -76,8 +76,23 @@ const Highlight = ({ text, query }) => {
 // Suggestions Dropdown
 // ============================================================================
 
-const SuggestionsDropdown = ({ suggestions, query, activeIndex, onSelect }) => {
+const SuggestionsDropdown = ({ suggestions, query, activeIndex, onSelect, loading }) => {
+  // Show loading shimmer while categories are being fetched
+  if (loading) {
+    return (
+      <motion.div
+        {...DROP_ANIM}
+        className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-3 px-4 space-y-2"
+      >
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${60 + i * 15}%` }} />
+        ))}
+      </motion.div>
+    );
+  }
+
   if (!suggestions.length) return null;
+
   return (
     <motion.ul
       {...DROP_ANIM}
@@ -85,7 +100,7 @@ const SuggestionsDropdown = ({ suggestions, query, activeIndex, onSelect }) => {
       className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden py-1"
     >
       <li className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-        Suggestions
+        Categories
       </li>
       {suggestions.map(({ label }, idx) => (
         <li key={label} role="option" aria-selected={idx === activeIndex}>
@@ -107,6 +122,7 @@ const SuggestionsDropdown = ({ suggestions, query, activeIndex, onSelect }) => {
 
 // ============================================================================
 // Input variants
+// FIX 1: type="text" instead of type="search" removes the browser's native ×
 // ============================================================================
 
 const HeroInput = ({ inputRef, value, onChange, onFocus, onBlur, onSubmit, onClear, inputId }) => (
@@ -115,7 +131,7 @@ const HeroInput = ({ inputRef, value, onChange, onFocus, onBlur, onSubmit, onCle
     <input
       id={inputId}
       ref={inputRef}
-      type="search"
+      type="text"          // ← was "search" (caused double × button)
       autoComplete="off"
       value={value}
       onChange={onChange}
@@ -147,7 +163,7 @@ const DefaultInput = ({ inputRef, value, onChange, onFocus, onBlur, onSubmit, on
       <input
         id={inputId}
         ref={inputRef}
-        type="search"
+        type="text"        // ← was "search" (caused double × button)
         autoComplete="off"
         value={value}
         onChange={onChange}
@@ -201,59 +217,46 @@ const SearchBar = ({
   const navigate = useNavigate();
   const inputId  = useRef(`search-${Math.random().toString(36).slice(2)}`).current;
 
-  // Update suggestions when query or focus changes
+  // FIX 2: fetch real categories instead of using hardcoded array
+  const { categories, loading: categoriesLoading } = useCategories();
+  const categoryNames = categories.map((c) => c.name);
+
+  // Update suggestions when query / focus / categories change
   useEffect(() => {
-    if (focused && showSuggestions) {
-      const list = filterSuggestions(query);
+    if (focused && showSuggestions && query.length > 0) {
+      const list = filterSuggestions(query, categoryNames);
       setSuggestions(list);
-      setOpen(list.length > 0 && query.length > 0);
+      // Show dropdown while loading too (will render shimmer)
+      setOpen(categoriesLoading || list.length > 0);
     } else {
       setOpen(false);
     }
     setActiveIdx(-1);
-  }, [query, focused, showSuggestions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, focused, showSuggestions, categoriesLoading, JSON.stringify(categoryNames)]);
 
-  // ✅ FIX: search only on explicit action (submit / suggestion click)
-  //    No automatic navigation while typing.
   const doSearch = useCallback((term) => {
     const t = term.trim();
     if (!t) return;
-
     onSearch?.(t);
-
     if (navigateOnSearch) {
       navigate(`/courses?search=${encodeURIComponent(t)}`);
     }
-
     setOpen(false);
     onSearchComplete?.();
   }, [navigate, navigateOnSearch, onSearch, onSearchComplete]);
 
-  const handleChange = (e) => {
-    setQuery(e.target.value);
-    // intentionally NOT calling doSearch here — suggestions only
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    doSearch(query);
-  };
-
-  const handleSelect = (label) => {
-    setQuery(label);
-    doSearch(label);
-  };
-
-  const handleClear = () => {
+  const handleChange  = (e) => setQuery(e.target.value);
+  const handleSubmit  = (e) => { e.preventDefault(); doSearch(query); };
+  const handleSelect  = (label) => { setQuery(label); doSearch(label); };
+  const handleClear   = () => {
     setQuery('');
     setOpen(false);
     onSearch?.('');
     inputRef.current?.focus();
   };
-
   const handleFocus = () => setFocused(true);
   const handleBlur  = () => {
-    // Delay so mousedown on suggestion registers first
     setTimeout(() => { setFocused(false); setOpen(false); }, 150);
   };
 
@@ -261,10 +264,10 @@ const SearchBar = ({
     if (!open) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIdx(i => Math.min(i + 1, suggestions.length - 1));
+      setActiveIdx((i) => Math.min(i + 1, suggestions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIdx(i => Math.max(i - 1, -1));
+      setActiveIdx((i) => Math.max(i - 1, -1));
     } else if (e.key === 'Enter' && activeIdx >= 0) {
       e.preventDefault();
       handleSelect(suggestions[activeIdx].label);
@@ -294,6 +297,7 @@ const SearchBar = ({
             query={query}
             activeIndex={activeIdx}
             onSelect={handleSelect}
+            loading={categoriesLoading}
           />
         )}
       </AnimatePresence>

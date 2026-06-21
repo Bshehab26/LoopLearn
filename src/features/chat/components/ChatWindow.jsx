@@ -1,132 +1,170 @@
 // src/features/chat/components/ChatWindow.jsx
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
-import { HiX } from 'react-icons/hi';
+import { useState, useEffect, useRef } from 'react';
+import { HiX, HiRefresh, HiChat } from 'react-icons/hi';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import BotAvatar from './BotAvatar';
+import useChat from '../hooks/useChat';
+import { chatService } from '../api/chatService';
 
-// Simple bot avatar component
-const BotAvatar = () => (
-  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-md">
-    L
-  </div>
-);
+const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
+  const { 
+    messages, 
+    loading, 
+    error, 
+    sessionId, 
+    sendMessage, 
+    clearMessages,
+    fetchHistory 
+  } = useChat({ sessionId: initialSessionId });
 
-const ChatWindow = ({ onClose }) => {
-  const [messages, setMessages] = useState([
-    { 
-      id: 1, 
-      sender: 'bot', 
-      text: "Hi! I'm Loopy, your AI assistant 🤖 How can I help you today?",
-      timestamp: new Date(),
-    },
-  ]);
-  const [loading, setLoading] = useState(false);
+  const [showBackendStatus, setShowBackendStatus] = useState(null);
+  const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, loading]);
 
-  const generateResponse = (userText) => {
-    const text = userText.toLowerCase();
-    if (text.includes('course') || text.includes('learn')) {
-      return "I can help you find the perfect course! What topic are you interested in? (Web Development, Data Science, Design, etc.)";
-    }
-    if (text.includes('instructor') || text.includes('teach')) {
-      return "Would you like to become an instructor? I can guide you through the application process!";
-    }
-    if (text.includes('help') || text.includes('support')) {
-      return "I'm here to help! You can ask me about courses, enrollment, instructors, or anything else.";
-    }
-    if (text.includes('price') || text.includes('cost')) {
-      return "Our courses start from just a few dollars! Most courses range from $29 to $99.";
-    }
-    if (text.includes('certificate')) {
-      return "Yes! You earn a verifiable certificate of completion when you finish a course. 🎓";
-    }
-    return "That's interesting! How else can I assist you today? You can ask me about courses, instructors, pricing, or certificates.";
-  };
+  // Check backend health on mount
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        await chatService.checkHealth();
+        setShowBackendStatus('online');
+        if (initialSessionId) {
+          await fetchHistory();
+        }
+      } catch {
+        setShowBackendStatus('offline');
+      }
+    };
+    checkBackend();
+  }, []);
 
   const handleSend = async (text) => {
-    // Add user message
-    const userMessage = {
-      id: Date.now(),
-      sender: 'user',
-      text,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, userMessage]);
-    
-    // Show typing indicator
-    setLoading(true);
-    
-    // Simulate AI response
-    setTimeout(() => {
-      const botResponse = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        text: generateResponse(text),
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, botResponse]);
-      setLoading(false);
-    }, 800);
+    await sendMessage(text);
   };
+
+  const handleClear = async () => {
+    if (messages.length > 1 && window.confirm('Start a new conversation?')) {
+      await clearMessages();
+    }
+  };
+
+  // Minimize/Expand icon
+  const MinMaxIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+        d={isMinimized ? "M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" : "M20 12H4"} 
+      />
+    </svg>
+  );
 
   return (
     <motion.div
-      initial={{ y: 100, opacity: 0, scale: 0.95 }}
+      initial={{ y: 50, opacity: 0, scale: 0.95 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
-      exit={{ y: 100, opacity: 0, scale: 0.95 }}
+      exit={{ y: 50, opacity: 0, scale: 0.95 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className='fixed bottom-24 right-6 w-[90%] sm:w-96 bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-200'
+      className={`fixed bottom-24 right-6 w-[92%] sm:w-96 bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-200/50 backdrop-blur-sm ${
+        isMinimized ? 'h-14' : 'h-[580px]'
+      }`}
     >
       {/* Header */}
-      <div className='flex items-center justify-between p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white'>
-        <div className='flex items-center gap-2'>
-          <BotAvatar />
+      <div className='flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white flex-shrink-0'>
+        <div className='flex items-center gap-3'>
+          <div className='relative'>
+            <BotAvatar />
+            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+              showBackendStatus === 'online' ? 'bg-green-400' : 
+              showBackendStatus === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
+            }`} />
+          </div>
           <div>
-            <span className='font-semibold'>Loopy AI Assistant</span>
-            <div className='flex items-center gap-1 mt-0.5'>
-              <div className='w-2 h-2 bg-green-400 rounded-full animate-pulse' />
-              <span className='text-xs opacity-80'>Online</span>
+            <span className='font-semibold text-sm'>Loopy AI</span>
+            <div className='flex items-center gap-1.5 mt-0.5'>
+              <span className='text-[10px] opacity-80'>
+                {showBackendStatus === 'online' ? '🟢 Online' : 
+                 showBackendStatus === 'offline' ? '🔴 Offline' : '🟡 Connecting...'}
+              </span>
             </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className='text-white hover:bg-white/20 rounded-full p-1.5 transition-all duration-200'
-          aria-label='Close chat'
-        >
-          <HiX size={18} />
-        </button>
+        
+        <div className='flex gap-0.5'>
+          <button
+            onClick={() => setIsMinimized(!isMinimized)}
+            className='text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200'
+            aria-label={isMinimized ? 'Expand' : 'Minimize'}
+          >
+            <MinMaxIcon />
+          </button>
+          <button
+            onClick={handleClear}
+            className='text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200'
+            aria-label='New conversation'
+            title='New conversation'
+          >
+            <HiRefresh size={16} />
+          </button>
+          <button
+            onClick={onClose}
+            className='text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all duration-200'
+            aria-label='Close chat'
+          >
+            <HiX size={18} />
+          </button>
+        </div>
       </div>
 
-      {/* Messages */}
-      <div className='flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50' style={{ minHeight: '300px', maxHeight: '400px' }}>
-        {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
-        ))}
-        
-        {loading && (
-          <div className='flex justify-start'>
-            <div className='bg-gray-200 text-gray-800 max-w-xs p-3 rounded-2xl rounded-bl-none'>
-              <div className='flex gap-1'>
-                <span className='w-2 h-2 bg-gray-500 rounded-full animate-bounce' />
-                <span className='w-2 h-2 bg-gray-500 rounded-full animate-bounce' style={{ animationDelay: '0.1s' }} />
-                <span className='w-2 h-2 bg-gray-500 rounded-full animate-bounce' style={{ animationDelay: '0.2s' }} />
+      {/* Chat body - Hidden when minimized */}
+      {!isMinimized && (
+        <>
+          {/* Error display */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className='bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 flex items-center gap-2 flex-shrink-0'
+              >
+                <span>⚠️</span>
+                <span>{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Messages */}
+          <div className='flex-1 p-4 overflow-y-auto space-y-3 bg-gradient-to-b from-gray-50 to-white min-h-[300px] max-h-[400px]'>
+            {messages.map((msg) => (
+              <ChatMessage key={msg.id} message={msg} />
+            ))}
+            
+            {loading && (
+              <div className='flex justify-start'>
+                <div className='bg-white border border-gray-200 text-gray-800 max-w-xs p-3 rounded-2xl rounded-bl-none shadow-sm'>
+                  <div className='flex gap-1.5'>
+                    <span className='w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce' />
+                    <span className='w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce' style={{ animationDelay: '0.1s' }} />
+                    <span className='w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce' style={{ animationDelay: '0.2s' }} />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+            
+            <div ref={messagesEndRef} />
           </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
 
-      {/* Input */}
-      <ChatInput onSend={handleSend} loading={loading} />
+          {/* Input */}
+          <ChatInput onSend={handleSend} loading={loading} />
+        </>
+      )}
     </motion.div>
   );
 };

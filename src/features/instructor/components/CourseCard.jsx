@@ -14,6 +14,15 @@ const STATUS_STYLES = {
 const CourseCard = ({ course, onEdit, onDelete, onSubmit, onView, isSubmitting = false }) => {
   const statusStyle = STATUS_STYLES[course.status] || STATUS_STYLES.draft;
 
+  // Determine which actions are available based on status
+  const canEdit = course.status === 'draft' || course.status === 'rejected';
+  const canSubmit = course.status === 'draft' || course.status === 'rejected';
+  const canDelete = course.status !== 'pending';
+  const canView = course.status === 'published'; // Only published courses can be viewed
+
+  // For pending courses, show NO actions at all
+  const isPending = course.status === 'pending';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -22,13 +31,13 @@ const CourseCard = ({ course, onEdit, onDelete, onSubmit, onView, isSubmitting =
       transition={{ duration: 0.2 }}
       className="group bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300"
     >
-      {/* Thumbnail with overlay */}
+      {/* Thumbnail with overlay - No actions for pending */}
       <div className="relative h-44 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
         {course.thumbnailUrl ? (
           <img 
             src={course.thumbnailUrl} 
             alt={course.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
@@ -45,37 +54,48 @@ const CourseCard = ({ course, onEdit, onDelete, onSubmit, onView, isSubmitting =
           {statusStyle.label}
         </div>
 
-        {/* Quick Actions Overlay */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
-          <button
-            onClick={onView}
-            className="p-2 bg-white rounded-lg text-gray-700 hover:bg-gray-100 transition transform hover:scale-105"
-            title="Preview Course"
-          >
-            <HiEye size={18} />
-          </button>
-          <button
-            onClick={onEdit}
-            className="p-2 bg-white rounded-lg text-blue-600 hover:bg-gray-100 transition transform hover:scale-105"
-            title="Edit Course"
-          >
-            <HiPencil size={18} />
-          </button>
-          {course.status === 'draft' && (
-            <button
-              onClick={onSubmit}
-              disabled={isSubmitting}
-              className="p-2 bg-white rounded-lg text-green-600 hover:bg-gray-100 transition transform hover:scale-105 disabled:opacity-50"
-              title="Submit for Review"
-            >
-              {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <HiPaperAirplane size={18} />
-              )}
-            </button>
-          )}
-        </div>
+        {/* Quick Actions Overlay - Only show for non-pending courses */}
+        {!isPending && (
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
+            {/* View - Only for Draft & Published */}
+            {canView && (
+              <button
+                onClick={onView}
+                className="p-2.5 bg-white rounded-lg text-gray-700 hover:bg-gray-100 transition transform hover:scale-105 shadow-md"
+                title="View Course"
+              >
+                <HiEye size={20} />
+              </button>
+            )}
+
+            {/* Edit - Draft & Rejected only */}
+            {canEdit && (
+              <button
+                onClick={onEdit}
+                className="p-2.5 bg-white rounded-lg text-blue-600 hover:bg-gray-100 transition transform hover:scale-105 shadow-md"
+                title="Edit Course"
+              >
+                <HiPencil size={20} />
+              </button>
+            )}
+
+            {/* Submit for Review - Draft & Rejected only */}
+            {canSubmit && (
+              <button
+                onClick={onSubmit}
+                disabled={isSubmitting}
+                className="p-2.5 bg-white rounded-lg text-green-600 hover:bg-gray-100 transition transform hover:scale-105 disabled:opacity-50 shadow-md"
+                title="Submit for Review"
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <HiPaperAirplane size={20} />
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -84,30 +104,51 @@ const CourseCard = ({ course, onEdit, onDelete, onSubmit, onView, isSubmitting =
         <p className="text-sm text-gray-500 mb-3 line-clamp-2">{course.subtitle || 'No description'}</p>
         
         {/* Stats Row */}
-        <div className="flex items-center justify-between text-xs text-gray-500 mb-4 pb-3 border-b border-gray-100">
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-3 pb-3 border-b border-gray-100">
           <div className="flex items-center gap-1">
             <HiUsers size={14} className="text-gray-400" />
             <span>{course.enrollmentCount || 0} students</span>
           </div>
           <div className="flex items-center gap-1">
             <HiStar size={14} className="text-yellow-400" />
-            <span>{course.averageRating || 0} ({course.enrollmentCount || 0})</span>
+            <span>{course.averageRating || 0}</span>
           </div>
           <div className="font-semibold text-purple-600">
             {course.isFree ? 'Free' : `EGP ${course.price}`}
           </div>
         </div>
 
-        {/* Footer with Delete Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={onDelete}
-            className="text-gray-400 hover:text-red-500 transition text-sm flex items-center gap-1"
-          >
-            <HiTrash size={14} />
-            Delete
-          </button>
-        </div>
+        {/* Footer Actions - No actions for pending */}
+        {!isPending && (
+          <div className="flex justify-end">
+            {canDelete && (
+              <button
+                onClick={onDelete}
+                className="text-gray-400 hover:text-red-500 transition text-sm flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-red-50"
+              >
+                <HiTrash size={15} />
+                Delete
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Status Messages */}
+        {course.status === 'pending' && (
+          <div className="mt-2 flex justify-center">
+            <span className="text-sm text-yellow-600 bg-yellow-50 px-4 py-2 rounded-full font-medium">
+              ⏳ This course is under review by the admin team
+            </span>
+          </div>
+        )}
+
+        {course.status === 'rejected' && (
+          <div className="mt-2 flex justify-center">
+            <span className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-full font-medium">
+              ❌ Rejected - Edit and resubmit for review
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   );

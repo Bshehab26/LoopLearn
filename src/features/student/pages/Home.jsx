@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useCourseContext } from '../../../store/AppProvider';  // ✅ Changed
+import { useCourseContext } from '../../../store/AppProvider';
 import Loading from '../../../shared/components/Loading';
 import Hero from '../components/Hero';
 import Companies from '../components/Companies';
@@ -95,7 +95,8 @@ const BackToTopButton = () => {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
           onClick={scrollToTop}
-          className='fixed bottom-6 right-6 z-40 w-10 h-10 rounded-full bg-purple-600 text-white shadow-lg hover:bg-purple-700 transition-all duration-300 flex items-center justify-center group'
+          className='fixed bottom-24 right-6 z-40 w-10 h-10 rounded-full bg-purple-600 text-white shadow-lg hover:bg-purple-700 transition-all duration-300 flex items-center justify-center group'
+          // Note: Changed from bottom-6 to bottom-24 to avoid conflict with chat button
           aria-label='Back to top'
         >
           <svg className='w-5 h-5 transform group-hover:-translate-y-1 transition-transform duration-200' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -137,7 +138,7 @@ const ScrollProgress = () => {
 // ============================================================================
 
 const Home = () => {
-  const { loading: coursesLoading } = useCourseContext();  // ✅ Changed
+  const { loading: coursesLoading } = useCourseContext();
   const [showContent, setShowContent] = useState(false);
   const [isPageReady, setIsPageReady] = useState(false);
 

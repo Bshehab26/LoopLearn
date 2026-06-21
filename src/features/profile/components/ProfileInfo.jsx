@@ -1,17 +1,21 @@
 // src/features/profile/components/ProfileInfo.jsx
 import { useState, useCallback, useEffect, memo } from 'react';
-import { HiPencil, HiCheck, HiX, HiOutlineMail, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser } from 'react-icons/hi';
+import { HiPencil, HiCheck, HiX, HiOutlineMail, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineDocumentText } from 'react-icons/hi';
 import { validateEmail, validateEgyptianPhone } from '../../../shared/utils/validators';
 
 // Memoized sub‑component for each info row
-const InfoRow = memo(({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-3 py-3 border-b border-gray-100">
+const InfoRow = memo(({ icon: Icon, label, value, isBio = false }) => (
+  <div className={`flex items-start gap-3 py-3 border-b border-gray-100 ${isBio ? 'last:border-b-0' : ''}`}>
     <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
       <Icon size={16} className="text-gray-500" />
     </div>
     <div className="flex-1">
       <p className="text-xs text-gray-400 uppercase tracking-wide">{label}</p>
-      <p className="text-sm font-medium text-gray-800 mt-0.5">{value || 'Not provided'}</p>
+      {isBio ? (
+        <p className="text-sm text-gray-800 mt-0.5 whitespace-pre-line">{value || 'Not provided'}</p>
+      ) : (
+        <p className="text-sm font-medium text-gray-800 mt-0.5">{value || 'Not provided'}</p>
+      )}
     </div>
   </div>
 ));
@@ -23,6 +27,7 @@ const ProfileInfo = memo(({ profile, onSave, saving }) => {
     lastName: '',
     email: '',
     phone: '',
+    bio: '',
   });
   const [errors, setErrors] = useState({});
 
@@ -34,6 +39,7 @@ const ProfileInfo = memo(({ profile, onSave, saving }) => {
         lastName: profile.lastName || '',
         email: profile.email || '',
         phone: profile.phone || '',
+        bio: profile.bio || '',
       });
     }
   }, [profile]);
@@ -78,6 +84,7 @@ const ProfileInfo = memo(({ profile, onSave, saving }) => {
       lastName: profile?.lastName || '',
       email: profile?.email || '',
       phone: profile?.phone || '',
+      bio: profile?.bio || '',
     });
     setErrors({});
     setIsEditing(false);
@@ -130,6 +137,7 @@ const ProfileInfo = memo(({ profile, onSave, saving }) => {
           <InfoRow icon={HiOutlineUser} label="Full Name" value={`${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()} />
           <InfoRow icon={HiOutlineMail} label="Email Address" value={profile?.email} />
           <InfoRow icon={HiOutlinePhone} label="Phone Number" value={profile?.phone} />
+          <InfoRow icon={HiOutlineDocumentText} label="Bio" value={profile?.bio} isBio />
           {profile?.birthDate && (
             <InfoRow icon={HiOutlineCalendar} label="Birth Date" value={new Date(profile.birthDate).toLocaleDateString()} />
           )}
@@ -197,6 +205,23 @@ const ProfileInfo = memo(({ profile, onSave, saving }) => {
             />
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
             <p className="text-xs text-gray-400 mt-1">Egyptian phone number starting with 010, 011, 012, or 015</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Bio</label>
+            <textarea
+              name="bio"
+              value={formData.bio}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              placeholder="Tell others a bit about yourself..."
+              maxLength={500}
+            />
+            <div className="flex justify-between mt-1">
+              <p className="text-xs text-gray-400">Optional</p>
+              <p className="text-xs text-gray-400">{formData.bio.length}/500</p>
+            </div>
           </div>
         </div>
       )}

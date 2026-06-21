@@ -1,70 +1,35 @@
-/**
- * Chat.jsx
- * Full-page chat interface for standalone chat view.
- * Features gradient background, header, and responsive design.
- * 
- * @module features/chat/pages/Chat
- */
-
-import { useNavigate } from 'react-router-dom';
-import { HiArrowLeft } from 'react-icons/hi';
+// src/features/chat/pages/Chat.jsx
+import React, { useState, useEffect } from 'react';
+import ChatButton from '../components/ChatButton';
 import ChatWindow from '../components/ChatWindow';
+import { AnimatePresence } from 'framer-motion';
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-/** Page background gradient */
-const BACKGROUND_GRADIENT = {
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-};
-
-// ============================================================================
-// Subcomponents
-// ============================================================================
-
-/**
- * Page header with back button
- */
-const PageHeader = ({ onBack }) => (
-  <div className="absolute top-0 left-0 right-0 p-4 flex items-center gap-3">
-    <button
-      onClick={onBack}
-      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition text-white"
-      aria-label="Go back"
-    >
-      <HiArrowLeft size={20} />
-    </button>
-    <h1 className="text-white font-semibold text-lg">Chat with Loopy</h1>
-  </div>
-);
-
-// ============================================================================
-// Main Component
-// ============================================================================
-
-/**
- * Chat - Full-page chat interface
- * @returns {React.ReactElement} Chat page component
- */
 const Chat = () => {
-  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const [sessionId, setSessionId] = useState(() => {
+    const stored = localStorage.getItem('chatSessionId');
+    return stored || crypto.randomUUID();
+  });
 
-  const handleClose = () => {
-    navigate(-1); // Go back to previous page
-  };
+  useEffect(() => {
+    localStorage.setItem('chatSessionId', sessionId);
+  }, [sessionId]);
+
+  const toggleChat = () => setIsOpen(!isOpen);
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4 relative"
-      style={BACKGROUND_GRADIENT}
-    >
-      <PageHeader onBack={handleClose} />
+    <>
+      <ChatButton onClick={toggleChat} hasNotifications={!isOpen} />
       
-      <div className="w-full max-w-lg mx-auto mt-12">
-        <ChatWindow onClose={handleClose} />
-      </div>
-    </div>
+      <AnimatePresence>
+        {isOpen && (
+          <ChatWindow 
+            onClose={toggleChat} 
+            sessionId={sessionId}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

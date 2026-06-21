@@ -1,6 +1,6 @@
 // src/features/admin/pages/AdminCourseDetailPage.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -16,43 +16,42 @@ import {
   HiOutlineAcademicCap,
   HiOutlineLightBulb,
   HiOutlineClipboardList,
-  HiOutlineUsers,
-  HiOutlineEye,
   HiOutlineClock,
   HiOutlineInformationCircle,
+  HiOutlinePlay,
+  HiOutlineQuestionMarkCircle,
+  HiOutlineExclamationCircle,
 } from 'react-icons/hi';
 
-import useAdminCourseDetail from '../hooks/useAdminCourseDetail';
+import { getAdminCourseById } from '../api/admin.api';
 import useAdminCourseActions from '../hooks/useAdminCourseActions';
 import useAdminCourseReviewHistory from '../hooks/useAdminCourseReviewHistory';
 import CourseStatusBadge from '../components/courses/CourseStatusBadge';
 import CourseReviewHistory from '../components/courses/CourseReviewHistory';
-import CourseSectionAccordion from '../components/courses/CourseSectionAccordion';
 import RejectCourseModal from '../components/courses/RejectCourseModal';
 import ErrorState from '../components/common/ErrorState';
+import Avatar from '../components/common/Avatar';
 
 const fmt = (amount) =>
   amount == null ? '—' : `$${Number(amount).toFixed(2)}`;
 
-const formatDate = (d) =>
-  d && d !== '0001-01-01T00:00:00'
-    ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : '—';
+const formatDate = (d) => {
+  if (!d) return '—';
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  } catch (e) {
+    return '—';
+  }
+};
 
-const Section = ({ title, icon: Icon, children, className = '' }) => (
-  <div className={className}>
-    <div className="flex items-center gap-2.5 mb-3">
-      <div className="w-7 h-7 rounded-lg bg-[#EEEDFE] flex items-center justify-center">
-        <Icon size={14} className="text-[#534AB7]" />
-      </div>
-      <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
-    </div>
-    {children}
-  </div>
-);
-
-const InfoCard = ({ title, children, icon: Icon }) => (
-  <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+const InfoCard = ({ title, children, icon: Icon, className = '' }) => (
+  <div className={`bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden ${className}`}>
     <div className="flex items-center gap-2.5 px-5 py-3.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
       {Icon && <Icon size={15} className="text-[#534AB7]" />}
       <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{title}</h4>
@@ -68,6 +67,177 @@ const MetaRow = ({ icon: Icon, label, value }) => (
     <span className="text-sm font-medium text-gray-800 min-w-0 truncate">{value || '—'}</span>
   </div>
 );
+
+// Process items from the backend structure
+const processSectionItems = (items) => {
+  const lessons = [];
+  const quizzes = [];
+
+  if (!items || !Array.isArray(items)) {
+    return { lessons, quizzes };
+  }
+
+  items.forEach(item => {
+    if (item.type === 'Lesson' && item.lesson) {
+      lessons.push(item.lesson);
+    } else if (item.type === 'Quiz' && item.quiz) {
+      quizzes.push(item.quiz);
+    }
+  });
+
+  return { lessons, quizzes };
+};
+
+// Section Accordion Component
+const SectionAccordion = ({ sections }) => {
+  const [expandedSections, setExpandedSections] = useState({});
+
+  // Auto-expand sections that have content
+  useEffect(() => {
+    if (sections) {
+      const initialExpanded = {};
+      sections.forEach((section, index) => {
+        const { lessons, quizzes } = processSectionItems(section.items);
+        const hasContent = lessons.length > 0 || quizzes.length > 0;
+        if (hasContent && !Object.values(expandedSections).some(v => v)) {
+          initialExpanded[section.id] = true;
+        }
+      });
+      if (sections.length > 0 && !Object.keys(initialExpanded).length) {
+        initialExpanded[sections[0].id] = true;
+      }
+      setExpandedSections(initialExpanded);
+    }
+  }, [sections]);
+
+  const toggleSection = (sectionId) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  if (!sections || sections.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+          <HiOutlineBookOpen size={24} className="text-gray-300" />
+        </div>
+        <p className="text-sm text-gray-400">No sections added yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sections.map((section, index) => {
+        const isExpanded = expandedSections[section.id] || false;
+        const { lessons, quizzes } = processSectionItems(section.items);
+        const lessonCount = lessons.length;
+        const quizCount = quizzes.length;
+        const totalItems = lessonCount + quizCount;
+        const hasContent = totalItems > 0;
+
+        return (
+          <div key={section.id} className={`border rounded-xl overflow-hidden ${hasContent ? 'border-gray-300' : 'border-gray-200'}`}>
+            {/* Section Header */}
+            <button
+              onClick={() => toggleSection(section.id)}
+              className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
+                hasContent ? 'bg-gray-50 hover:bg-gray-100' : 'bg-gray-50/50 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-[#534AB7] bg-[#EEEDFE] px-2 py-1 rounded">
+                  {index + 1}
+                </span>
+                <div className="text-left">
+                  <h5 className="text-sm font-semibold text-gray-800">{section.title}</h5>
+                  <p className="text-xs text-gray-400">
+                    {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'} · {quizCount} {quizCount === 1 ? 'quiz' : 'quizzes'}
+                    {!hasContent && (
+                      <span className="ml-2 text-amber-500">(empty)</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">{totalItems} items</span>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Section Content */}
+            {isExpanded && (
+              <div className="p-4 space-y-3 bg-white">
+                {!hasContent ? (
+                  <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-lg">
+                    <HiOutlineExclamationCircle size={18} />
+                    <span>This section has no lessons or quizzes yet.</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Lessons */}
+                    {lessonCount > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                          <HiOutlinePlay size={12} />
+                          Lessons ({lessonCount})
+                        </p>
+                        {lessons.map((lesson, idx) => (
+                          <div key={lesson.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                            <HiOutlinePlay size={14} className="text-[#534AB7]" />
+                            <span className="text-sm text-gray-700 flex-1">{idx + 1}. {lesson.title}</span>
+                            {lesson.duration && (
+                              <span className="text-xs text-gray-400">{lesson.duration}</span>
+                            )}
+                            {lesson.isPreview && (
+                              <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Preview</span>
+                            )}
+                            {lesson.videoUrl && (
+                              <span className="text-[10px] px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Has Video</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Quizzes */}
+                    {quizCount > 0 && (
+                      <div className="space-y-1 mt-3">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                          <HiOutlineQuestionMarkCircle size={12} />
+                          Quizzes ({quizCount})
+                        </p>
+                        {quizzes.map((quiz, idx) => (
+                          <div key={quiz.id} className="flex items-center gap-3 px-3 py-2 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
+                            <HiOutlineQuestionMarkCircle size={14} className="text-amber-600" />
+                            <span className="text-sm text-gray-700 flex-1">{idx + 1}. {quiz.title}</span>
+                            <span className="text-xs text-gray-400">{quiz.questions?.length || 0} questions</span>
+                            {quiz.passingScore && (
+                              <span className="text-[10px] px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Pass: {quiz.passingScore}%</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const PageSkeleton = () => (
   <div className="animate-pulse space-y-6">
@@ -91,7 +261,11 @@ const AdminCourseDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { course, loading, error, refetch } = useAdminCourseDetail(id);
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [instructor, setInstructor] = useState(null);
+  
   const {
     history,
     loading: historyLoading,
@@ -103,13 +277,58 @@ const AdminCourseDetailPage = () => {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [actionSuccess, setActionSuccess] = useState(null);
 
+  const fetchCourseData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await getAdminCourseById(id);
+      
+      console.log('[AdminCourseDetailPage] Raw API response:', res);
+      
+      if (res.success && res.data) {
+        let courseData = null;
+        let instructorData = null;
+        
+        // Handle different response structures
+        if (res.data.courseDetails) {
+          courseData = res.data.courseDetails;
+          instructorData = res.data.instructorDetails || null;
+        } else if (res.data.CourseDetails) {
+          courseData = res.data.CourseDetails;
+          instructorData = res.data.InstructorDetails || null;
+        } else {
+          courseData = res.data;
+        }
+        
+        console.log('[AdminCourseDetailPage] Course Data:', courseData);
+        console.log('[AdminCourseDetailPage] Sections:', courseData?.sections);
+        
+        setCourse(courseData);
+        setInstructor(instructorData);
+      } else {
+        setError(res.message || 'Failed to load course details.');
+      }
+    } catch (err) {
+      console.error('[AdminCourseDetailPage] Error:', err);
+      setError(err.message || 'Failed to load course details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchCourseData();
+    }
+  }, [id]);
+
   const isPending = course?.status === 'PendingReview';
 
   const handleApprove = async () => {
     const result = await approve(id);
     if (result.ok) {
       setActionSuccess('Course approved and published successfully.');
-      refetch();
+      await fetchCourseData();
       refetchHistory();
     }
   };
@@ -118,7 +337,7 @@ const AdminCourseDetailPage = () => {
     const result = await reject(courseId, reason);
     if (result.ok) {
       setActionSuccess('Course rejected. The instructor has been notified.');
-      refetch();
+      await fetchCourseData();
       refetchHistory();
       return true;
     }
@@ -134,10 +353,29 @@ const AdminCourseDetailPage = () => {
   if (error || !course) return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="bg-white rounded-xl border border-gray-200">
-        <ErrorState message={error || 'Course not found.'} onRetry={refetch} />
+        <ErrorState message={error || 'Course not found.'} onRetry={fetchCourseData} />
       </div>
     </div>
   );
+
+  const instructorName = instructor?.fullName || instructor?.FullName || course?.instructorName || 'Unknown';
+  const instructorEmail = instructor?.email || instructor?.Email;
+  const instructorUsername = instructor?.userName || instructor?.UserName;
+  const instructorAvatar = instructor?.profileImageUrl || instructor?.ProfileImageUrl;
+
+  // Calculate totals from the items structure
+  const sections = course.sections || [];
+  let totalLessons = 0;
+  let totalQuizzes = 0;
+  
+  sections.forEach(section => {
+    if (section.items && Array.isArray(section.items)) {
+      section.items.forEach(item => {
+        if (item.type === 'Lesson') totalLessons++;
+        else if (item.type === 'Quiz') totalQuizzes++;
+      });
+    }
+  });
 
   return (
     <motion.div
@@ -192,7 +430,7 @@ const AdminCourseDetailPage = () => {
         {/* ── LEFT COLUMN: Course content ─────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Thumbnail + description */}
+          {/* Overview */}
           <InfoCard title="Overview" icon={HiOutlineInformationCircle}>
             <div className="space-y-4">
               {course.thumbnailUrl ? (
@@ -201,6 +439,7 @@ const AdminCourseDetailPage = () => {
                     src={course.thumbnailUrl}
                     alt={course.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 </div>
               ) : (
@@ -208,17 +447,15 @@ const AdminCourseDetailPage = () => {
                   <HiOutlineBookOpen size={56} className="text-purple-200" />
                 </div>
               )}
-              {course.description ? (
+              {course.description && (
                 <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
                   {course.description}
                 </p>
-              ) : (
-                <p className="text-xs text-gray-400 italic">No description provided.</p>
               )}
             </div>
           </InfoCard>
 
-          {/* Learning outcomes */}
+          {/* Learning Outcomes */}
           {course.learningOutcomes?.length > 0 && (
             <InfoCard title="Learning Outcomes" icon={HiOutlineLightBulb}>
               <ul className="space-y-2">
@@ -262,29 +499,27 @@ const AdminCourseDetailPage = () => {
             </InfoCard>
           )}
 
-          {/* Course content (sections / lessons / quizzes) */}
+          {/* Course Content */}
           <InfoCard title="Course Content" icon={HiOutlineBookOpen}>
             <div className="flex items-center gap-4 mb-4 text-xs text-gray-400">
               <span className="flex items-center gap-1">
-                <HiOutlineBookOpen size={12} /> {course.sections?.length ?? 0} sections
+                <HiOutlineClipboardList size={12} /> {sections.length} sections
               </span>
               <span className="flex items-center gap-1">
-                <HiOutlineClipboardList size={12} />
-                {course.sections?.reduce((acc, s) => acc + (s.lessons?.length ?? 0), 0) ?? 0} lessons
+                <HiOutlinePlay size={12} /> {totalLessons} lessons
               </span>
               <span className="flex items-center gap-1">
-                <HiOutlineClipboardList size={12} />
-                {course.sections?.reduce((acc, s) => acc + (s.quizzes?.length ?? 0), 0) ?? 0} quizzes
+                <HiOutlineQuestionMarkCircle size={12} /> {totalQuizzes} quizzes
               </span>
             </div>
-            <CourseSectionAccordion sections={course.sections} />
+            <SectionAccordion sections={sections} />
           </InfoCard>
         </div>
 
         {/* ── RIGHT COLUMN: Meta + actions + history ──────────────────────── */}
         <div className="space-y-6">
 
-          {/* Action card — only shown for PendingReview */}
+          {/* Action card */}
           {isPending && (
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -296,7 +531,7 @@ const AdminCourseDetailPage = () => {
                 Review Decision
               </h3>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Review all content on the left before making a decision. Rejected courses
+                Review all content above before making a decision. Rejected courses
                 can be fixed and resubmitted by the instructor.
               </p>
 
@@ -328,15 +563,13 @@ const AdminCourseDetailPage = () => {
             </motion.div>
           )}
 
-          {/* Course metadata */}
+          {/* Course Information */}
           <InfoCard title="Course Information" icon={HiOutlineInformationCircle}>
             <div>
               <MetaRow icon={HiOutlineCurrencyDollar} label="Price"
                 value={course.isFree ? 'Free' : fmt(course.price)} />
               <MetaRow icon={HiOutlineTag} label="Category" value={course.category || '—'} />
-              <MetaRow icon={HiOutlineAcademicCap} label="Level" value={course.levelName || course.level || '—'} />
-              <MetaRow icon={HiOutlineUsers} label="Students" value={course.enrollmentCount ?? 0} />
-              <MetaRow icon={HiOutlineEye} label="Views" value={course.viewCount ?? 0} />
+              <MetaRow icon={HiOutlineAcademicCap} label="Level" value={course.level || '—'} />
               <MetaRow icon={HiOutlineCalendar} label="Created" value={formatDate(course.createdAt)} />
               {course.submittedForReviewAt && course.submittedForReviewAt !== '0001-01-01T00:00:00' && (
                 <MetaRow icon={HiOutlineClock} label="Submitted" value={formatDate(course.submittedForReviewAt)} />
@@ -347,26 +580,29 @@ const AdminCourseDetailPage = () => {
             </div>
           </InfoCard>
 
-          {/* Instructor info */}
+          {/* Instructor */}
           <InfoCard title="Instructor" icon={HiOutlineUser}>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#EEEDFE] to-purple-100 flex items-center justify-center">
-                <span className="text-lg font-semibold text-[#534AB7]">
-                  {course.instructorName?.charAt(0) || '?'}
-                </span>
-              </div>
+              <Avatar 
+                name={instructorName} 
+                imageUrl={instructorAvatar}
+                size={48}
+              />
               <div>
-                <p className="text-sm font-semibold text-gray-800">{course.instructorName || '—'}</p>
-                {course.instructorEmail && (
+                <p className="text-sm font-semibold text-gray-800">{instructorName}</p>
+                {instructorEmail && (
                   <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <HiOutlineMail size={12} /> {course.instructorEmail}
+                    <HiOutlineMail size={12} /> {instructorEmail}
                   </p>
+                )}
+                {instructorUsername && (
+                  <p className="text-xs text-gray-400">@{instructorUsername}</p>
                 )}
               </div>
             </div>
           </InfoCard>
 
-          {/* Review history */}
+          {/* Review History */}
           <InfoCard title="Review History" icon={HiOutlineClock}>
             <CourseReviewHistory
               history={history}

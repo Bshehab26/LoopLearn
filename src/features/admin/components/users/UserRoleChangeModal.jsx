@@ -1,15 +1,11 @@
 // src/features/admin/components/users/UserRoleChangeModal.jsx
-//
-// Mirrors the backend rule in AdminController: only a SuperAdmin can assign
-// the Admin role, and SuperAdmin itself is never an assignable option.
-// Hiding the option client-side avoids a guaranteed-to-fail request.
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 
 const ALL_ROLES = ['Student', 'Instructor', 'Admin'];
 
-const UserRoleChangeModal = ({ open, onClose, user, canAssignAdmin, onSubmit, loading, error }) => {
+const UserRoleChangeModal = ({ open, onClose, user, currentUser, onSubmit, loading, error }) => {
   const [selectedRole, setSelectedRole] = useState('');
 
   useEffect(() => {
@@ -18,7 +14,77 @@ const UserRoleChangeModal = ({ open, onClose, user, canAssignAdmin, onSubmit, lo
 
   if (!user) return null;
 
-  const roleOptions = ALL_ROLES.filter((r) => r !== 'Admin' || canAssignAdmin);
+  // Determine which roles can be assigned
+  const canAssignAdmin = currentUser?.role === 'SuperAdmin';
+  const isTargetAdmin = user.role === 'Admin';
+  const isTargetSuperAdmin = user.role === 'SuperAdmin';
+  
+  // SuperAdmin cannot be changed
+  if (isTargetSuperAdmin) {
+    return (
+      <Modal open={open} onClose={onClose} title="Cannot Modify SuperAdmin">
+        <div className="py-4 text-center">
+          <p className="text-sm text-gray-600">
+            SuperAdmin accounts cannot be modified by anyone.
+          </p>
+          <button
+            onClick={onClose}
+            className="mt-4 px-4 py-2 text-xs font-medium rounded-lg bg-[#534AB7] text-white hover:opacity-90"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Only SuperAdmin can change Admin roles
+  if (isTargetAdmin && !canAssignAdmin) {
+    return (
+      <Modal open={open} onClose={onClose} title="Permission Denied">
+        <div className="py-4 text-center">
+          <p className="text-sm text-gray-600">
+            Only a SuperAdmin can modify Admin accounts.
+          </p>
+          <button
+            onClick={onClose}
+            className="mt-4 px-4 py-2 text-xs font-medium rounded-lg bg-[#534AB7] text-white hover:opacity-90"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  const roleOptions = ALL_ROLES.filter((r) => {
+    // Only SuperAdmin can assign Admin role
+    if (r === 'Admin' && !canAssignAdmin) return false;
+    // Can't assign same role
+    if (r === user.role) return false;
+    return true;
+  });
+
+  // If no roles available to change to, show message
+  if (roleOptions.length === 0) {
+    return (
+      <Modal open={open} onClose={onClose} title={`Role - ${user.fullName}`}>
+        <div className="py-4 text-center">
+          <p className="text-sm text-gray-600">
+            {user.role === 'Admin' 
+              ? 'This user is an Admin. Only a SuperAdmin can change their role.'
+              : 'No other roles available to assign.'}
+          </p>
+          <button
+            onClick={onClose}
+            className="mt-4 px-4 py-2 text-xs font-medium rounded-lg bg-[#534AB7] text-white hover:opacity-90"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

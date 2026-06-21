@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiChevronDown, HiChevronUp, HiPencil, HiCheck, HiPhotograph, HiTag, HiDocumentText, HiExclamationCircle } from 'react-icons/hi';
+import { HiChevronDown, HiChevronUp, HiPencil, HiPhotograph, HiTag, HiDocumentText, HiExclamationCircle } from 'react-icons/hi';
 import { ThumbnailUploader } from './ThumbnailUploader';
 import { TagSelector } from './TagSelector';
 import { getTags } from '../../../shared/api/preLoadData.api';
@@ -17,7 +17,6 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
     description: ''
   });
   
-  // ✅ Store selected tags as objects
   const [selectedTagObjects, setSelectedTagObjects] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [tagsLoaded, setTagsLoaded] = useState(false);
@@ -45,6 +44,16 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
     loadTags();
   }, [data.tagIds]);
 
+  // Reset edit mode when data changes from parent
+  useEffect(() => {
+    if (editMode.subtitle && data.subtitle !== editValue.subtitle) {
+      setEditValue(prev => ({ ...prev, subtitle: data.subtitle || '' }));
+    }
+    if (editMode.description && data.description !== editValue.description) {
+      setEditValue(prev => ({ ...prev, description: data.description || '' }));
+    }
+  }, [data.subtitle, data.description]);
+
   const startEdit = (field, value) => {
     setEditMode({ ...editMode, [field]: true });
     setEditValue({ ...editValue, [field]: value || '' });
@@ -52,24 +61,21 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
 
   const cancelEdit = (field) => {
     setEditMode({ ...editMode, [field]: false });
-    setEditValue({ ...editValue, [field]: '' });
   };
 
   const saveEdit = (field) => {
-    onUpdate({ [field]: editValue[field] });
+    if (editValue[field] !== data[field]) {
+      onUpdate({ [field]: editValue[field] });
+    }
     setEditMode({ ...editMode, [field]: false });
   };
 
-  // ✅ FIXED: Handle tags change properly - store tag objects and update backend
   const handleTagsChange = (newTags) => {
-    console.log('[CourseLandingPage] Tags changed:', newTags);
     setSelectedTagObjects(newTags);
     const tagIds = newTags.map(t => t.id);
-    console.log('[CourseLandingPage] Tag IDs to save:', tagIds);
     onUpdate({ tagIds });
   };
 
-  // Check description length for validation
   const descriptionLength = data.description?.length || 0;
   const isDescriptionValid = descriptionLength >= 50;
 
@@ -79,6 +85,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
+        type="button"
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -119,7 +126,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                 </p>
               </div>
 
-              {/* Tags Section - FIXED: Pass actual selected tags */}
+              {/* Tags Section */}
               <div className="bg-gray-50 rounded-xl p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <HiTag size={18} className="text-purple-600" />
@@ -147,6 +154,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                     <button
                       onClick={() => startEdit('subtitle', data.subtitle)}
                       className="text-gray-400 hover:text-purple-600 transition"
+                      type="button"
                     >
                       <HiPencil size={16} />
                     </button>
@@ -167,12 +175,14 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                       <button
                         onClick={() => cancelEdit('subtitle')}
                         className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                        type="button"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => saveEdit('subtitle')}
                         className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                        type="button"
                       >
                         Save
                       </button>
@@ -205,6 +215,7 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
                     <button
                       onClick={() => startEdit('description', data.description)}
                       className="text-gray-400 hover:text-purple-600 transition"
+                      type="button"
                     >
                       <HiPencil size={16} />
                     </button>
@@ -243,12 +254,14 @@ Example structure:
                         <button
                           onClick={() => cancelEdit('description')}
                           className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                          type="button"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => saveEdit('description')}
                           className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                          type="button"
                         >
                           Save Changes
                         </button>

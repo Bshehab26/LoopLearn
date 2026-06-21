@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   HiChartBar, HiUsers, HiBookOpen, HiTag, HiLogout, HiHome,
   HiMenuAlt2, HiChevronLeft, HiChevronRight, HiSparkles, HiClock,
-  HiViewGrid
+  HiViewGrid, HiUserAdd, HiFolder,
 } from 'react-icons/hi';
 import { useAuth } from '../store/AppProvider';
 import { ROUTES } from '../shared/constants/routes';
@@ -21,9 +21,11 @@ const HiOutlineChartBar = HiChartBar;
 const HiOutlineLogout = HiLogout;
 const HiOutlineHome = HiHome;
 const HiOutlineMenuAlt2 = HiMenuAlt2;
+const HiOutlineUserAdd = HiUserAdd;
+const HiOutlineFolder = HiFolder;  // ← Only declare once
 
 // ============================================================================
-// Sidebar Navigation Configuration - ONLY EXISTING ROUTES
+// Sidebar Navigation Configuration - INCLUDES CATEGORIES & TAGS
 // ============================================================================
 
 const NAVIGATION = {
@@ -52,6 +54,22 @@ const NAVIGATION = {
       badge: null
     },
   ],
+  content: [
+    { 
+      path: ROUTES.ADMIN_CATEGORIES,
+      label: 'Categories', 
+      icon: HiOutlineFolder,
+      description: 'Manage course categories',
+      badge: null
+    },
+    { 
+      path: ROUTES.ADMIN_TAGS,
+      label: 'Tags', 
+      icon: HiOutlineTag,
+      description: 'Manage course tags',
+      badge: null
+    },
+  ],
   users: [
     { 
       path: ROUTES.ADMIN_USERS,
@@ -59,6 +77,13 @@ const NAVIGATION = {
       icon: HiOutlineUsers,
       description: 'Manage platform users',
       badge: null
+    },
+    { 
+      path: ROUTES.ADMIN_INSTRUCTOR_APPLICATIONS,
+      label: 'Instructor Apps', 
+      icon: HiOutlineUserAdd,
+      description: 'Review instructor applications',
+      badge: 'new'
     },
   ],
 };
@@ -117,6 +142,11 @@ const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
               {!isCollapsed && <span>{item.label}</span>}
               {item.badge === 'pending' && !isCollapsed && (
                 <span className="ml-auto px-1.5 py-0.5 text-xs bg-yellow-500 text-yellow-900 rounded-full animate-pulse">
+                  New
+                </span>
+              )}
+              {item.badge === 'new' && !isCollapsed && (
+                <span className="ml-auto px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full animate-pulse">
                   New
                 </span>
               )}
@@ -195,6 +225,7 @@ const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           <nav className="flex-1 p-3 overflow-y-auto">
             <NavSection title="MAIN" items={NAVIGATION.main} />
             <NavSection title="COURSE MANAGEMENT" items={NAVIGATION.courses} />
+            <NavSection title="CONTENT" items={NAVIGATION.content} />
             <NavSection title="USER MANAGEMENT" items={NAVIGATION.users} />
           </nav>
 
@@ -276,6 +307,9 @@ const AdminLayout = () => {
     if (path === ROUTES.ADMIN_PENDING_COURSES) return 'Pending Reviews';
     if (path === ROUTES.ADMIN_ALL_COURSES) return 'All Courses';
     if (path === ROUTES.ADMIN_USERS) return 'User Management';
+    if (path === ROUTES.ADMIN_INSTRUCTOR_APPLICATIONS) return 'Instructor Applications';
+    if (path === ROUTES.ADMIN_CATEGORIES) return 'Categories';
+    if (path === ROUTES.ADMIN_TAGS) return 'Tags';
     return 'Admin Panel';
   };
 

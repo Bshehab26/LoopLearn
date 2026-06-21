@@ -1,93 +1,86 @@
 // src/features/admin/hooks/useAdminUsers.js
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAdminUsers } from '../api/admin.api';
-
-const PAGE_SIZE = 10;
-const ROLE_OPTIONS = ['All', 'SuperAdmin', 'Admin', 'Instructor', 'Student'];
+import useDebounce from '../../../shared/hooks/useDebounce';
 
 const useAdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const [role, setRoleState] = useState('All');
+  const [role, setRole] = useState('All');
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [meta, setMeta] = useState({ totalCount: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    pageSize: 10,
+  });
+  const [roleOptions, setRoleOptions] = useState(['All', 'SuperAdmin', 'Admin', 'Instructor', 'Student']);
 
-  const fetchUsers = useCallback(async () => {
+  const debouncedSearch = useDebounce(search, 500);
+
+  const fetchUsers = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
-
-      const apiRole = role === 'All' ? undefined : role;
-      const res = await getAdminUsers({ role: apiRole, page, pageSize: PAGE_SIZE });
-
-      console.log('[useAdminUsers] Response:', res); // Debug log
-
-      if (res.success) {
-        setUsers(res.data || []);
-        setMeta({
-          totalCount: res.pagination?.totalCount || 0,
-          totalPages: res.pagination?.totalPages || 1,
-        });
+      
+      const params = {
+        page,
+        pageSize: pagination.pageSize,
+      };
+      
+      if (role !== 'All') params.role = role;
+      if (debouncedSearch.trim()) params.searchTerm = debouncedSearch.trim();
+      
+      const response = await getAdminUsers(params);
+      
+      if (response.success) {
+        setUsers(response.data);
+        // Extract pagination from headers
+        const totalCount = parseInt(response.headers?.['total-count'] || '0');
+        setPagination(prev => ({
+          ...prev,
+          currentPage: page,
+          totalItems: totalCount,
+          totalPages: Math.ceil(totalCount / pagination.pageSize),
+        }));
       } else {
-        setError(res.message || 'Failed to load users');
-        setUsers([]);
+        setError(response.message || 'Failed to load users.');
       }
     } catch (err) {
-      // The backend returns 404 when a role filter matches zero users
-      if (err.response?.status === 404) {
-        setUsers([]);
-        setMeta({ totalCount: 0, totalPages: 1 });
-      } else {
-        setError(err.response?.data?.message || 'Something went wrong while loading users.');
-        setUsers([]);
-      }
+      setError(err.message || 'Failed to load users.');
     } finally {
       setLoading(false);
     }
-  }, [role, page]);
+  }, [role, debouncedSearch, pagination.pageSize]);
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(pagination.currentPage);
   }, [fetchUsers]);
 
-  // Changing the role filter should always reset back to page 1
-  const setRole = useCallback((nextRole) => {
-    setRoleState(nextRole);
-    setPage(1);
-  }, []);
+  const setPage = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchUsers(newPage);
+    }
+  };
 
-  const visibleUsers = useMemo(() => {
-    if (!search.trim()) return users;
-    const q = search.trim().toLowerCase();
-    return users.filter((u) =>
-      u.fullName?.toLowerCase().includes(q) ||
-      u.userName?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q)
-    );
-  }, [users, search]);
+  const refetch = useCallback(() => {
+    fetchUsers(pagination.currentPage);
+  }, [fetchUsers, pagination.currentPage]);
 
   return {
-    users: visibleUsers,
+    users,
     loading,
     error,
     role,
     setRole,
     search,
     setSearch,
-    page,
+    pagination,
     setPage,
-    pagination: {
-      page,
-      pageSize: PAGE_SIZE,
-      totalCount: meta.totalCount,
-      totalPages: meta.totalPages,
-    },
-    roleOptions: ROLE_OPTIONS,
-    refetch: fetchUsers,
+    roleOptions,
+    refetch,
   };
 };
 

@@ -1,14 +1,4 @@
 // src/features/admin/components/users/UserManagementPanel.jsx
-//
-// All Users-section state and wiring lives here, not in the page. The page
-// just renders <PageHeader /> + <UserManagementPanel /> — this component is
-// the actual "feature", composed entirely from smaller presentational
-// pieces (filters, table, drawer, modals).
-//
-// NOTE: assumes useAuth() exposes the logged-in admin as `user` with `.id`
-// and `.role` — used to disable self-ban/self-role-change in the UI
-// (mirrors the backend's own checks in AdminController). Adjust the import
-// path / shape below if your AppProvider differs.
 
 import React, { useState } from 'react';
 import { useAuth } from '../../../../store/AppProvider';
@@ -58,7 +48,7 @@ const UserManagementPanel = () => {
 
   return (
     <div>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <UserFilters
           search={search}
           onSearchChange={setSearch}
@@ -71,7 +61,7 @@ const UserManagementPanel = () => {
           loading={loading}
           error={error}
           onRetry={refetch}
-          currentUserId={currentUser?.id}
+          currentUser={currentUser}  // ← FIXED: Pass the full user object, not just the ID
           onViewDetails={(u) => setDetailUserId(u.id)}
           onChangeRole={(u) => { clearRoleError(); setRoleModalUser(u); }}
           onToggleBan={(u) => { clearStatusError(); setBanModalUser(u); }}
@@ -90,7 +80,7 @@ const UserManagementPanel = () => {
         open={!!roleModalUser}
         onClose={() => setRoleModalUser(null)}
         user={roleModalUser}
-        canAssignAdmin={currentUser?.role === 'SuperAdmin'}
+        currentUser={currentUser}
         onSubmit={handleRoleSubmit}
         loading={roleLoading}
         error={roleError}

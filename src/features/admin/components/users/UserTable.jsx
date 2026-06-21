@@ -2,68 +2,66 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import UserRoleBadge from './UserRoleBadge';
 import UserActionsMenu from './UserActionsMenu';
-import Avatar from '../common/Avatar';
-import StatusBadge from '../common/StatusBadge';
+import UserRoleBadge from './UserRoleBadge';
 import TableSkeleton from '../common/TableSkeleton';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
 import Pagination from '../../../../shared/components/Pagination';
-import { HiOutlineUserGroup, HiOutlineMail } from 'react-icons/hi';
 
-const formatDate = (d) =>
-  d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const UserRow = ({ user, currentUser, onViewDetails, onChangeRole, onToggleBan }) => {
+  const isSelf = currentUser?.id === user?.id;
+  const isSuperAdmin = currentUser?.role === 'SuperAdmin';
+  const isAdmin = currentUser?.role === 'Admin';
+  const isTargetAdmin = user?.role === 'Admin';
+  const isTargetSuperAdmin = user?.role === 'SuperAdmin';
 
-const UserRow = ({ user, index, currentUserId, onViewDetails, onChangeRole, onToggleBan }) => {
-  const isSelf = user.id === currentUserId;
-  const isSuperAdmin = user.role === 'SuperAdmin';
+  // Determine what actions are allowed
+  const canModifyRole = !isSelf && !isTargetSuperAdmin && (isSuperAdmin || (!isTargetAdmin && isAdmin));
+  const canToggleBan = !isSelf && !isTargetSuperAdmin && (isSuperAdmin || !isTargetAdmin);
 
   return (
     <motion.tr
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03, duration: 0.2 }}
-      className="border-b border-gray-50 last:border-0 hover:bg-gradient-to-r hover:from-[#EEEDFE]/20 hover:to-transparent transition-colors group"
+      exit={{ opacity: 0, y: -10 }}
+      className="border-b border-gray-50 last:border-0 hover:bg-[#EEEDFE]/30 transition-colors"
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <Avatar name={user.fullName} imageUrl={user.profileImageUrl} size={36} />
-          <div className="min-w-0">
-            <p className="font-medium text-gray-800 truncate text-sm">
-              {user.fullName}
-              {isSelf && (
-                <span className="ml-2 text-[10px] font-normal text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                  You
-                </span>
-              )}
-            </p>
-            <div className="flex items-center gap-1.5">
-              <p className="text-xs text-gray-400 truncate">@{user.userName}</p>
-              <span className="text-gray-300">·</span>
-              <p className="text-xs text-gray-400 truncate flex items-center gap-1">
-                <HiOutlineMail size={10} /> {user.email}
-              </p>
-            </div>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#534AB7] to-purple-500 flex items-center justify-center text-white text-xs font-medium">
+            {user.fullName?.charAt(0) || user.userName?.charAt(0) || '?'}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-800">{user.fullName}</p>
+            <p className="text-xs text-gray-400">@{user.userName}</p>
           </div>
         </div>
       </td>
-      <td className="px-4 py-3"><UserRoleBadge role={user.role} /></td>
       <td className="px-4 py-3">
-        {user.isLocked
-          ? <StatusBadge label="Banned" tone="red" dot />
-          : <StatusBadge label="Active" tone="green" dot />}
+        <p className="text-sm text-gray-600">{user.email}</p>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500">{formatDate(user.createdAt)}</td>
-      <td className="px-4 py-3 text-sm text-gray-500">{formatDate(user.lastLoginAt)}</td>
+      <td className="px-4 py-3">
+        <UserRoleBadge role={user.role} />
+      </td>
+      <td className="px-4 py-3">
+        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+          user.isLocked 
+            ? 'bg-red-100 text-red-700' 
+            : 'bg-green-100 text-green-700'
+        }`}>
+          {user.isLocked ? 'Banned' : 'Active'}
+        </span>
+      </td>
       <td className="px-4 py-3 text-right">
         <UserActionsMenu
           user={user}
+          currentUser={currentUser}
           onViewDetails={onViewDetails}
           onChangeRole={onChangeRole}
           onToggleBan={onToggleBan}
-          disableRoleChange={isSelf || isSuperAdmin}
-          disableBan={isSelf || isSuperAdmin}
+          disableRoleChange={!canModifyRole}
+          disableBan={!canToggleBan}
         />
       </td>
     </motion.tr>
@@ -75,49 +73,45 @@ const UserTable = ({
   loading,
   error,
   onRetry,
-  currentUserId,
+  currentUser,
   onViewDetails,
   onChangeRole,
   onToggleBan,
   pagination,
   onPageChange,
 }) => {
-  if (loading) return <TableSkeleton rows={6} columns={5} />;
+  if (loading) {
+    return <TableSkeleton rows={5} columns={5} />;
+  }
 
-  if (error) return <ErrorState message={error} onRetry={onRetry} />;
+  if (error) {
+    return <ErrorState message={error} onRetry={onRetry} />;
+  }
 
-  if (!users.length) {
-    return (
-      <EmptyState
-        icon={HiOutlineUserGroup}
-        title="No users found"
-        description="Try adjusting your search or filter to find what you're looking for."
-      />
-    );
+  if (!users || users.length === 0) {
+    return <EmptyState message="No users found matching your criteria." />;
   }
 
   return (
-    <>
+    <div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
               <th className="px-4 py-3">User</th>
+              <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Joined</th>
-              <th className="px-4 py-3">Last Login</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <AnimatePresence>
-              {users.map((user, index) => (
+            <AnimatePresence mode="wait">
+              {users.map((user) => (
                 <UserRow
                   key={user.id}
                   user={user}
-                  index={index}
-                  currentUserId={currentUserId}
+                  currentUser={currentUser}
                   onViewDetails={onViewDetails}
                   onChangeRole={onChangeRole}
                   onToggleBan={onToggleBan}
@@ -128,25 +122,16 @@ const UserTable = ({
         </table>
       </div>
 
-      {pagination.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
-          <p className="text-xs text-gray-400">
-            Showing{' '}
-            <span className="font-medium text-gray-600">
-              {(pagination.page - 1) * pagination.pageSize + 1}
-              –
-              {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)}
-            </span>{' '}
-            of <span className="font-medium text-gray-600">{pagination.totalCount}</span> users
-          </p>
+      {pagination && pagination.totalPages > 1 && (
+        <div className="px-4 py-3 border-t border-gray-100">
           <Pagination
-            currentPage={pagination.page}
+            currentPage={pagination.currentPage}
             totalPages={pagination.totalPages}
             onPageChange={onPageChange}
           />
         </div>
       )}
-    </>
+    </div>
   );
 };
 

@@ -11,11 +11,12 @@ import {
 
 const UserActionsMenu = ({
   user,
+  currentUser,
   onViewDetails,
   onChangeRole,
   onToggleBan,
-  disableRoleChange,
-  disableBan,
+  disableRoleChange = false,
+  disableBan = false,
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -29,6 +30,19 @@ const UserActionsMenu = ({
   }, []);
 
   const close = () => setOpen(false);
+
+  // Determine if the current user can modify this user
+  const isSelf = currentUser?.id === user?.id;
+  const isSuperAdmin = currentUser?.role === 'SuperAdmin';
+  const isAdmin = currentUser?.role === 'Admin';
+  const isTargetAdmin = user?.role === 'Admin';
+  const isTargetSuperAdmin = user?.role === 'SuperAdmin';
+
+  // Only SuperAdmin can modify Admin or SuperAdmin roles
+  const canModifyRole = !isSelf && !isTargetSuperAdmin && (isSuperAdmin || (!isTargetAdmin && isAdmin));
+  
+  // Only SuperAdmin can ban/unban other admins
+  const canToggleBan = !isSelf && !isTargetSuperAdmin && (isSuperAdmin || !isTargetAdmin);
 
   return (
     <div className="relative inline-block" ref={ref}>
@@ -49,7 +63,7 @@ const UserActionsMenu = ({
             <HiOutlineEye size={14} /> View details
           </button>
 
-          {!disableRoleChange && (
+          {!disableRoleChange && canModifyRole && (
             <button
               onClick={() => { onChangeRole(user); close(); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"
@@ -58,7 +72,7 @@ const UserActionsMenu = ({
             </button>
           )}
 
-          {!disableBan && (
+          {!disableBan && canToggleBan && (
             <button
               onClick={() => { onToggleBan(user); close(); }}
               className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 ${
@@ -68,6 +82,12 @@ const UserActionsMenu = ({
               {user.isLocked ? <HiOutlineLockOpen size={14} /> : <HiOutlineLockClosed size={14} />}
               {user.isLocked ? 'Unban user' : 'Ban user'}
             </button>
+          )}
+
+          {isSelf && (
+            <div className="px-3 py-2 text-xs text-gray-400 italic border-t border-gray-100">
+              You cannot modify your own account
+            </div>
           )}
         </div>
       )}

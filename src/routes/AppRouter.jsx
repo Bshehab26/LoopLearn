@@ -1,4 +1,5 @@
 // src/routes/AppRouter.jsx
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { useAuth } from '../store/AppProvider';
@@ -19,6 +20,7 @@ const SignUp = lazy(() => import('../features/auth/pages/SignUp'));
 // Student
 const Home           = lazy(() => import('../features/student/pages/Home'));
 const MyEnrollments  = lazy(() => import('../features/student/pages/MyEnrollments'));
+const InstructorApplicationPage = lazy(() => import('../features/student/pages/InstructorApplicationPage')); // ADD THIS
 
 // Profile
 const Profile = lazy(() => import('../features/profile/pages/Profile'));
@@ -50,6 +52,9 @@ const AllCourses          = lazy(() => import('../features/admin/pages/AllCourse
 const AdminUsers          = lazy(() => import('../features/admin/pages/Users'));
 const AdminCourseDetail   = lazy(() => import('../features/admin/pages/AdminCourseDetailPage'));
 const AdminUserDetail     = lazy(() => import('../features/admin/pages/AdminUserDetailPage'));
+const InstructorApplications = lazy(() => import('../features/admin/pages/InstructorApplications'));
+const AdminCategories     = lazy(() => import('../features/admin/pages/Categories'));
+const AdminTags           = lazy(() => import('../features/admin/pages/Tags'));
 
 // ============================================================================
 // Helpers
@@ -124,6 +129,8 @@ const AppRouter = () => {
             <Route path={ROUTES.PROFILE}               element={<Profile />} />
             <Route path={ROUTES.WATCH(':courseId')}    element={<WatchWindow />} />
             <Route path="/my-payments" element={<PaymentHistoryPage />} />
+            {/* ADD THIS ROUTE */}
+            <Route path={ROUTES.BECOME_INSTRUCTOR} element={<InstructorApplicationPage />} />
           </Route>
         </Route>
 
@@ -148,6 +155,9 @@ const AppRouter = () => {
             <Route path="/admin/courses/:id"                        element={<AdminCourseDetail />} />
             <Route path={ROUTES.ADMIN_USERS}                        element={<AdminUsers />} />
             <Route path="/admin/users/:id"                          element={<AdminUserDetail />} />
+            <Route path={ROUTES.ADMIN_INSTRUCTOR_APPLICATIONS}      element={<InstructorApplications />} />
+            <Route path={ROUTES.ADMIN_CATEGORIES}                   element={<AdminCategories />} />
+            <Route path={ROUTES.ADMIN_TAGS}                         element={<AdminTags />} />
           </Route>
         </Route>
 

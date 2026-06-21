@@ -1,27 +1,15 @@
-/**
- * useChat.js
- * Custom hook for managing chat state and message handling.
- * Manages messages, loading states, and AI response generation.
- * 
- * @module features/chat/hooks/useChat
- * 
- * @example
- * const { messages, loading, sendMessage, clearMessages } = useChat();
- * 
- * // Send a message
- * await sendMessage("Hello, I need help with a course");
- * 
- * // Clear all messages
- * clearMessages();
- */
+// hooks/useChat.js - Complete corrected version
 
 import { useState, useCallback, useRef } from 'react';
+import axios from 'axios';
+import { chatService } from '../api/chatService';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-/** Initial welcome message */
+const API_BASE_URL = 'http://localhost:8000';
+
 const INITIAL_MESSAGES = [
   { 
     id: 1, 
@@ -31,110 +19,15 @@ const INITIAL_MESSAGES = [
   },
 ];
 
-/** Response delay in milliseconds (simulates AI thinking) */
-const RESPONSE_DELAY = 800;
-
-/** Message ID counter start */
-const STARTING_ID = 2;
-
-// ============================================================================
-// AI Response Configuration
-// ============================================================================
-
-/**
- * Keyword-response mapping for the AI assistant
- * Add more keywords and responses here to expand functionality
- */
-const RESPONSE_RULES = [
-  {
-    keywords: ['course', 'learn', 'study', 'skill'],
-    response: "I can help you find the perfect course! What topic are you interested in? (Web Development, Data Science, Design, etc.)",
-  },
-  {
-    keywords: ['instructor', 'teach', 'become instructor', 'teaching'],
-    response: "Would you like to become an instructor? I can guide you through the application process! Check our instructor dashboard to get started.",
-  },
-  {
-    keywords: ['help', 'support', 'issue', 'problem', 'trouble'],
-    response: "I'm here to help! You can ask me about courses, enrollment, instructors, or anything else. Our support team is also available 24/7.",
-  },
-  {
-    keywords: ['price', 'cost', 'pricing', 'expensive', 'cheap', 'affordable'],
-    response: "Our courses start from just a few dollars! Most courses range from $29 to $99. Would you like to see some options?",
-  },
-  {
-    keywords: ['certificate', 'certification', 'cert', 'credential'],
-    response: "Yes! You earn a verifiable certificate of completion when you finish a course. 🎓 These can be shared on LinkedIn and your resume.",
-  },
-  {
-    keywords: ['discount', 'sale', 'offer', 'promotion', 'coupon'],
-    response: "We often have discounts and special offers! Check the course page or subscribe to our newsletter for the latest deals.",
-  },
-  {
-    keywords: ['payment', 'pay', 'credit card', 'visa', 'mastercard', 'paypal'],
-    response: "We accept credit cards (Visa, Mastercard, Amex), PayPal, and other major payment methods. All transactions are secure and encrypted.",
-  },
-  {
-    keywords: ['refund', 'money back', 'guarantee'],
-    response: "We offer a 30-day money-back guarantee on all courses. If you're not satisfied, we'll refund your purchase—no questions asked!",
-  },
-  {
-    keywords: ['access', 'lifetime', 'forever'],
-    response: "All courses come with lifetime access! You can learn at your own pace and revisit the content anytime.",
-  },
-  {
-    keywords: ['mobile', 'app', 'phone', 'tablet'],
-    response: "Yes! All our courses are accessible on mobile devices and tablets. Learn anytime, anywhere! 📱",
-  },
-];
-
-/** Default fallback response when no keywords match */
-const DEFAULT_RESPONSE = "That's interesting! How else can I assist you today? You can ask me about courses, instructors, pricing, certificates, or payment options.";
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
 /**
- * Generates a unique message ID
- * @returns {number} Unique ID
- */
-const generateId = () => Date.now();
-
-/**
- * Checks if user input matches any keywords
- * @param {string} userText - User's message
- * @param {Array<string>} keywords - Array of keywords to match
- * @returns {boolean} True if any keyword matches
- */
-const matchesKeyword = (userText, keywords) => {
-  const lowerText = userText.toLowerCase();
-  return keywords.some(keyword => lowerText.includes(keyword));
-};
-
-/**
- * Generates AI response based on user input
- * @param {string} userText - User's message text
- * @returns {string} AI response
- */
-const generateResponse = (userText) => {
-  // Find matching rule
-  const matchedRule = RESPONSE_RULES.find(rule => 
-    matchesKeyword(userText, rule.keywords)
-  );
-  
-  // Return matched response or default
-  return matchedRule?.response || DEFAULT_RESPONSE;
-};
-
-/**
- * Creates a new message object
- * @param {string} sender - Message sender ('bot' or 'user')
- * @param {string} text - Message text
- * @returns {Object} Message object
+ * Creates a new message object with unique ID
  */
 const createMessage = (sender, text) => ({
-  id: generateId(),
+  id: Date.now() + Math.random(), // Ensure uniqueness
   sender,
   text,
   timestamp: new Date(),
@@ -144,86 +37,195 @@ const createMessage = (sender, text) => ({
 // Hook
 // ============================================================================
 
-/**
- * useChat - Manages chat state and message handling
- * @param {Object} options - Configuration options
- * @param {Function} options.onMessageSent - Callback when message is sent
- * @param {Function} options.onResponseReceived - Callback when response is received
- * @returns {Object} Chat state and control functions
- */
-const useChat = ({ onMessageSent, onResponseReceived } = {}) => {
-  // --------------------------------------------------------------------------
+const useChat = ({ 
+  sessionId: providedSessionId, 
+  onMessageSent, 
+  onResponseReceived 
+} = {}) => {
   // State
-  // --------------------------------------------------------------------------
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [loading, setLoading] = useState(false);
-  
-  // Refs for preventing duplicate sends
+  const [error, setError] = useState(null);
+  const [sessionId, setSessionId] = useState(providedSessionId || crypto.randomUUID());
   const isSendingRef = useRef(false);
 
   // --------------------------------------------------------------------------
-  // Public Methods
+  // Main Methods
   // --------------------------------------------------------------------------
-  
-  /**
-   * Sends a user message and generates bot response
-   * @param {string} text - User's message text
-   * @returns {Promise<void>}
-   */
-  const sendMessage = useCallback(async (text) => {
-    // Validate input
-    const trimmedText = text?.trim();
-    if (!trimmedText) return;
-    
-    // Prevent duplicate sends while loading
-    if (isSendingRef.current) return;
-    isSendingRef.current = true;
-    
-    // Create user message
-    const userMessage = createMessage('user', trimmedText);
-    setMessages(prev => [...prev, userMessage]);
-    
-    // Call onMessageSent callback
-    if (onMessageSent) {
-      onMessageSent(trimmedText);
-    }
-    
-    // Show typing indicator
-    setLoading(true);
-    
-    // Simulate AI response (replace with actual API call)
-    // TODO: Replace with real AI API endpoint
-    // const response = await api.post('/chat/message', { message: trimmedText });
-    // const botText = response.data.reply;
-    
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const responseText = generateResponse(trimmedText);
-        const botMessage = createMessage('bot', responseText);
-        
-        setMessages(prev => [...prev, botMessage]);
-        setLoading(false);
-        
-        // Call onResponseReceived callback
-        if (onResponseReceived) {
-          onResponseReceived(responseText);
-        }
-        
-        isSendingRef.current = false;
-        resolve();
-      }, RESPONSE_DELAY);
-    });
-  }, [onMessageSent, onResponseReceived]);
 
   /**
-   * Clears all messages and resets to initial welcome message
+   * Send a message to the EduBot API
    */
-  const clearMessages = useCallback(() => {
-    setMessages(INITIAL_MESSAGES);
+  const sendMessage = useCallback(async (text) => {
+    const trimmedText = text?.trim();
+    if (!trimmedText || isSendingRef.current) return;
+    isSendingRef.current = true;
+
+    // Add user message
+    const userMessage = createMessage('user', trimmedText);
+    setMessages(prev => [...prev, userMessage]);
+    setError(null);
+    
+    if (onMessageSent) onMessageSent(trimmedText);
+
+    setLoading(true);
+
+    try {
+      // Call EduBot API
+      const response = await axios.post(`${API_BASE_URL}/chat`, {
+        message: trimmedText,
+        session_id: sessionId,
+      });
+
+      const { reply, session_id: newSessionId, input_tokens, output_tokens } = response.data;
+      
+      // Update session ID if returned
+      if (newSessionId && newSessionId !== sessionId) {
+        setSessionId(newSessionId);
+        // Optionally persist to localStorage
+        localStorage.setItem('chatSessionId', newSessionId);
+      }
+
+      // Add bot response
+      const botMessage = createMessage('bot', reply);
+      setMessages(prev => [...prev, botMessage]);
+      
+      if (onResponseReceived) onResponseReceived(reply);
+
+      // Optional: Track token usage
+      console.log(`Tokens used: ${input_tokens} input, ${output_tokens} output`);
+
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || err.message || 'Failed to send message';
+      setError(errorMsg);
+      
+      // Add error message to chat
+      const errorMessage = createMessage('bot', `❌ ${errorMsg}`);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+      isSendingRef.current = false;
+    }
+  }, [sessionId, onMessageSent, onResponseReceived]);
+
+  /**
+   * Clear all messages and reset session
+   */
+  const clearMessages = useCallback(async () => {
+    try {
+      // Clear session on backend
+      await axios.delete(`${API_BASE_URL}/chat/${sessionId}`);
+      setMessages(INITIAL_MESSAGES);
+      // Remove from localStorage
+      localStorage.removeItem('chatSessionId');
+    } catch (err) {
+      console.error('Failed to clear session:', err);
+      // Still reset locally
+      setMessages(INITIAL_MESSAGES);
+    }
+  }, [sessionId]);
+
+  /**
+   * Fetch conversation history from backend
+   */
+  const fetchHistory = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/chat/${sessionId}`);
+      if (response.data.messages?.length > 0) {
+        // Convert API messages to your format
+        const historyMessages = response.data.messages.map((msg, index) => ({
+          id: Date.now() + index,
+          sender: msg.role === 'user' ? 'user' : 'bot',
+          text: msg.content,
+          timestamp: new Date(),
+        }));
+        // Keep welcome message + history
+        setMessages([INITIAL_MESSAGES[0], ...historyMessages]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  }, [sessionId]);
+
+  /**
+   * Search for courses and add results to chat
+   */
+  const searchCourses = useCallback(async (query) => {
+    if (!query?.trim()) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const results = await chatService.searchCourses(query);
+      
+      if (results.results?.length === 0) {
+        const botMessage = createMessage('bot', `No courses found for "${query}". Try a different search term!`);
+        setMessages(prev => [...prev, botMessage]);
+        return { results: [], total: 0 };
+      }
+      
+      // Format results for display
+      const courseList = results.results.map((course, i) => 
+        `${i + 1}. **${course.title}** (${course.level})\n   ${course.description?.substring(0, 80)}...\n   ⏱ ${course.duration_hours}h | 💰 $${course.price_usd} | ⭐ ${course.rating}`
+      ).join('\n\n');
+      
+      const botMessage = createMessage('bot', 
+        `🔍 Found **${results.total}** courses matching "${query}":\n\n${courseList}\n\nType a course ID (e.g., ${results.results[0]?.id}) for more details!`
+      );
+      setMessages(prev => [...prev, botMessage]);
+      
+      return results;
+    } catch (err) {
+      const errorMsg = err.message || 'Failed to search courses';
+      setError(errorMsg);
+      const errorMessage = createMessage('bot', `❌ Error searching courses: ${errorMsg}`);
+      setMessages(prev => [...prev, errorMessage]);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   /**
-   * Removes the last message (useful for undo functionality)
+   * Get course details by ID
+   */
+  const getCourseDetails = useCallback(async (courseId) => {
+    if (!courseId?.trim()) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const course = await chatService.getCourse(courseId);
+      
+      const details = `📚 **${course.title}**\n` +
+        `👨‍🏫 Instructor: ${course.instructor}\n` +
+        `📂 Category: ${course.category}\n` +
+        `📊 Level: ${course.level}\n` +
+        `⏱ Duration: ${course.duration_hours} hours\n` +
+        `💰 Price: $${course.price_usd}\n` +
+        `⭐ Rating: ${course.rating}/5\n\n` +
+        `📝 **Description:**\n${course.description}\n\n` +
+        `${course.prerequisites?.length ? `📋 **Prerequisites:** ${course.prerequisites.join(', ')}` : '✅ No prerequisites required'}`;
+      
+      const botMessage = createMessage('bot', details);
+      setMessages(prev => [...prev, botMessage]);
+      
+      return course;
+    } catch (err) {
+      const errorMsg = err.message || 'Failed to get course details';
+      setError(errorMsg);
+      const errorMessage = createMessage('bot', `❌ ${errorMsg}`);
+      setMessages(prev => [...prev, errorMessage]);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Remove the last message (undo)
    */
   const undoLastMessage = useCallback(() => {
     setMessages(prev => {
@@ -233,9 +235,7 @@ const useChat = ({ onMessageSent, onResponseReceived } = {}) => {
   }, []);
 
   /**
-   * Updates a specific message by ID
-   * @param {number} id - Message ID
-   * @param {Object} updates - Fields to update
+   * Update a specific message by ID
    */
   const updateMessage = useCallback((id, updates) => {
     setMessages(prev => prev.map(msg =>
@@ -246,21 +246,27 @@ const useChat = ({ onMessageSent, onResponseReceived } = {}) => {
   // --------------------------------------------------------------------------
   // Return Value
   // --------------------------------------------------------------------------
-  
+
   return {
     // Data
     messages,
     loading,
+    error,
+    sessionId,
     
     // Actions
     sendMessage,
     clearMessages,
+    fetchHistory,
+    searchCourses,
+    getCourseDetails,
     undoLastMessage,
     updateMessage,
     
     // Derived state
     hasMessages: messages.length > 1,
     lastMessage: messages[messages.length - 1],
+    messageCount: messages.length,
   };
 };
 

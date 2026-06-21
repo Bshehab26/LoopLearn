@@ -14,10 +14,6 @@ import {
   HiChartBar,
   HiChevronLeft,
   HiChevronRight,
-  HiDotsVertical,
-  HiEye,
-  HiChat,
-  HiUserRemove,
   HiBadgeCheck,
   HiAcademicCap
 } from 'react-icons/hi';
@@ -37,7 +33,7 @@ const formatDate = (dateString) => {
 };
 
 // ============================================================================
-// Helper Components (same as before, keep them)
+// Helper Components
 // ============================================================================
 
 const StatCard = ({ title, value, icon: Icon, color, trend }) => (
@@ -95,7 +91,7 @@ const CourseFilter = ({ courses, selectedCourse, onSelect, loading }) => (
   </div>
 );
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, certificateIssued }) => {
   const styles = {
     active: 'bg-green-100 text-green-700',
     completed: 'bg-blue-100 text-blue-700',
@@ -107,9 +103,17 @@ const StatusBadge = ({ status }) => {
     inactive: 'Inactive'
   };
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.inactive}`}>
-      {labels[status] || 'Inactive'}
-    </span>
+    <div className="flex items-center gap-2">
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.inactive}`}>
+        {labels[status] || 'Inactive'}
+      </span>
+      {certificateIssued && (
+        <div className="flex items-center gap-1">
+          <HiBadgeCheck className="w-4 h-4 text-green-500" />
+          <span className="text-xs text-green-600 font-medium whitespace-nowrap">Certified</span>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -130,67 +134,7 @@ const ProgressBar = ({ progress }) => (
   </div>
 );
 
-const StudentActions = ({ student, onAction }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const actions = [
-    { icon: HiEye, label: 'View Profile', color: 'text-blue-600' },
-    { icon: HiChat, label: 'Send Message', color: 'text-purple-600' },
-    { icon: HiChartBar, label: 'View Progress', color: 'text-green-600' },
-    { icon: HiUserRemove, label: 'Remove Student', color: 'text-red-600', danger: true },
-  ];
-
-  return (
-    <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-lg hover:bg-gray-100 transition"
-      >
-        <HiDotsVertical className="w-5 h-5 text-gray-400" />
-      </button>
-      
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-10"
-          >
-            {actions.map(action => (
-              <button
-                key={action.label}
-                onClick={() => {
-                  onAction(action.label, student);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition ${
-                  action.danger ? 'text-red-600' : 'text-gray-700'
-                }`}
-              >
-                <action.icon className={`w-4 h-4 ${action.color}`} />
-                {action.label}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-const StudentRow = ({ student, index, onAction }) => {
+const StudentRow = ({ student, index }) => {
   const getInitials = (name) => {
     return name
       .split(' ')
@@ -208,69 +152,52 @@ const StudentRow = ({ student, index, onAction }) => {
       className="border-b border-gray-100 hover:bg-gray-50 transition"
     >
       <td className="px-4 py-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-[150px]">
           {student.avatar ? (
             <img
               src={student.avatar}
               alt={student.name}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
               <span className="text-white text-sm font-medium">
                 {getInitials(student.name)}
               </span>
             </div>
           )}
-          <div>
-            <p className="font-medium text-gray-800">{student.name}</p>
-            <p className="text-xs text-gray-500">{student.email}</p>
+          <div className="min-w-0">
+            <p className="font-medium text-gray-800 truncate">{student.name}</p>
+            <p className="text-xs text-gray-500 truncate">{student.email}</p>
           </div>
         </div>
       </td>
       <td className="px-4 py-4">
-        <div className="space-y-1">
-          <ProgressBar progress={student.progress} />
-          <p className="text-xs text-gray-500">
-            {student.completedLessons}/{student.totalLessons} lessons
-          </p>
-        </div>
+        <span className="text-sm text-gray-700 truncate block max-w-[120px]">{student.courseName || '—'}</span>
+      </td>
+      <td className="px-4 py-4 min-w-[120px]">
+        <ProgressBar progress={student.progress} />
       </td>
       <td className="px-4 py-4">
-        <div className="flex items-center gap-1">
-          <HiStar className="w-4 h-4 text-yellow-400" />
-          <span className="font-medium text-gray-800">{student.grade}</span>
-        </div>
-        {student.certificateIssued && (
-          <div className="flex items-center gap-1 mt-1">
-            <HiBadgeCheck className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-green-600">Certificate</span>
-          </div>
-        )}
-      </td>
-      <td className="px-4 py-4">
-        <div className="flex items-center gap-1 text-gray-500 text-sm">
-          <HiCalendar className="w-4 h-4" />
+        <div className="flex items-center gap-1 text-gray-500 text-sm whitespace-nowrap">
+          <HiCalendar className="w-4 h-4 flex-shrink-0" />
           <span>{formatDate(student.enrolledDate)}</span>
         </div>
       </td>
       <td className="px-4 py-4">
-        <div className="flex items-center gap-1 text-gray-500 text-sm">
-          <HiClock className="w-4 h-4" />
+        <div className="flex items-center gap-1 text-gray-500 text-sm whitespace-nowrap">
+          <HiClock className="w-4 h-4 flex-shrink-0" />
           <span>{formatDate(student.lastActivity)}</span>
         </div>
       </td>
       <td className="px-4 py-4">
-        <StatusBadge status={student.status} />
-      </td>
-      <td className="px-4 py-4">
-        <StudentActions student={student} onAction={onAction} />
+        <StatusBadge status={student.status} certificateIssued={student.certificateIssued} />
       </td>
     </motion.tr>
   );
 };
 
-const StudentCard = ({ student, onAction }) => {
+const StudentCard = ({ student }) => {
   const getInitials = (name) => {
     return name
       .split(' ')
@@ -287,61 +214,48 @@ const StudentCard = ({ student, onAction }) => {
       className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow"
     >
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {student.avatar ? (
             <img
               src={student.avatar}
               alt={student.name}
-              className="w-12 h-12 rounded-full object-cover"
+              className="w-12 h-12 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
               <span className="text-white text-sm font-medium">
                 {getInitials(student.name)}
               </span>
             </div>
           )}
-          <div>
-            <p className="font-semibold text-gray-800">{student.name}</p>
-            <p className="text-xs text-gray-500">{student.email}</p>
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-800 truncate">{student.name}</p>
+            <p className="text-xs text-gray-500 truncate">{student.email}</p>
           </div>
         </div>
-        <StudentActions student={student} onAction={onAction} />
       </div>
 
       <div className="space-y-3">
+        <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
+          <HiAcademicCap className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="truncate">{student.courseName || 'No course'}</span>
+        </p>
+
         <ProgressBar progress={student.progress} />
-        
-        <div className="flex justify-between text-sm">
-          <div className="flex items-center gap-1 text-gray-500">
-            <HiAcademicCap className="w-4 h-4" />
-            <span>{student.completedLessons}/{student.totalLessons} lessons</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <HiStar className="w-4 h-4 text-yellow-400" />
-            <span className="font-medium">{student.grade}</span>
-          </div>
-        </div>
 
         <div className="flex justify-between text-xs text-gray-500">
           <div className="flex items-center gap-1">
-            <HiCalendar className="w-3 h-3" />
+            <HiCalendar className="w-3 h-3 flex-shrink-0" />
             <span>{formatDate(student.enrolledDate)}</span>
           </div>
           <div className="flex items-center gap-1">
-            <HiClock className="w-3 h-3" />
+            <HiClock className="w-3 h-3 flex-shrink-0" />
             <span>{formatDate(student.lastActivity)}</span>
           </div>
         </div>
 
-        <div className="flex justify-between items-center pt-2">
-          <StatusBadge status={student.status} />
-          {student.certificateIssued && (
-            <div className="flex items-center gap-1">
-              <HiBadgeCheck className="w-4 h-4 text-green-500" />
-              <span className="text-xs text-green-600">Certified</span>
-            </div>
-          )}
+        <div className="pt-2">
+          <StatusBadge status={student.status} certificateIssued={student.certificateIssued} />
         </div>
       </div>
     </motion.div>
@@ -415,7 +329,8 @@ const StudentEnrolled = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(s =>
         s.name?.toLowerCase().includes(term) ||
-        s.email?.toLowerCase().includes(term)
+        s.email?.toLowerCase().includes(term) ||
+        s.courseName?.toLowerCase().includes(term)
       );
     }
 
@@ -449,15 +364,24 @@ const StudentEnrolled = () => {
     currentPage * itemsPerPage
   );
 
-  // Calculate stats from real data
+  // Calculate stats from real data.
   const stats = useMemo(() => {
-    const totalStudents = realStudents.length;
-    const activeStudents = realStudents.filter(s => s.status === 'active').length;
-    const completedStudents = realStudents.filter(s => s.status === 'completed').length;
-    const averageProgress = totalStudents > 0 
-      ? Math.round(realStudents.reduce((sum, s) => sum + (s.progress || 0), 0) / totalStudents)
+    const uniqueStudentIds = new Set(realStudents.map(s => s.studentId));
+    const activeStudentIds = new Set(
+      realStudents.filter(s => s.status === 'active').map(s => s.studentId)
+    );
+    const completedStudentIds = new Set(
+      realStudents.filter(s => s.status === 'completed').map(s => s.studentId)
+    );
+    const averageProgress = realStudents.length > 0
+      ? Math.round(realStudents.reduce((sum, s) => sum + (s.progress || 0), 0) / realStudents.length)
       : 0;
-    return { totalStudents, activeStudents, completedStudents, averageProgress };
+    return {
+      totalStudents: uniqueStudentIds.size,
+      activeStudents: activeStudentIds.size,
+      completedStudents: completedStudentIds.size,
+      averageProgress
+    };
   }, [realStudents]);
 
   const handleSort = (field) => {
@@ -469,39 +393,16 @@ const StudentEnrolled = () => {
     }
   };
 
-  const handleAction = (action, student) => {
-    console.log(`Action: ${action} on student:`, student);
-    // Implement actual actions here
-    switch(action) {
-      case 'View Profile':
-        // Navigate to student profile
-        break;
-      case 'Send Message':
-        // Open chat with student
-        break;
-      case 'View Progress':
-        // Navigate to detailed progress
-        break;
-      case 'Remove Student':
-        // Show confirmation modal for removal
-        if (confirm(`Are you sure you want to remove ${student.name} from this course?`)) {
-          // API call to remove student
-        }
-        break;
-      default:
-        break;
-    }
-  };
-
   const exportToCSV = () => {
-    const headers = ['Name', 'Email', 'Progress', 'Grade', 'Enrolled Date', 'Status'];
+    const headers = ['Name', 'Email', 'Course', 'Progress', 'Enrolled Date', 'Status', 'Certificate'];
     const csvData = filteredStudents.map(s => [
       s.name,
       s.email,
+      s.courseName,
       `${Math.round(s.progress)}%`,
-      s.grade,
       formatDate(s.enrolledDate),
-      s.status
+      s.status,
+      s.certificateIssued ? 'Yes' : 'No'
     ]);
     const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -711,7 +612,7 @@ const StudentEnrolled = () => {
         {/* Results Count */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
           <p className="text-sm text-gray-500">
-            Showing {paginatedStudents.length} of {filteredStudents.length} students
+            Showing {paginatedStudents.length} of {filteredStudents.length} enrollments
           </p>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Sort by:</span>
@@ -731,34 +632,33 @@ const StudentEnrolled = () => {
         {viewMode === 'table' && !isMobile && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+              <table className="w-full min-w-[700px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {studentsLoading && realStudents.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-8 text-gray-500">
+                      <td colSpan="6" className="text-center py-8 text-gray-500">
                         Loading students...
                       </td>
                     </tr>
                   ) : paginatedStudents.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-8 text-gray-500">
+                      <td colSpan="6" className="text-center py-8 text-gray-500">
                         No students found
                       </td>
                     </tr>
                   ) : (
                     paginatedStudents.map((student, index) => (
-                      <StudentRow key={student.id} student={student} index={index} onAction={handleAction} />
+                      <StudentRow key={student.id} student={student} index={index} />
                     ))
                   )}
                 </tbody>
@@ -780,7 +680,7 @@ const StudentEnrolled = () => {
               </div>
             ) : (
               paginatedStudents.map(student => (
-                <StudentCard key={student.id} student={student} onAction={handleAction} />
+                <StudentCard key={student.id} student={student} />
               ))
             )}
           </div>

@@ -4,6 +4,9 @@
  *      Solution: suppress the navbar SearchBar when already on the courses page.
  *      The `isNavSearchVisible` flag from UIContext is still respected for other pages,
  *      but we add a `useLocation` check so /courses never shows a second bar.
+ * 
+ * Fix: Profile dropdown now properly closes on navigation and after clicking items.
+ * Fix: Removed Chat Support from dropdown - it's now a floating widget.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -11,7 +14,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HiMenu, HiX, HiUser, HiBookOpen, HiAcademicCap, HiLogout,
   HiChevronDown, HiHome, HiSearch, HiChartBar,
-  HiShoppingBag, HiChatAlt2, HiShieldCheck
+  HiShoppingBag, HiShieldCheck, HiUserAdd
 } from 'react-icons/hi';
 import { useAuth, useUI } from '../../store/AppProvider';
 import { useProfile } from '../../store/AppProvider';
@@ -19,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SearchBar from '../../features/courses/components/SearchBar';
 import { ROUTES } from '../constants/routes';
 import { ROLES } from '../constants/roles';
+import useOutsideClick from '../hooks/useOutsideClick';
 
 const NAV_LINKS = [
   { label: 'Home',    path: ROUTES.HOME,        icon: HiHome,     requiresAuth: false },
@@ -46,11 +50,21 @@ function buildMenuItems({ role, navigate, onClose, onLogout }) {
 
   const items = [{ label: 'My Profile', icon: HiUser, onClick: go(ROUTES.PROFILE) }];
 
-  // ✅ FIX: My Enrollments & Chat Support shown for students, instructors AND admins
+  // Add "Become Instructor" for students only
+  if (isStudent) {
+    items.push({ 
+      label: 'Become Instructor', 
+      icon: HiUserAdd, 
+      onClick: go(ROUTES.BECOME_INSTRUCTOR) 
+    });
+  }
+
+  // My Enrollments shown for students, instructors AND admins
+  // Chat Support REMOVED - now a floating widget
   if (isStudent || isInstructor || isAdmin) {
     items.push(
       { label: 'My Enrollments', icon: HiShoppingBag, onClick: go(ROUTES.MY_ENROLLMENTS) },
-      { label: 'Chat Support',   icon: HiChatAlt2,    onClick: go(ROUTES.CHAT) },
+      // ❌ Chat Support REMOVED from dropdown
     );
   }
   if (isInstructor || isAdmin) {
@@ -64,24 +78,24 @@ function buildMenuItems({ role, navigate, onClose, onLogout }) {
   return items;
 }
 
-// ── Shared sub-components (unchanged) ────────────────────────────────────────
+// ── Shared sub-components ──────────────────────────────────────────────────────
 
 const Avatar = ({ avatarUrl, initials, size = 8 }) => {
   const avatarKey = useAvatarKey(avatarUrl);
-  const cls = `w-${size} h-${size} rounded-full`;
+  const sizeClass = `w-${size} h-${size}`;
   if (avatarUrl) {
     return (
       <img
         key={avatarKey}
         src={`${avatarUrl}?t=${avatarKey}`}
         alt={initials}
-        className={`${cls} object-cover`}
+        className={`${sizeClass} rounded-full object-cover`}
         onError={(e) => { e.currentTarget.style.display = 'none'; }}
       />
     );
   }
   return (
-    <div className={`${cls} flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white`}>
+    <div className={`${sizeClass} rounded-full flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white`}>
       {initials}
     </div>
   );
@@ -131,48 +145,67 @@ const DesktopNavLinks = ({ links, isLoggedIn, location }) => (
   </div>
 );
 
+// ── Profile Dropdown (Fixed) ─────────────────────────────────────────────────
+
 const ProfileDropdown = ({ user, profile, onLogout, navigate }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const dropdownRef = useRef(null);
   const location = useLocation();
 
   const username = user?.username || user?.email?.split('@')[0] || 'User';
   const role     = user?.role?.toLowerCase();
   const initials = username.slice(0, 2).toUpperCase();
 
-  useEffect(() => {
-    if (user?.avatar !== undefined) setIsLoading(false);
-    else { const t = setTimeout(() => setIsLoading(false), 1000); return () => clearTimeout(t); }
-  }, [user?.avatar]);
+  // Use the shared outside click hook
+  const dropdownRef = useOutsideClick(() => setIsOpen(false));
 
-  useEffect(() => { setIsOpen(false); }, [location.pathname]);
-
+  // Close dropdown on navigation
   useEffect(() => {
-    const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    setIsOpen(false);
+  }, [location.pathname]);
 
+  // Close dropdown on Escape key
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') setIsOpen(false); };
+    const handler = (e) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const menuItems = buildMenuItems({ role, navigate, onClose: () => setIsOpen(false), onLogout });
+  const handleItemClick = useCallback((onClick) => {
+    // Close dropdown first
+    setIsOpen(false);
+    // Then execute the action after a small delay to allow the dropdown to close
+    setTimeout(onClick, 50);
+  }, []);
+
+  const menuItems = buildMenuItems({ 
+    role, 
+    navigate, 
+    onClose: () => setIsOpen(false), 
+    onLogout 
+  });
+
+  // Override each item's onClick to close dropdown first
+  const enhancedMenuItems = menuItems.map((item) => ({
+    ...item,
+    onClick: () => handleItemClick(item.onClick),
+  }));
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen((o) => !o)}
+        onClick={() => setIsOpen((prev) => !prev)}
         className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2 py-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
         aria-label="Profile menu"
         aria-expanded={isOpen}
       >
         <Avatar avatarUrl={profile?.avatar} initials={initials} size={8} />
         <span className="text-sm font-medium text-gray-700 hidden sm:inline-block">{username}</span>
-        <HiChevronDown size={14} className={`text-gray-400 transition-transform duration-200 hidden sm:block ${isOpen ? 'rotate-180' : ''}`} />
+        <HiChevronDown 
+          size={14} 
+          className={`text-gray-400 transition-transform duration-200 hidden sm:block ${isOpen ? 'rotate-180' : ''}`} 
+        />
       </button>
 
       <AnimatePresence>
@@ -189,7 +222,7 @@ const ProfileDropdown = ({ user, profile, onLogout, navigate }) => {
               <p className="text-xs text-gray-500 capitalize">{role || 'User'}</p>
             </div>
             <div className="py-1 max-h-96 overflow-y-auto">
-              {menuItems.map((item) => (
+              {enhancedMenuItems.map((item) => (
                 <button
                   key={item.label}
                   onClick={item.onClick}
@@ -208,6 +241,8 @@ const ProfileDropdown = ({ user, profile, onLogout, navigate }) => {
     </div>
   );
 };
+
+// ── Mobile Components ─────────────────────────────────────────────────────
 
 const MobileSearchButton = ({ onClick }) => (
   <button onClick={onClick} className="md:hidden p-2 rounded-full hover:bg-gray-100 transition" aria-label="Search">
@@ -261,16 +296,28 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, profile, onLogout, onSi
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-40" 
+            onClick={onClose} 
+          />
           <motion.div
-            initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+            initial={{ x: '-100%' }} 
+            animate={{ x: 0 }} 
+            exit={{ x: '-100%' }}
             transition={{ type: 'tween', duration: 0.3 }}
             className="fixed top-0 left-0 bottom-0 w-72 sm:w-80 bg-white shadow-2xl z-50 flex flex-col"
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <Logo />
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition"><HiX size={20} /></button>
+              <button 
+                onClick={onClose} 
+                className="p-2 rounded-lg hover:bg-gray-100 transition"
+              >
+                <HiX size={20} />
+              </button>
             </div>
             {isLoggedIn && user && (
               <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-gray-50">
@@ -287,16 +334,24 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, profile, onLogout, onSi
               {staticLinks.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <button key={item.label} onClick={() => { onClose(); navigate(item.path); }}
-                    className={`w-full flex items-center gap-3 px-6 py-3 text-sm transition ${isActive ? 'bg-purple-50 text-purple-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
+                  <button 
+                    key={item.label} 
+                    onClick={() => { onClose(); navigate(item.path); }}
+                    className={`w-full flex items-center gap-3 px-6 py-3 text-sm transition ${
+                      isActive ? 'bg-purple-50 text-purple-600 font-medium' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
                     <item.icon size={18} className={isActive ? 'text-purple-600' : 'text-gray-400'} />
                     <span>{item.label}</span>
                   </button>
                 );
               })}
               {authItems.map((item) => (
-                <button key={item.label} onClick={item.onClick}
-                  className="w-full flex items-center gap-3 px-6 py-3 text-sm text-gray-700 hover:bg-gray-50 transition">
+                <button 
+                  key={item.label} 
+                  onClick={() => { onClose(); item.onClick(); }}
+                  className="w-full flex items-center gap-3 px-6 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
+                >
                   <item.icon size={18} className="text-gray-400" />
                   <span>{item.label}</span>
                 </button>
@@ -304,10 +359,16 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, profile, onLogout, onSi
             </nav>
             <div className="p-4 border-t border-gray-100">
               {!isLoggedIn ? (
-                <AuthButtons onSignIn={() => { onClose(); onSignIn(); }} onSignUp={() => { onClose(); onSignUp(); }} stacked />
+                <AuthButtons 
+                  onSignIn={() => { onClose(); onSignIn(); }} 
+                  onSignUp={() => { onClose(); onSignUp(); }} 
+                  stacked 
+                />
               ) : (
-                <button onClick={() => { onLogout(); onClose(); }}
-                  className="w-full py-2.5 rounded-full text-sm font-medium text-red-600 hover:bg-red-50 transition flex items-center justify-center gap-2">
+                <button 
+                  onClick={() => { onLogout(); onClose(); }}
+                  className="w-full py-2.5 rounded-full text-sm font-medium text-red-600 hover:bg-red-50 transition flex items-center justify-center gap-2"
+                >
                   <HiLogout size={16} /> Logout
                 </button>
               )}
@@ -325,28 +386,39 @@ const MobileMenu = ({ isOpen, onClose, isLoggedIn, user, profile, onLogout, onSi
 
 const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
-  const { profile }           = useProfile();
+  const { profile } = useProfile();
   const { isNavSearchVisible } = useUI();
-  const location  = useLocation();
-  const navigate  = useNavigate();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [isMobileMenuOpen,   setIsMobileMenuOpen]   = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
-  const handleLogout = useCallback(() => { logout(); setIsMobileMenuOpen(false); navigate(ROUTES.HOME); }, [logout, navigate]);
-  const handleSignIn = useCallback(() => { setIsMobileMenuOpen(false); navigate(ROUTES.SIGN_IN); }, [navigate]);
-  const handleSignUp = useCallback(() => { setIsMobileMenuOpen(false); navigate(ROUTES.SIGN_UP); }, [navigate]);
+  const handleLogout = useCallback(() => { 
+    logout(); 
+    setIsMobileMenuOpen(false); 
+    navigate(ROUTES.HOME); 
+  }, [logout, navigate]);
 
+  const handleSignIn = useCallback(() => { 
+    setIsMobileMenuOpen(false); 
+    navigate(ROUTES.SIGN_IN); 
+  }, [navigate]);
+
+  const handleSignUp = useCallback(() => { 
+    setIsMobileMenuOpen(false); 
+    navigate(ROUTES.SIGN_UP); 
+  }, [navigate]);
+
+  // Close mobile menu on navigation
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsMobileSearchOpen(false);
   }, [location.pathname]);
 
-  // ✅ FIX: Do NOT render the navbar SearchBar when the user is already on /courses.
-  //    CoursesList has its own inline SearchBar — showing both creates a duplicate.
-  //    We check the pathname directly so this works regardless of UIContext state.
+  // Don't render navbar search on courses page
   const isOnCoursesPage = location.pathname.startsWith('/courses');
-  const showNavSearch   = isNavSearchVisible && !isOnCoursesPage;
+  const showNavSearch = isNavSearchVisible && !isOnCoursesPage;
 
   return (
     <>
@@ -367,23 +439,35 @@ const Navbar = () => {
               )}
 
               <div className="hidden md:block">
-                {isAuthenticated
-                  ? <ProfileDropdown user={user} profile={profile} onLogout={handleLogout} navigate={navigate} />
-                  : <AuthButtons onSignIn={handleSignIn} onSignUp={handleSignUp} />
-                }
+                {isAuthenticated ? (
+                  <ProfileDropdown 
+                    user={user} 
+                    profile={profile} 
+                    onLogout={handleLogout} 
+                    navigate={navigate} 
+                  />
+                ) : (
+                  <AuthButtons onSignIn={handleSignIn} onSignUp={handleSignUp} />
+                )}
               </div>
 
-              <button onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition" aria-label="Menu">
+              <button 
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition" 
+                aria-label="Menu"
+              >
                 <HiMenu size={20} className="text-gray-600" />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Mobile search overlay — also suppressed on /courses */}
+        {/* Mobile search overlay */}
         {showNavSearch && (
-          <MobileSearchOverlay isOpen={isMobileSearchOpen} onClose={() => setIsMobileSearchOpen(false)} />
+          <MobileSearchOverlay 
+            isOpen={isMobileSearchOpen} 
+            onClose={() => setIsMobileSearchOpen(false)} 
+          />
         )}
       </nav>
 

@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiUpload, HiX, HiPhotograph, HiCloudUpload, HiCheckCircle, HiExclamationCircle, HiArrowUp } from 'react-icons/hi';
-import { uploadCourseThumbnail } from '../../../shared/api/upload.api';  // ✅ ADD THIS IMPORT
+import { uploadCourseThumbnail } from '../../../shared/api/upload.api';
 
 export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable }) => {
   const [uploading, setUploading] = useState(false);
@@ -73,6 +73,10 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) handleFile(file);
+    // Reset the input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleDragOver = (e) => {
@@ -101,6 +105,14 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
     }
   };
 
+  // Function to trigger file input
+  const handleChangeClick = (e) => {
+    e.stopPropagation();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   if (!isEditable) {
     return (
       <div className="relative rounded-xl overflow-hidden bg-gray-100 shadow-inner">
@@ -123,6 +135,16 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
 
   return (
     <div className="space-y-3">
+      {/* Hidden file input - MOVED OUTSIDE of any label */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleFileSelect}
+        className="hidden"
+        disabled={uploading}
+      />
+
       {/* Thumbnail Preview Area */}
       <div
         className={`relative rounded-xl overflow-hidden transition-all duration-200 ${
@@ -150,7 +172,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleChangeClick}
                   className="px-4 py-2 bg-white rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition shadow-lg transform hover:scale-105"
                 >
                   Change Image
@@ -200,22 +222,15 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
             )}
           </div>
         ) : (
-          <label
+          <div
             className={`flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
               dragActive
                 ? 'border-purple-500 bg-purple-50 scale-[1.02]'
                 : 'border-2 border-dashed border-gray-300 bg-gray-50 hover:border-purple-400 hover:bg-purple-50/30'
             }`}
             style={{ aspectRatio: '16/9' }}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={uploading}
-            />
             <motion.div
               initial={{ scale: 1 }}
               animate={{ scale: dragActive ? 1.05 : 1 }}
@@ -238,7 +253,7 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
                 </>
               )}
             </motion.div>
-          </label>
+          </div>
         )}
       </div>
 
@@ -292,3 +307,5 @@ export const ThumbnailUploader = ({ thumbnailUrl, onThumbnailChange, isEditable 
     </div>
   );
 };
+
+export default ThumbnailUploader;

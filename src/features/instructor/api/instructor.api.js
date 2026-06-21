@@ -233,36 +233,47 @@ export const getInstructorStudents = async ({ courseId, page = 1, pageSize = 10,
     // Ensure response.data.data is an array
     const studentsData = Array.isArray(response.data.data) ? response.data.data : [];
     
-    // Transform backend data to match frontend expected format
-    const transformedStudents = studentsData.map(student => ({
-      id: student.studentId,
-      name: student.fullName || 'Unknown',
-      email: student.email || '',
-      phone: student.phone || '',
-      avatar: student.profileImageUrl || null,
-      enrolledDate: student.enrolledCourses?.[0]?.enrolledAt || new Date().toISOString(),
-      lastActivity: student.lastActivityAt || student.enrolledCourses?.[0]?.enrolledAt || new Date().toISOString(),
-      progress: student.enrolledCourses?.[0]?.progressPercentage || 0,
-      completedLessons: 0, // Backend doesn't provide this yet
-      totalLessons: 0, // Would need separate endpoint
-      certificateIssued: student.enrolledCourses?.[0]?.isCompleted || false,
-      grade: calculateGrade(student.enrolledCourses?.[0]?.progressPercentage || 0),
-      courseId: student.enrolledCourses?.[0]?.courseId,
-      courseName: student.enrolledCourses?.[0]?.courseTitle || '',
-      status: getStudentStatus(student.enrolledCourses?.[0]),
-      totalEnrolledCourses: student.totalEnrolledCourses || 0
-    }));
+    // Flatten: one row per (student, course) enrollment. Each student in the
+    // backend response can carry several entries in enrolledCourses — reading
+    // only index [0] silently dropped every other course they're enrolled in.
+    // We surface every enrollment instead, so progress/status/date are always
+    // for the specific course that row represents.
+    const transformedRows = studentsData.flatMap(student => {
+      const courses = Array.isArray(student.enrolledCourses) ? student.enrolledCourses : [];
+
+      return courses.map(course => ({
+        id: `${student.studentId}-${course.courseId}`,
+        studentId: student.studentId,
+        name: student.fullName || 'Unknown',
+        email: student.email || '',
+        avatar: student.profileImageUrl || null,
+        courseId: course.courseId,
+        courseName: course.courseTitle || '',
+        progress: course.progressPercentage || 0,
+        enrolledDate: course.enrolledAt,
+        // Backend only tracks last activity at the student level (not per
+        // course), so every row for the same student shares this value.
+        lastActivity: student.lastActivityAt || course.enrolledAt,
+        certificateIssued: course.isCompleted || false,
+        grade: calculateGrade(course.progressPercentage || 0),
+        status: getStudentStatus(course),
+        totalEnrolledCourses: student.totalEnrolledCourses || 0
+        // Note: completedLessons/totalLessons removed — the
+        // /Instructor/students endpoint doesn't return per-lesson data,
+        // so this can't be shown until the backend exposes it.
+      }));
+    });
     
     // Get pagination info from response headers or data
     const paginationInfo = response.data._pagination || {
-      totalCount: parseInt(response.headers['total-count'] || transformedStudents.length),
+      totalCount: parseInt(response.headers['total-count'] || studentsData.length),
       pageNumber: page,
       pageSize: pageSize
     };
     
     return {
       success: true,
-      data: transformedStudents,
+      data: transformedRows,
       pagination: paginationInfo
     };
   } catch (error) {

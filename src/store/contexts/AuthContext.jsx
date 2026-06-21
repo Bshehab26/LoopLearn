@@ -1,3 +1,5 @@
+// src/store/contexts/AuthContext.jsx
+
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { ROLES } from '../../shared/constants/roles';
 import { getToken, getUser, saveToken, removeToken, saveUser, clearUser } from '../../services/utils/tokenUtils';
@@ -59,6 +61,7 @@ export const AuthProvider = ({ children }) => {
       saveUser(updated);
       return updated;
     });
+    return updatedData;
   }, []);
 
   const setUserAvatar = useCallback((avatarUrl) => {
@@ -70,7 +73,8 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
-  const refreshUser = useCallback(() => {
+  const refreshUser = useCallback(async () => {
+    // Try to get fresh user data from storage
     const freshUser = getUser();
     console.log('🔄 Refreshing user:', freshUser);
     if (freshUser) {
@@ -85,6 +89,7 @@ export const AuthProvider = ({ children }) => {
   const isStudent = role === ROLES.STUDENT;
   const isInstructor = role === ROLES.INSTRUCTOR;
   const isAdmin = role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
+  const isInstructorRequested = user?.isInstructorRequested || false;
 
   useEffect(() => {
     setLoading(false);
@@ -97,6 +102,7 @@ export const AuthProvider = ({ children }) => {
     isStudent,
     isInstructor,
     isAdmin,
+    isInstructorRequested,
     role,
     login,
     logout,

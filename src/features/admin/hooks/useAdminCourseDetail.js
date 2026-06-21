@@ -14,9 +14,36 @@ const useAdminCourseDetail = (courseId) => {
       setLoading(true);
       setError(null);
       const res = await getAdminCourseById(courseId);
-      if (res.success) setCourse(res.data);
-      else setError(res.message || 'Failed to load course details.');
+      
+      console.log('[useAdminCourseDetail] Raw response:', res);
+      
+      if (res.success) {
+        let courseData = null;
+        
+        // The backend returns: { success, data: { CourseDetails, InstructorDetails } }
+        if (res.data) {
+          // Check if the data has CourseDetails property (nested structure)
+          if (res.data.CourseDetails) {
+            courseData = res.data.CourseDetails;
+            // Attach instructor info if available
+            if (res.data.InstructorDetails) {
+              courseData.instructor = res.data.InstructorDetails;
+              // Also set the instructorName for display
+              courseData.instructorName = res.data.InstructorDetails.FullName || res.data.InstructorDetails.fullName;
+            }
+          } else {
+            // If the data is already the course object (flat structure)
+            courseData = res.data;
+          }
+        }
+        
+        console.log('[useAdminCourseDetail] Processed course data:', courseData);
+        setCourse(courseData);
+      } else {
+        setError(res.message || 'Failed to load course details.');
+      }
     } catch (err) {
+      console.error('[useAdminCourseDetail] Error:', err);
       setError(err.response?.data?.message || 'Failed to load course details.');
     } finally {
       setLoading(false);
@@ -25,7 +52,10 @@ const useAdminCourseDetail = (courseId) => {
 
   useEffect(() => {
     if (courseId) fetchDetail();
-    else setCourse(null);
+    else {
+      setCourse(null);
+      setError(null);
+    }
   }, [courseId, fetchDetail]);
 
   return { course, loading, error, refetch: fetchDetail };

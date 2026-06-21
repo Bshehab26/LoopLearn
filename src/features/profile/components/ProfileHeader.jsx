@@ -7,7 +7,7 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
-  const [avatarKey, setAvatarKey] = useState(Date.now());
+  const [imgFailed, setImgFailed] = useState(false);
   const fileInputRef = useRef(null);
 
   const avatarUrl = profile?.avatar;
@@ -15,12 +15,10 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
   const initials = getInitials(profile?.username || profile?.firstName || 'U');
   const role = profile?.role || 'Student';
 
-  // Force re-render when avatar URL changes
+  // Whenever the avatar URL changes (new upload, fresh profile fetch, etc.)
+  // clear any previous "failed to load" state so we try the new URL fresh.
   useEffect(() => {
-    if (avatarUrl) {
-      console.log('🖼️ ProfileHeader: Avatar URL changed:', avatarUrl);
-      setAvatarKey(Date.now());
-    }
+    setImgFailed(false);
   }, [avatarUrl]);
 
   const handleFileSelect = async (e) => {
@@ -43,7 +41,6 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
 
     try {
       await onAvatarChange(file);
-      setAvatarKey(Date.now());
       e.target.value = '';
     } catch (err) {
       console.error('Upload failed:', err);
@@ -66,10 +63,7 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
     }
   };
 
-  const getCacheBustedUrl = () => {
-    if (!avatarUrl) return null;
-    return `${avatarUrl}?t=${avatarKey}`;
-  };
+  const showImage = Boolean(avatarUrl) && !imgFailed;
 
   return (
     <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-purple-600 to-purple-800">
@@ -93,27 +87,18 @@ const ProfileHeader = memo(({ profile, onAvatarChange }) => {
       <div className="px-6 pb-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
           <div
-            className="relative"
+            className="relative w-24 h-24 flex-shrink-0"
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
           >
-            <div className="w-24 h-24 rounded-full bg-white p-1 shadow-lg">
-              {avatarUrl ? (
+            <div className="w-24 h-24 rounded-full bg-white p-1 shadow-lg overflow-hidden">
+              {showImage ? (
                 <img
-                  key={avatarKey}
-                  src={getCacheBustedUrl()}
+                  key={avatarUrl}
+                  src={avatarUrl}
                   alt={fullName || 'Avatar'}
                   className="w-full h-full rounded-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    const parent = e.target.parentElement;
-                    if (parent && !parent.querySelector('.fallback-initials')) {
-                      const fallbackDiv = document.createElement('div');
-                      fallbackDiv.className = 'w-full h-full rounded-full bg-purple-100 flex items-center justify-center fallback-initials';
-                      fallbackDiv.innerHTML = `<span class="text-2xl font-bold text-purple-600">${initials}</span>`;
-                      parent.appendChild(fallbackDiv);
-                    }
-                  }}
+                  onError={() => setImgFailed(true)}
                 />
               ) : (
                 <div className="w-full h-full rounded-full bg-purple-100 flex items-center justify-center">
