@@ -1,10 +1,10 @@
-// src/layouts/AuthLayout.jsx - NO CHANGES NEEDED
-// This file doesn't use AppContext, so it's fine as is
+// src/layouts/AuthLayout.jsx
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { HiArrowLeft, HiHome } from 'react-icons/hi';
 import character from '../assets/character_img.png';
 
-const AuthLayout = ({ title, subtitle, children, mode = 'signin' }) => {
+const AuthLayout = ({ title, subtitle, children, mode = 'signin', showBackButton = true }) => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-purple-700 to-purple-900">
       <div className="fixed -top-32 -left-32 w-96 h-96 rounded-full bg-white/5 pointer-events-none" />
@@ -16,6 +16,7 @@ const AuthLayout = ({ title, subtitle, children, mode = 'signin' }) => {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="bg-white rounded-3xl w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 overflow-hidden shadow-2xl"
       >
+        {/* Left Column - Mascot & Features */}
         <div className="hidden md:flex flex-col items-center justify-center gap-6 px-10 py-14 relative overflow-hidden bg-purple-50">
           <div className="absolute -top-16 -left-16 w-52 h-52 rounded-full bg-purple-200/40" />
           <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full bg-purple-200/30" />
@@ -47,8 +48,35 @@ const AuthLayout = ({ title, subtitle, children, mode = 'signin' }) => {
           </div>
         </div>
 
+        {/* Right Column - Form */}
         <div className="flex items-center justify-center px-8 py-10">
           <div className="w-full max-w-sm">
+            {/* Back to Home Button - Now positioned at the top */}
+            {showBackButton && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="mb-4"
+              >
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-purple-600 transition-colors group"
+                >
+                  <svg 
+                    className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>Back to Home</span>
+                </Link>
+              </motion.div>
+            )}
+
+            {/* Sign In / Sign Up Tabs */}
             <div className="flex rounded-xl p-1 mb-7 bg-gray-100">
               <Link
                 to="/signin"

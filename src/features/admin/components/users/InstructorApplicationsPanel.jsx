@@ -378,7 +378,7 @@ const InstructorApplicationsPanel = () => {
                       {app.email || '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {formatDate(app.submittedAt || app.createdAt)}
+                      {formatDate(app.requestedAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -463,7 +463,7 @@ const InstructorApplicationsPanel = () => {
               <div className="flex items-center gap-2 text-sm">
                 <HiOutlineCalendar className="w-4 h-4 text-gray-400" />
                 <span className="text-gray-600">Submitted:</span>
-                <span className="text-gray-800">{formatDate(selectedApplication.submittedAt || selectedApplication.createdAt)}</span>
+                <span className="text-gray-800">{formatDate(selectedApplication.requestedAt)}</span>
               </div>
               {selectedApplication.message && (
                 <div className="bg-gray-50 rounded-lg p-3 mt-2">

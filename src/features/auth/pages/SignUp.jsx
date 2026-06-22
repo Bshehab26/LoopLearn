@@ -26,7 +26,7 @@ const FORM_ANIMATION = {
 const sanitizePhoneNumber = (value) => value.replace(/\D/g, '');
 
 // ============================================================================
-// Sub‑components (kept from teammate)
+// Sub‑components
 // ============================================================================
 
 const UserIcon = () => (
@@ -267,6 +267,8 @@ const SignUp = () => {
 
   return (
     <AuthLayout title='Create account ✨' subtitle='Join and start learning today' mode='signup'>
+      {/* ❌ Back to Home button removed - now handled by AuthLayout */}
+      
       <motion.form
         onSubmit={handleSubmit}
         className='flex flex-col gap-3'

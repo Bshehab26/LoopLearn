@@ -1,6 +1,7 @@
 // src/routes/ProtectedRoute.jsx
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../store/AppProvider';  // ✅ Changed
+import { useAuth } from '../store/AppProvider';
+import { useState, useEffect } from 'react';
 
 const ROLE_HIERARCHY = {
   'SuperAdmin': ['SuperAdmin', 'Admin', 'Instructor', 'Student'],
@@ -27,8 +28,27 @@ const ProtectedRoute = ({
   redirectTo = '/signin',
   fallback = null 
 }) => {
-  const { isAuthenticated, role, loading} = useAuth();  // ✅ Changed
+  const { isAuthenticated, role, loading } = useAuth();
   const location = useLocation();
+  const [redirectDelay, setRedirectDelay] = useState(false);
+
+  // Add a delay before redirecting to prevent flicker during YouTube interactions
+  useEffect(() => {
+    let timer;
+    if (!loading && !isAuthenticated) {
+      // Only show redirect after a short delay
+      // This prevents immediate redirect during YouTube iframe events
+      timer = setTimeout(() => {
+        setRedirectDelay(true);
+      }, 500);
+    } else {
+      setRedirectDelay(false);
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [loading, isAuthenticated]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">
@@ -36,7 +56,7 @@ const ProtectedRoute = ({
     </div>;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && redirectDelay) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 

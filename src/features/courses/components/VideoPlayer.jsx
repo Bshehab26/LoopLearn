@@ -11,26 +11,38 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext, onProgress }) =
   const [showNext, setShowNext] = useState(false);
   const [lastReportedSecond, setLastReportedSecond] = useState(0);
   const progressTimer = useRef(null);
+  const isMounted = useRef(true);
 
   const videoId = lecture?.videoUrl ? getYouTubeId(lecture.videoUrl) : null;
 
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (progressTimer.current) {
+        clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+    };
+  }, []);
+
   const reportProgress = useCallback(
     async (currentTime, duration, force = false) => {
-      if (!lecture) return;
+      if (!lecture || !isMounted.current) return;
       const lastSecond = Math.floor(currentTime);
       if (!force && lastSecond <= lastReportedSecond) return;
       setLastReportedSecond(lastSecond);
       
-      // Notify parent for UI update immediately
       if (onProgress) {
         onProgress(lecture.id, lastSecond, duration);
       }
 
       try {
         await updateLessonProgress(lecture.id, lastSecond, duration);
-        console.log(`Progress updated: ${lastSecond}/${duration}`);
       } catch (err) {
-        console.error('Progress update failed:', err);
+        // Silently fail - don't break the video experience
+        console.debug('Progress update failed (non-critical):', err.message);
       }
     },
     [lecture, lastReportedSecond, onProgress]
@@ -44,33 +56,51 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext, onProgress }) =
   };
 
   const handleStateChange = (event) => {
+    // Video ended
     if (event.data === 0) {
-      // Video ended – send final progress
-      const duration = player.getDuration();
-      reportProgress(duration, duration, true);
+      const duration = player?.getDuration?.() || 0;
+      if (duration > 0) {
+        reportProgress(duration, duration, true);
+      }
       setShowNext(true);
     }
 
+    // Video playing
     if (event.data === 1) {
-      const duration = player.getDuration();
-      progressTimer.current = setInterval(() => {
-        const currentTime = player.getCurrentTime();
-        reportProgress(currentTime, duration);
-      }, 5000);
+      const duration = player?.getDuration?.() || 0;
+      if (duration > 0 && progressTimer.current === null) {
+        progressTimer.current = setInterval(() => {
+          if (player && isMounted.current) {
+            try {
+              const currentTime = player.getCurrentTime();
+              const dur = player.getDuration();
+              if (dur > 0) {
+                reportProgress(currentTime, dur);
+              }
+            } catch (err) {
+              // Player might not be ready
+              console.debug('Progress interval error:', err.message);
+            }
+          }
+        }, 5000);
+      }
     } else {
-      clearInterval(progressTimer.current);
+      // Paused, buffering, etc. - clear interval
+      if (progressTimer.current) {
+        clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
     }
   };
 
-  useEffect(() => {
-    return () => clearInterval(progressTimer.current);
-  }, []);
-
   const handleMarkComplete = () => {
-    onComplete();
+    if (onComplete) {
+      onComplete();
+    }
     setShowNext(false);
   };
 
+  // If no lecture, show placeholder
   if (!lecture) {
     return (
       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 mb-6">
@@ -84,6 +114,7 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext, onProgress }) =
     );
   }
 
+  // If no video ID, show placeholder
   if (!videoId) {
     return (
       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 mb-6">
@@ -110,10 +141,17 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext, onProgress }) =
               modestbranding: 1,
               rel: 0,
               controls: 1,
+              fs: 1,
+              iv_load_policy: 3,
+              playsinline: 1,
             },
           }}
           onReady={handleReady}
           onStateChange={handleStateChange}
+          // Add these to prevent YouTube from interfering with React
+          onError={(e) => {
+            console.debug('YouTube player error:', e);
+          }}
         />
       </div>
 
@@ -130,7 +168,7 @@ const VideoPlayer = ({ lecture, onComplete, isCompleted, onNext, onProgress }) =
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         {!isCompleted && (
           <button
             onClick={handleMarkComplete}

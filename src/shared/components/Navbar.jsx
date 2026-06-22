@@ -431,9 +431,11 @@ const Navbar = () => {
             <div className="flex items-center gap-1 sm:gap-2">
               {showNavSearch && (
                 <>
+                  {/* Mobile: tap the search icon to open the overlay */}
                   <MobileSearchButton onClick={() => setIsMobileSearchOpen(true)} />
+                  {/* Desktop: × lives inside the SearchBar pill — no external button here */}
                   <div className="hidden md:block w-64 lg:w-80">
-                    <SearchBar variant="default" />
+                    <SearchBar variant="default" onClose={() => setIsMobileSearchOpen(false)} />
                   </div>
                 </>
               )}

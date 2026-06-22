@@ -10,15 +10,21 @@ import {
 } from 'react-icons/hi';
 
 const LessonItem = ({ lesson, isEnrolled, isLessonAccessible, onPlay }) => {
-  // isPreview is returned as `isPreview` from backend (LessonDTO.isPreview = l.IsPreview)
   const canAccess = isLessonAccessible(lesson);
+  // A preview lesson is always clickable (inline preview), even without auth.
+  const isPreview = lesson.isPreview && !isEnrolled;
+  const clickable = canAccess || isPreview;
 
   return (
     <div
-      className="flex items-center gap-2.5 py-2 px-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition cursor-pointer group"
-      onClick={() => canAccess && onPlay?.(lesson)}
+      className={`flex items-center gap-2.5 py-2 px-3 border-b border-gray-100 last:border-b-0 transition group
+        ${clickable
+          ? 'hover:bg-[#EEEDFE] cursor-pointer'
+          : 'cursor-not-allowed opacity-60'}`}
+      onClick={() => clickable && onPlay?.(lesson)}
+      title={!clickable ? 'Enroll to unlock this lesson' : ''}
     >
-      {canAccess ? (
+      {clickable ? (
         <div className="w-5 h-5 rounded-full bg-[#EEEDFE] flex items-center justify-center group-hover:bg-[#534AB7] transition flex-shrink-0">
           <HiOutlinePlay size={10} className="text-[#534AB7] group-hover:text-white transition ml-0.5" />
         </div>
@@ -30,12 +36,12 @@ const LessonItem = ({ lesson, isEnrolled, isLessonAccessible, onPlay }) => {
 
       <span className="flex-1 text-[12px] text-gray-700 leading-snug">{lesson.title}</span>
 
-      {lesson.isPreview && !isEnrolled && (
+      {isPreview && (
         <span className="text-[10px] bg-[#EAF3DE] text-[#27500A] px-1.5 py-0.5 rounded font-medium">
           Preview
         </span>
       )}
-      {!canAccess && !lesson.isPreview && (
+      {!clickable && (
         <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">
           Premium
         </span>

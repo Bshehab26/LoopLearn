@@ -1,6 +1,6 @@
 // src/features/courses/components/course-details/CourseHero.jsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiOutlineHome, HiOutlineChevronRight } from 'react-icons/hi';
 
@@ -18,6 +18,7 @@ const Stars = ({ rating, size = 14 }) => (
 
 const CourseHero = ({ course }) => {
   const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
 
   const getLevelStyle = (level) => {
     const styles = {
@@ -29,7 +30,12 @@ const CourseHero = ({ course }) => {
   };
 
   const levelStyle = getLevelStyle(course.levelName || 'Beginner');
+  
+  // Get instructor initials
   const instructorInitials = course.instructorName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'IN';
+  
+  // ✅ Check if instructor has a profile image
+  const hasAvatar = course.instructorProfileImageUrl && !imgError;
 
   return (
     <div>
@@ -73,14 +79,23 @@ const CourseHero = ({ course }) => {
         <span className="text-xs text-gray-500">{course.enrollmentCount?.toLocaleString() || 0} students</span>
       </div>
 
-      {/* Instructor */}
+      {/* ✅ Instructor with Profile Image */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-xs font-semibold text-purple-600">
-          {instructorInitials}
+        <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-xs font-semibold text-purple-600 overflow-hidden">
+          {hasAvatar ? (
+            <img 
+              src={course.instructorProfileImageUrl} 
+              alt={course.instructorName}
+              className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <span>{instructorInitials}</span>
+          )}
         </div>
         <div>
           <p className="text-[10px] text-gray-400">Created by</p>
-          <p className="text-sm font-medium text-gray-800">{course.instructorName}</p>
+          <p className="text-sm font-medium text-gray-800">{course.instructorName || 'Unknown Instructor'}</p>
         </div>
       </div>
     </div>

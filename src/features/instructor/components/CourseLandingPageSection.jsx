@@ -1,11 +1,11 @@
 // src/features/instructor/components/CourseLandingPageSection.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiChevronDown, HiChevronUp, HiPencil, HiPhotograph, HiTag, HiDocumentText, HiExclamationCircle } from 'react-icons/hi';
+import { HiChevronDown, HiChevronUp, HiPencil, HiPhotograph, HiTag, HiDocumentText, HiExclamationCircle, HiRefresh } from 'react-icons/hi';
 import { ThumbnailUploader } from './ThumbnailUploader';
 import { TagSelector } from './TagSelector';
-import { getTags } from '../../../shared/api/preLoadData.api';
+import { getAllTags } from '../../../shared/api/preLoadData.api';
 
 const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onToggle }) => {
   const [editMode, setEditMode] = useState({
@@ -20,39 +20,111 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
   const [selectedTagObjects, setSelectedTagObjects] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [tagsLoaded, setTagsLoaded] = useState(false);
+  const [refreshingTags, setRefreshingTags] = useState(false);
+  
+  // Use ref to track if we're updating from a save
+  const isSavingRef = useRef(false);
 
-  // Load available tags and convert stored tagIds to tag objects
-  useEffect(() => {
-    const loadTags = async () => {
-      try {
-        const response = await getTags();
-        if (response.success && response.data) {
-          setAvailableTags(response.data);
-          
-          // Convert stored tagIds to tag objects
-          if (data.tagIds && Array.isArray(data.tagIds) && data.tagIds.length > 0) {
-            const selected = response.data.filter(tag => data.tagIds.includes(tag.id));
-            setSelectedTagObjects(selected);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load tags:', error);
-      } finally {
+  // Load all tags
+  const loadAllTags = useCallback(async () => {
+    setRefreshingTags(true);
+    try {
+      console.log('[CourseLandingPageSection] Loading all tags...');
+      const response = await getAllTags();
+      console.log('[CourseLandingPageSection] Loaded tags:', response.data?.length || 0);
+      
+      if (response.success && response.data) {
+        setAvailableTags(response.data);
         setTagsLoaded(true);
+        
+        // Update selected tags based on loaded data
+        const tagIds = data.tagIds || [];
+        console.log('[CourseLandingPageSection] Current tagIds from data:', tagIds);
+        
+        if (tagIds.length > 0) {
+          // First try to find tags in the loaded available tags
+          let selected = response.data.filter(tag => tagIds.includes(tag.id));
+          console.log('[CourseLandingPageSection] Found selected tags from available:', selected.length);
+          
+          if (selected.length === tagIds.length) {
+            // All tags found
+            setSelectedTagObjects(selected);
+          } else if (selected.length > 0) {
+            // Some tags found - use what we have
+            setSelectedTagObjects(selected);
+          } else if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+            // No tags found in available, but tags exist in course data
+            console.log('[CourseLandingPageSection] Using tags from course data:', data.tags);
+            setSelectedTagObjects(data.tags);
+          } else {
+            // No tags found - keep empty
+            console.warn('[CourseLandingPageSection] No tags found for IDs:', tagIds);
+            setSelectedTagObjects([]);
+          }
+        } else {
+          setSelectedTagObjects([]);
+        }
+        return response.data;
       }
-    };
-    loadTags();
-  }, [data.tagIds]);
+    } catch (error) {
+      console.error('Failed to load tags:', error);
+    } finally {
+      setRefreshingTags(false);
+    }
+  }, [data.tagIds, data.tags]);
 
-  // Reset edit mode when data changes from parent
+  // Load tags on mount
   useEffect(() => {
-    if (editMode.subtitle && data.subtitle !== editValue.subtitle) {
-      setEditValue(prev => ({ ...prev, subtitle: data.subtitle || '' }));
+    loadAllTags();
+  }, []); // Run only once on mount
+
+  // Update selected tags when tagIds or tags change (after save)
+  useEffect(() => {
+    if (!tagsLoaded || !availableTags.length) return;
+    
+    const tagIds = data.tagIds || [];
+    console.log('[CourseLandingPageSection] Updating selected tags - tagIds:', tagIds);
+    console.log('[CourseLandingPageSection] Available tags count:', availableTags.length);
+    
+    if (tagIds.length > 0) {
+      // Try to find tags in available list
+      let selected = availableTags.filter(tag => tagIds.includes(tag.id));
+      console.log('[CourseLandingPageSection] Found selected tags from available:', selected.length);
+      
+      if (selected.length > 0) {
+        setSelectedTagObjects(selected);
+      } else if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+        // Fallback to data.tags
+        console.log('[CourseLandingPageSection] Using fallback tags from data.tags:', data.tags);
+        setSelectedTagObjects(data.tags);
+      } else {
+        setSelectedTagObjects([]);
+      }
+    } else {
+      setSelectedTagObjects([]);
     }
-    if (editMode.description && data.description !== editValue.description) {
-      setEditValue(prev => ({ ...prev, description: data.description || '' }));
+  }, [data.tagIds, data.tags, availableTags, tagsLoaded]);
+
+  // Reset edit mode when data changes from parent (e.g. after a save/refresh),
+  // WITHOUT clobbering the user's in-progress keystrokes.
+  // We only want to react to `data.subtitle` / `data.description` actually
+  // changing (an external update), never to `editValue` changing (the user typing).
+  const prevDataRef = useRef({ subtitle: data.subtitle, description: data.description });
+
+  useEffect(() => {
+    const prev = prevDataRef.current;
+
+    if (editMode.subtitle && data.subtitle !== prev.subtitle) {
+      setEditValue(curr => ({ ...curr, subtitle: data.subtitle || '' }));
     }
-  }, [data.subtitle, data.description]);
+    if (editMode.description && data.description !== prev.description) {
+      setEditValue(curr => ({ ...curr, description: data.description || '' }));
+    }
+
+    prevDataRef.current = { subtitle: data.subtitle, description: data.description };
+    // Intentionally NOT depending on editValue.* — that's what caused every
+    // keystroke to be immediately reverted back to the saved value.
+  }, [data.subtitle, data.description, editMode.subtitle, editMode.description]);
 
   const startEdit = (field, value) => {
     setEditMode({ ...editMode, [field]: true });
@@ -70,11 +142,18 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
     setEditMode({ ...editMode, [field]: false });
   };
 
-  const handleTagsChange = (newTags) => {
+  const handleTagsChange = useCallback((newTags) => {
+    console.log('[CourseLandingPageSection] Tags changed:', newTags);
     setSelectedTagObjects(newTags);
     const tagIds = newTags.map(t => t.id);
-    onUpdate({ tagIds });
-  };
+    console.log('[CourseLandingPageSection] Tag IDs:', tagIds);
+    onUpdate({ tagIds, tags: newTags });
+  }, [onUpdate]);
+
+  // Manual refresh tags
+  const handleRefreshTags = useCallback(async () => {
+    await loadAllTags();
+  }, [loadAllTags]);
 
   const descriptionLength = data.description?.length || 0;
   const isDescriptionValid = descriptionLength >= 50;
@@ -128,19 +207,53 @@ const CourseLandingPageSection = ({ data, onUpdate, isEditable, isExpanded, onTo
 
               {/* Tags Section */}
               <div className="bg-gray-50 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <HiTag size={18} className="text-purple-600" />
-                  <h3 className="font-medium text-gray-800">Course Tags</h3>
-                  <span className="text-xs text-gray-400">Optional</span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <HiTag size={18} className="text-purple-600" />
+                    <h3 className="font-medium text-gray-800">Course Tags</h3>
+                    <span className="text-xs text-gray-400">Optional</span>
+                  </div>
+                  {isEditable && (
+                    <button
+                      onClick={handleRefreshTags}
+                      disabled={refreshingTags}
+                      className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-2.5 py-1 rounded-lg transition disabled:opacity-50"
+                      type="button"
+                    >
+                      <HiRefresh size={14} className={`${refreshingTags ? 'animate-spin' : ''}`} />
+                      {refreshingTags ? 'Refreshing...' : 'Refresh Tags'}
+                    </button>
+                  )}
                 </div>
-                <TagSelector
-                  selectedTags={selectedTagObjects}
-                  onTagsChange={handleTagsChange}
-                  isEditable={isEditable}
-                />
-                <p className="text-xs text-gray-400 mt-3">
-                  Add relevant tags to help students discover your course
-                </p>
+                {tagsLoaded ? (
+                  <TagSelector
+                    selectedTags={selectedTagObjects}
+                    onTagsChange={handleTagsChange}
+                    isEditable={isEditable}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="ml-2 text-sm text-gray-400">Loading tags...</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-xs text-gray-400">
+                    Add relevant tags to help students discover your course
+                  </p>
+                  {availableTags.length > 0 && (
+                    <p className="text-xs text-gray-400">
+                      {availableTags.length} tags available
+                    </p>
+                  )}
+                </div>
+                {selectedTagObjects.length > 0 && (
+                  <div className="mt-2 p-2 bg-purple-50 rounded-lg border border-purple-100">
+                    <p className="text-xs text-purple-600">
+                      {selectedTagObjects.length} tag(s) selected
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Subtitle Section */}

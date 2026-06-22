@@ -91,6 +91,8 @@ const SignIn = () => {
 
   return (
     <AuthLayout title='Welcome back 👋' subtitle='Sign in to continue learning' mode='signin'>
+      {/* ❌ Back to Home button removed - now handled by AuthLayout */}
+      
       <motion.form onSubmit={handleSubmit} className='flex flex-col gap-4' {...FORM_ANIMATION} noValidate>
         <div ref={errorRef}>
           <ErrorAlert error={error} onClose={clearError} />
@@ -118,7 +120,12 @@ const SignIn = () => {
         />
 
         <div className='flex justify-end -mt-1'>
-          <button type='button' onClick={() => {}} className='text-xs transition hover:opacity-70' style={{ color: '#534AB7' }}>
+          <button 
+            type='button' 
+            onClick={() => {}} 
+            className='text-xs transition hover:opacity-70' 
+            style={{ color: '#534AB7' }}
+          >
             Forgot password?
           </button>
         </div>

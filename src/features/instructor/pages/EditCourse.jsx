@@ -1,6 +1,6 @@
 // src/features/instructor/pages/EditCourse.jsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -44,6 +44,9 @@ const EditCourse = () => {
     messages: false,
     promotions: false,
   });
+  
+  // Store the last saved tags locally to preserve them when backend doesn't return them
+  const lastSavedTagsRef = useRef({ tagIds: [], tags: [] });
 
   // Load course data
   useEffect(() => {
@@ -52,6 +55,23 @@ const EditCourse = () => {
       const res = await getCourseById(id);
       if (res.success) {
         const data = res.data;
+        console.log('[EditCourse] Loaded course data:', {
+          tagIds: data.tagIds,
+          tags: data.tags,
+          title: data.title
+        });
+        
+        // If backend doesn't return tags, use the saved ones from ref
+        let tagIds = data.tagIds || [];
+        let tags = data.tags || [];
+        
+        // If backend returned empty tags but we have saved ones, use the saved ones
+        if ((!tagIds || tagIds.length === 0) && lastSavedTagsRef.current.tagIds.length > 0) {
+          console.log('[EditCourse] Using saved tags from ref:', lastSavedTagsRef.current);
+          tagIds = lastSavedTagsRef.current.tagIds;
+          tags = lastSavedTagsRef.current.tags;
+        }
+        
         const transformed = {
           ...data,
           status: mapBackendStatus(data.status),
@@ -66,7 +86,8 @@ const EditCourse = () => {
           price: data.price ?? 0,
           isFree: data.isFree ?? false,
           level: data.level || 'Beginner',
-          tagIds: data.tagIds || [],
+          tagIds: tagIds,
+          tags: tags,
           welcomeMessage: data.welcomeMessage || '',
           completionMessage: data.completionMessage || '',
         };
@@ -94,160 +115,164 @@ const EditCourse = () => {
   }, [hasUnsaved]);
 
   const handleLocalUpdate = useCallback((updates) => {
+    console.log('[EditCourse] Local update:', updates);
     setCourse(prev => ({ ...prev, ...updates }));
     setHasUnsaved(true);
   }, []);
 
-// src/features/instructor/pages/EditCourse.jsx - Fix handleSave
+  const handleSave = async (shouldNavigate = false, navigateTo = null) => {
+    if (!course) return;
+    setSaving(true);
+    setSaveStatus('saving');
 
-const handleSave = async (shouldNavigate = false, navigateTo = null) => {
-  if (!course) return;
-  setSaving(true);
-  setSaveStatus('saving');
+    // Ensure tagIds is an array
+    const tagIds = Array.isArray(course.tagIds) ? course.tagIds : [];
+    const tags = Array.isArray(course.tags) ? course.tags : [];
+    
+    console.log('[Save] Tag IDs being sent:', tagIds);
+    console.log('[Save] Tags being sent:', tags);
 
-  // Debug: Log what we're about to send
-  console.log('[Save] Current course data:', {
-    subtitle: course.subtitle,
-    description: course.description,
-    thumbnailUrl: course.thumbnailUrl,
-    title: course.title
-  });
+    const payload = {
+      description: course.description,
+      thumbnailUrl: course.thumbnailUrl || '',
+      subtitle: course.subtitle,
+      language: course.language,
+      level: course.level,
+      isFree: course.isFree,
+      price: course.isFree ? 0 : course.price,
+      requirements: fromEditableList(course.requirements),
+      learningOutcomes: fromEditableList(course.learningObjectives),
+      targetAudiences: fromEditableList(course.targetAudience),
+      tagIds: tagIds,
+      sections: transformFrontendSections(course.sections)
+    };
 
-  const payload = {
-    description: course.description,
-    thumbnailUrl: course.thumbnailUrl || '',
-    subtitle: course.subtitle,        // ✅ Make sure this is included
-    language: course.language,
-    level: course.level,
-    isFree: course.isFree,
-    price: course.isFree ? 0 : course.price,
-    requirements: fromEditableList(course.requirements),
-    learningOutcomes: fromEditableList(course.learningObjectives),
-    targetAudiences: fromEditableList(course.targetAudience),
-    tagIds: course.tagIds,
-    sections: transformFrontendSections(course.sections)
+    console.log('[Save] Sending payload:', payload);
+
+    try {
+      const response = await updateCourse(id, payload);
+      console.log('[Save] Response:', response);
+      
+      if (response.success) {
+        setSaveStatus('saved');
+        setHasUnsaved(false);
+        
+        // Save the tags locally so we can restore them if backend doesn't return them
+        lastSavedTagsRef.current = { tagIds, tags };
+        console.log('[Save] Saved tags to ref:', lastSavedTagsRef.current);
+        
+        // Refresh data to confirm save
+        const fresh = await getCourseById(id);
+        if (fresh.success) {
+          const data = fresh.data;
+          console.log('[Save] Refreshed course data from DB:', {
+            tagIds: data.tagIds,
+            tags: data.tags,
+            subtitle: data.subtitle
+          });
+          
+          // If backend didn't return tags, restore from our saved ref
+          let freshTagIds = data.tagIds || [];
+          let freshTags = data.tags || [];
+          
+          if ((!freshTagIds || freshTagIds.length === 0) && tagIds.length > 0) {
+            console.log('[Save] Backend returned no tags, restoring from ref');
+            freshTagIds = tagIds;
+            freshTags = tags;
+          }
+          
+          const transformed = {
+            ...data,
+            status: mapBackendStatus(data.status),
+            requirements: toEditableList(data.requirements),
+            learningObjectives: toEditableList(data.learningOutcomes),
+            targetAudience: toEditableList(data.targetAudiences),
+            sections: transformBackendSections(data.sections),
+            subtitle: data.subtitle || '',
+            language: data.language || 'en',
+            description: data.description || '',
+            thumbnailUrl: data.thumbnailUrl || '',
+            price: data.price ?? 0,
+            isFree: data.isFree ?? false,
+            level: data.level || 'Beginner',
+            tagIds: freshTagIds,
+            tags: freshTags,
+            welcomeMessage: data.welcomeMessage || '',
+            completionMessage: data.completionMessage || '',
+          };
+          setCourse(transformed);
+        }
+        
+        if (shouldNavigate && navigateTo) {
+          navigate(navigateTo);
+        }
+      } else {
+        setSaveStatus('error');
+        console.error('Save failed:', response.message);
+      }
+    } catch (err) {
+      setSaveStatus('error');
+      console.error('Save error:', err);
+    } finally {
+      setTimeout(() => setSaveStatus(null), 2000);
+      setSaving(false);
+    }
   };
 
-  console.log('[Save] Sending payload:', payload);  // Debug log
-
-  try {
-    const response = await updateCourse(id, payload);
-    console.log('[Save] Response:', response);  // Debug log
+  const handleSubmitReview = async () => {
+    setSubmitting(true);
+    const response = await submitForReview(id);
+    
+    console.log('[EditCourse] Full submit response:', response);
     
     if (response.success) {
-      setSaveStatus('saved');
-      setHasUnsaved(false);
+      setCourse(prev => ({ ...prev, status: 'pending' }));
+      setShowSubmitModal(false);
+      navigate('/instructor/courses', { 
+        state: { success: response.message || 'Course submitted for review successfully!' } 
+      });
+    } else {
+      setShowSubmitModal(false);
       
-      // Refresh data to confirm subtitle was saved
-      const fresh = await getCourseById(id);
-      if (fresh.success) {
-        const data = fresh.data;
-        console.log('[Save] Refreshed course data, subtitle from DB:', data.subtitle);
-        
-        const transformed = {
-          ...data,
-          status: mapBackendStatus(data.status),
-          requirements: toEditableList(data.requirements),
-          learningObjectives: toEditableList(data.learningOutcomes),
-          targetAudience: toEditableList(data.targetAudiences),
-          sections: transformBackendSections(data.sections),
-          subtitle: data.subtitle || '',  // Ensure subtitle is captured
-          language: data.language || 'en',
-          description: data.description || '',
-          thumbnailUrl: data.thumbnailUrl || '',
-          price: data.price ?? 0,
-          isFree: data.isFree ?? false,
-          level: data.level || 'Beginner',
-          tagIds: data.tagIds || [],
-          welcomeMessage: data.welcomeMessage || '',
-          completionMessage: data.completionMessage || '',
-        };
-        setCourse(transformed);
+      let hasErrors = false;
+      let errorList = [];
+      let errorMessage = response.message || 'Please fix the following issues:';
+      
+      if (response.errors && Array.isArray(response.errors) && response.errors.length > 0) {
+        hasErrors = true;
+        errorList = response.errors;
+      } 
+      else if (response.data?.errors && Array.isArray(response.data.errors)) {
+        hasErrors = true;
+        errorList = response.data.errors;
+      }
+      else if (response.validationErrors && Array.isArray(response.validationErrors)) {
+        hasErrors = true;
+        errorList = response.validationErrors;
+      }
+      else if (typeof response.message === 'string' && response.message.includes('section')) {
+        hasErrors = true;
+        errorList = [response.message];
       }
       
-      if (shouldNavigate && navigateTo) {
-        navigate(navigateTo);
-      }
-    } else {
-      setSaveStatus('error');
-      console.error('Save failed:', response.message);
-    }
-  } catch (err) {
-    setSaveStatus('error');
-    console.error('Save error:', err);
-  } finally {
-    setTimeout(() => setSaveStatus(null), 2000);
-    setSaving(false);
-  }
-};
-  // src/features/instructor/pages/EditCourse.jsx - Updated handleSubmitReview
-
-const handleSubmitReview = async () => {
-  setSubmitting(true);
-  const response = await submitForReview(id);
-  
-  console.log('[EditCourse] Full submit response:', response);
-  console.log('[EditCourse] Response errors:', response.errors);
-  console.log('[EditCourse] Response message:', response.message);
-  console.log('[EditCourse] Response data:', response.data);
-  
-  if (response.success) {
-    // Success case
-    setCourse(prev => ({ ...prev, status: 'pending' }));
-    setShowSubmitModal(false);
-    navigate('/instructor/courses', { 
-      state: { success: response.message || 'Course submitted for review successfully!' } 
-    });
-  } else {
-    // Close the submit modal
-    setShowSubmitModal(false);
-    
-    // Check for validation errors in different possible locations
-    let hasErrors = false;
-    let errorList = [];
-    let errorMessage = response.message || 'Please fix the following issues:';
-    
-    // Try multiple possible error locations
-    if (response.errors && Array.isArray(response.errors) && response.errors.length > 0) {
-      hasErrors = true;
-      errorList = response.errors;
-    } 
-    else if (response.data?.errors && Array.isArray(response.data.errors)) {
-      hasErrors = true;
-      errorList = response.data.errors;
-    }
-    else if (response.validationErrors && Array.isArray(response.validationErrors)) {
-      hasErrors = true;
-      errorList = response.validationErrors;
-    }
-    else if (typeof response.message === 'string' && response.message.includes('section')) {
-      // If message contains error text but no array, create array from message
-      hasErrors = true;
-      errorList = [response.message];
-    }
-    
-    if (hasErrors && errorList.length > 0) {
-      console.log('[EditCourse] Showing validation modal with errors:', errorList);
-      setValidationErrors(errorList);
-      setValidationMessage(errorMessage);
-      setShowValidationErrors(true);
-    } else {
-      // Fallback - try to extract useful info from response
-      console.log('[EditCourse] No structured errors found, raw response:', response);
-      
-      // If response has a message that looks like validation text
-      if (response.message && response.message.length > 10) {
-        setValidationErrors([response.message]);
-        setValidationMessage('Course validation failed:');
+      if (hasErrors && errorList.length > 0) {
+        console.log('[EditCourse] Showing validation modal with errors:', errorList);
+        setValidationErrors(errorList);
+        setValidationMessage(errorMessage);
         setShowValidationErrors(true);
       } else {
-        // Last resort - show browser alert (but try to be helpful)
-        alert(response.message || 'Failed to submit for review. Please check your course content and try again.');
+        console.log('[EditCourse] No structured errors found, raw response:', response);
+        if (response.message && response.message.length > 10) {
+          setValidationErrors([response.message]);
+          setValidationMessage('Course validation failed:');
+          setShowValidationErrors(true);
+        } else {
+          alert(response.message || 'Failed to submit for review. Please check your course content and try again.');
+        }
       }
     }
-  }
-  setSubmitting(false);
-};
+    setSubmitting(false);
+  };
 
   const handleNavigation = (path) => {
     if (hasUnsaved) {
