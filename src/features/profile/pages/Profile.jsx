@@ -24,28 +24,30 @@ const Profile = () => {
     );
   }
 
-  // ProfileHeader calls onAvatarChange(file) with a single argument.
-  // Keep this signature in sync with ProfileHeader's call site.
   const handleAvatarChange = async (file) => {
     await updateUserAvatar(file);
   };
 
-  // Shared save handler for any section editing profile fields
-  // (personal info, bio, etc). Just forwards whatever fields are given.
   const handleProfileSave = async (data) => {
     const result = await updateUserProfile(data);
-    return result.success;
+    return result?.success || false;
   };
 
-  // ChangePasswordSection calls onChangePassword(formData) with a single
-  // object: { oldPassword, newPassword, confirmPassword }.
-  const handlePasswordChange = async (formData) => {
-    const result = await updatePassword(
-      formData.oldPassword,
-      formData.newPassword,
-      formData.confirmPassword
-    );
-    return result.success;
+  // Pass all three fields to updatePassword
+  const handlePasswordChange = async (oldPassword, newPassword, confirmPassword) => {
+    try {
+      const result = await updatePassword(oldPassword, newPassword, confirmPassword);
+      
+      // Check if the response indicates success
+      if (result && result.success === true) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      return false;
+    }
   };
 
   const profileWithRole = {
@@ -66,12 +68,9 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Same layout for every role: Hero -> Personal Info -> Password */}
         <div className="space-y-6">
           <ProfileHeader profile={profileWithRole} onAvatarChange={handleAvatarChange} />
-
           <ProfileInfo profile={profile} onSave={handleProfileSave} saving={saving} />
-
           <ChangePasswordSection onChangePassword={handlePasswordChange} saving={saving} />
         </div>
       </div>

@@ -1,6 +1,6 @@
 // src/features/profile/api/profile.api.js
 import api from "../../../services/api/axios";
-import { handleApiError } from "../../../services/api/errorHandler"; // ✅ Added missing import
+import { handleApiError } from "../../../services/api/errorHandler";
 
 const PROFILE_ENDPOINTS = {
   BASE: "/Profile",
@@ -12,42 +12,39 @@ const PROFILE_ENDPOINTS = {
 export const getProfile = async () => {
   try {
     const response = await api.get(PROFILE_ENDPOINTS.BASE);
-    if (response.data.success) {
-      return response.data.data;
-    } else {
-      return handleApiError(response);
-    }
+    return response.data; // Return full response
   } catch (error) {
-    return handleApiError(error);
+    throw error;
   }
 };
 
 export const updateProfile = async (updates) => {
   try {
     const response = await api.put(PROFILE_ENDPOINTS.UPDATE, updates);
-    if (response.data.success) {
-      return response.data.data;
-    } else {
-      return handleApiError(response);
-    }
+    return response.data;
   } catch (error) {
-    return handleApiError(error);
+    throw error;
   }
 };
 
 export const changePassword = async (passwords) => {
   try {
+    // Send all three fields as expected by the backend
     const response = await api.put(
       PROFILE_ENDPOINTS.CHANGE_PASSWORD,
-      passwords
+      {
+        oldPassword: passwords.oldPassword,
+        newPassword: passwords.newPassword,
+        confirmPassword: passwords.confirmPassword
+      }
     );
-    if (response.data.success) {
-      return response.data;
-    } else {
-      return handleApiError(response);
-    }
+    return response.data;
   } catch (error) {
-    return handleApiError(error);
+    if (error.response) {
+      // Return the error response from backend
+      return error.response.data;
+    }
+    throw error;
   }
 };
 
@@ -56,12 +53,8 @@ export const updateAvatar = async (profileImageUrl) => {
     const response = await api.put(PROFILE_ENDPOINTS.UPDATE_AVATAR, null, {
       params: { profileImageUrl },
     });
-    if (response.data.success) {
-      return response.data.data;
-    } else {
-      return handleApiError(response);
-    }
+    return response.data;
   } catch (error) {
-    return handleApiError(error);
+    throw error;
   }
 };

@@ -48,7 +48,7 @@ const CourseManagementPanel = () => {
   };
 
   return (
-    <div>
+    <div className="h-full flex flex-col">
       {/* Toast notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -66,7 +66,7 @@ const CourseManagementPanel = () => {
         )}
       </AnimatePresence>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
         <CourseFilters
           search={search}
           onSearchChange={setSearch}
@@ -74,18 +74,20 @@ const CourseManagementPanel = () => {
           onStatusChange={setStatus}
           statusCounts={statusCounts}
         />
-        <CourseTable
-          courses={courses}
-          loading={loading}
-          error={error}
-          onRetry={refetch}
-          onViewDetails={(course) => navigate(`/admin/courses/${course.id}`)}
-          onApprove={handleApprove}
-          onReject={(course) => { clearError(); setRejectModalCourse(course); }}
-          onDelete={() => {}}
-          pagination={pagination}
-          onPageChange={setPage}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <CourseTable
+            courses={courses}
+            loading={loading}
+            error={error}
+            onRetry={refetch}
+            onViewDetails={(course) => navigate(`/admin/courses/${course.id}`)}
+            onApprove={handleApprove}
+            onReject={(course) => { clearError(); setRejectModalCourse(course); }}
+            onDelete={() => {}}
+            pagination={pagination}
+            onPageChange={setPage}
+          />
+        </div>
       </div>
 
       <CourseDetailDrawer
