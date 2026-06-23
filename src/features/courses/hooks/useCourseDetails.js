@@ -23,7 +23,6 @@ const useCourseDetails = (courseId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [userProgress, setUserProgress] = useState(null);
 
   // Real enrollment check — replaces the old localStorage mock.
@@ -101,16 +100,6 @@ const useCourseDetails = (courseId) => {
     setIsEnrolled(true);
   }, []);
 
-  // Toggle save/wishlist
-  const toggleSave = useCallback(async () => {
-    if (!isAuthenticated) {
-      return { success: false, requiresAuth: true };
-    }
-
-    setIsSaved(prev => !prev);
-    // TODO: Call wishlist API
-    return { success: true };
-  }, [isAuthenticated]);
 
   // Check if lesson is accessible (free preview OR user is enrolled)
   const isLessonAccessible = useCallback((lesson) => {
@@ -128,11 +117,9 @@ const useCourseDetails = (courseId) => {
     loading,
     error,
     isEnrolled,
-    isSaved,
     userProgress,
     markEnrolled,
     checkEnrollmentStatus,
-    toggleSave,
     isLessonAccessible,
     refetch: fetchCourseDetails,
   };

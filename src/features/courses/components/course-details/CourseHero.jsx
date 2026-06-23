@@ -70,6 +70,20 @@ const CourseHero = ({ course }) => {
         {course.subtitle || course.description?.slice(0, 200)}
       </p>
 
+      {/* Tags */}
+      {course.tags && course.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2 mb-3">
+          {course.tags.map((tag, index) => (
+            <span
+              key={index}
+              className="text-xs font-medium px-3 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shadow-sm"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Rating Row */}
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <span className="text-lg font-bold text-gray-900">{course.averageRating?.toFixed(1) || '0.0'}</span>

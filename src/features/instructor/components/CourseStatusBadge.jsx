@@ -33,7 +33,12 @@ const STATUS_CONFIG = {
   },
 };
 
-const CourseStatusBadge = ({ status, showDescription = false }) => {
+const CourseStatusBadge = ({ status, showDescription = true, size = 'md' }) => {
+  const sizeClasses = {
+    sm: 'px-2 py-0.5 text-xs',
+    md: 'px-3 py-1 text-sm',
+    lg: 'px-4 py-1.5 text-base',
+  };
   const config = STATUS_CONFIG[status?.toLowerCase()] || STATUS_CONFIG.draft;
   const Icon = config.icon;
 

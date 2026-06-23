@@ -24,7 +24,6 @@ const CoursePurchaseCard = ({
   course,
   currency,
   isEnrolled,
-  isSaved,
   // ── NEW props (replaces onEnroll) ──────────────────────────────────────────
   onAuthRequired,   // () => void — called when user is not signed in
   onSuccess,        // (data) => void — called after successful free enroll
@@ -95,7 +94,7 @@ const CoursePurchaseCard = ({
         </div>
 
         {/* ── EnrollButton — handles free + paid + loading + errors ────────── */}
-        <div className="mb-3">
+        <div className="flex gap-2 mb-3">
           <EnrollButton
             course={course}
             isEnrolled={isEnrolled}
@@ -103,31 +102,18 @@ const CoursePurchaseCard = ({
             onAuthRequired={onAuthRequired}
             onSuccess={onSuccess}
           />
-        </div>
-
-        {/* Save / Share */}
-        <div className="flex gap-2 mb-4">
           <button
-            onClick={onSave}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition
-              flex items-center justify-center gap-1.5 border ${
-              isSaved
-                ? 'bg-[#EEEDFE] text-[#3C3489] border-[#AFA9EC]'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
-            }`}
-          >
-            <HiOutlineHeart size={14} />
-            {isSaved ? 'Saved' : 'Save'}
-          </button>
-
-          <div className="relative">
-            <button
               onClick={() => setShowShareMenu((s) => !s)}
               className="px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100
                 transition text-xs font-medium flex items-center gap-1.5 border border-gray-200"
             >
               <HiOutlineShare size={14} /> Share
             </button>
+        </div>
+
+        {/* Save / Share */}
+        <div className="flex gap-2 mb-4">
+          <div className="relative">
             {showShareMenu && (
               <div className="absolute bottom-full right-0 mb-1.5 w-36 bg-white rounded-lg
                 shadow-lg border border-gray-100 z-10">

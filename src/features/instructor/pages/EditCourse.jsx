@@ -1,33 +1,99 @@
 // src/features/instructor/pages/EditCourse.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  HiSave, HiArrowLeft, HiCheckCircle, HiExclamationCircle, 
-  HiPaperAirplane, HiOutlineSave, HiEye
+  HiCheckCircle, HiExclamationCircle, HiOutlineSave
 } from 'react-icons/hi';
 import { getCourseById, updateCourse, submitForReview } from '../api/instructor.api';
 import { mapBackendStatus } from '../utils/courseStatusMapper';
-import { toEditableList, fromEditableList, transformBackendSections, transformFrontendSections } from '../utils/courseHelpers';
+import { 
+  toEditableList, 
+  transformBackendSections, 
+  transformBackendTags,
+  prepareCourseSavePayload 
+} from '../utils/courseHelpers';
 import CourseStatusBadge from '../components/CourseStatusBadge';
+import EditCourseSidebar from '../components/EditCourseSidebar';
 import SubmitForReviewModal from '../components/SubmitForReviewModal';
 import CourseValidationErrorsModal from '../components/CourseValidationErrorsModal';
 import UnsavedChangesModal from '../../../shared/components/UnsavedChangesModal';
+import TitleCategorySection from '../components/TitleCategorySection';
 import PlanCourseSection from '../components/PlanCourseSection';
 import CourseLandingPageSection from '../components/CourseLandingPageSection';
+import CourseStructureSection from '../components/CourseStructureSection';
 import PricingSection from '../components/PricingSection';
-import CourseStructureSection from '../components/CourseStructureSection/index';
-import PromotionsSection from '../components/PromotionsSection';
-import CourseMessagesSection from '../components/CourseMessagesSection';
+
+const SECTIONS = {
+  'title-category': TitleCategorySection,
+  'plan': PlanCourseSection,
+  'landing': CourseLandingPageSection,
+  'structure': CourseStructureSection,
+  'pricing': PricingSection,
+};
+
+const SECTION_ORDER = ['title-category', 'plan', 'landing', 'structure', 'pricing'];
+
+const SECTION_LABELS = {
+  'title-category': 'Title & Category',
+  'plan': 'Plan Your Course',
+  'landing': 'Course Landing Page',
+  'structure': 'Course Structure',
+  'pricing': 'Pricing',
+};
+
+const SECTION_DESCRIPTIONS = {
+  'title-category': 'Edit your course name and category',
+  'plan': 'Define what students will learn',
+  'landing': 'Set up your course thumbnail and description',
+  'structure': 'Organize your content into sections',
+  'pricing': 'Set the right price for your course',
+};
+
+// Check if a section is complete
+const getSectionStatus = (sectionId, course) => {
+  if (!course) return 'incomplete';
+  switch (sectionId) {
+    case 'title-category':
+      return course.title?.trim() && course.category ? 'complete' : 'incomplete';
+    case 'plan':
+      return (course.learningObjectives?.length >= 1) ? 'complete' : 'incomplete';
+    case 'landing':
+      return (course.description?.length > 50 && course.thumbnailUrl) ? 'complete' : 'incomplete';
+    case 'structure':
+      return (course.sections?.length > 0 && course.sections.some(s => s.items?.some(i => i.type === 'Lesson')))
+        ? 'complete' : 'incomplete';
+    case 'pricing':
+      return (course.isFree !== undefined && (course.isFree || course.price >= 0)) ? 'complete' : 'incomplete';
+    default:
+      return 'incomplete';
+  }
+};
+
+// Get the first uncompleted section
+const getFirstUncompletedSection = (course) => {
+  if (!course) return 'title-category';
+  for (const sectionId of SECTION_ORDER) {
+    if (getSectionStatus(sectionId, course) === 'incomplete') {
+      return sectionId;
+    }
+  }
+  // All complete, return the first section
+  return SECTION_ORDER[0];
+};
 
 const EditCourse = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const mainContentRef = useRef(null);
+
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [activeSection, setActiveSection] = useState('title-category');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
@@ -36,151 +102,17 @@ const EditCourse = () => {
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
-  const [expandedSections, setExpandedSections] = useState({
-    plan: true,
-    landing: true,
-    structure: true,
-    pricing: true,
-    messages: false,
-    promotions: false,
-  });
-  
-  // Store the last saved tags locally to preserve them when backend doesn't return them
-  const lastSavedTagsRef = useRef({ tagIds: [], tags: [] });
 
   // Load course data
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const res = await getCourseById(id);
-      if (res.success) {
-        const data = res.data;
-        console.log('[EditCourse] Loaded course data:', {
-          tagIds: data.tagIds,
-          tags: data.tags,
-          title: data.title
-        });
-        
-        // If backend doesn't return tags, use the saved ones from ref
-        let tagIds = data.tagIds || [];
-        let tags = data.tags || [];
-        
-        // If backend returned empty tags but we have saved ones, use the saved ones
-        if ((!tagIds || tagIds.length === 0) && lastSavedTagsRef.current.tagIds.length > 0) {
-          console.log('[EditCourse] Using saved tags from ref:', lastSavedTagsRef.current);
-          tagIds = lastSavedTagsRef.current.tagIds;
-          tags = lastSavedTagsRef.current.tags;
-        }
-        
-        const transformed = {
-          ...data,
-          status: mapBackendStatus(data.status),
-          requirements: toEditableList(data.requirements),
-          learningObjectives: toEditableList(data.learningOutcomes),
-          targetAudience: toEditableList(data.targetAudiences),
-          sections: transformBackendSections(data.sections),
-          subtitle: data.subtitle || '',
-          language: data.language || 'en',
-          description: data.description || '',
-          thumbnailUrl: data.thumbnailUrl || '',
-          price: data.price ?? 0,
-          isFree: data.isFree ?? false,
-          level: data.level || 'Beginner',
-          tagIds: tagIds,
-          tags: tags,
-          welcomeMessage: data.welcomeMessage || '',
-          completionMessage: data.completionMessage || '',
-        };
-        setCourse(transformed);
-        setHasUnsaved(false);
-      } else {
-        navigate('/instructor/courses');
-      }
-      setLoading(false);
-    };
-    load();
-  }, [id, navigate]);
+      try {
+        const res = await getCourseById(id);
+        if (res.success && res.data) {
+          const data = res.data;
+          const tags = transformBackendTags(data.tags, data.tagIds);
 
-  // Unsaved changes warning on page refresh/browser close
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (hasUnsaved) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return e.returnValue;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsaved]);
-
-  const handleLocalUpdate = useCallback((updates) => {
-    console.log('[EditCourse] Local update:', updates);
-    setCourse(prev => ({ ...prev, ...updates }));
-    setHasUnsaved(true);
-  }, []);
-
-  const handleSave = async (shouldNavigate = false, navigateTo = null) => {
-    if (!course) return;
-    setSaving(true);
-    setSaveStatus('saving');
-
-    // Ensure tagIds is an array
-    const tagIds = Array.isArray(course.tagIds) ? course.tagIds : [];
-    const tags = Array.isArray(course.tags) ? course.tags : [];
-    
-    console.log('[Save] Tag IDs being sent:', tagIds);
-    console.log('[Save] Tags being sent:', tags);
-
-    const payload = {
-      description: course.description,
-      thumbnailUrl: course.thumbnailUrl || '',
-      subtitle: course.subtitle,
-      language: course.language,
-      level: course.level,
-      isFree: course.isFree,
-      price: course.isFree ? 0 : course.price,
-      requirements: fromEditableList(course.requirements),
-      learningOutcomes: fromEditableList(course.learningObjectives),
-      targetAudiences: fromEditableList(course.targetAudience),
-      tagIds: tagIds,
-      sections: transformFrontendSections(course.sections)
-    };
-
-    console.log('[Save] Sending payload:', payload);
-
-    try {
-      const response = await updateCourse(id, payload);
-      console.log('[Save] Response:', response);
-      
-      if (response.success) {
-        setSaveStatus('saved');
-        setHasUnsaved(false);
-        
-        // Save the tags locally so we can restore them if backend doesn't return them
-        lastSavedTagsRef.current = { tagIds, tags };
-        console.log('[Save] Saved tags to ref:', lastSavedTagsRef.current);
-        
-        // Refresh data to confirm save
-        const fresh = await getCourseById(id);
-        if (fresh.success) {
-          const data = fresh.data;
-          console.log('[Save] Refreshed course data from DB:', {
-            tagIds: data.tagIds,
-            tags: data.tags,
-            subtitle: data.subtitle
-          });
-          
-          // If backend didn't return tags, restore from our saved ref
-          let freshTagIds = data.tagIds || [];
-          let freshTags = data.tags || [];
-          
-          if ((!freshTagIds || freshTagIds.length === 0) && tagIds.length > 0) {
-            console.log('[Save] Backend returned no tags, restoring from ref');
-            freshTagIds = tagIds;
-            freshTags = tags;
-          }
-          
           const transformed = {
             ...data,
             status: mapBackendStatus(data.status),
@@ -195,24 +127,146 @@ const EditCourse = () => {
             price: data.price ?? 0,
             isFree: data.isFree ?? false,
             level: data.level || 'Beginner',
-            tagIds: freshTagIds,
-            tags: freshTags,
+            tagIds: data.tagIds || [],
+            tags: tags,
             welcomeMessage: data.welcomeMessage || '',
             completionMessage: data.completionMessage || '',
           };
           setCourse(transformed);
+
+          // Auto-select first uncompleted section on load
+          const firstUncompleted = getFirstUncompletedSection(transformed);
+          setActiveSection(firstUncompleted);
+
+          setHasUnsaved(false);
+        } else {
+          navigate('/instructor/courses');
         }
-        
+      } catch (err) {
+        console.error('[EditCourse] Failed to load course:', err);
+        navigate('/instructor/courses');
+      }
+      setLoading(false);
+    };
+    load();
+  }, [id, navigate]);
+
+  // Browser beforeunload handler (tab close, refresh)
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsaved) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsaved]);
+
+  // Intercept clicks on <a> and <Link> tags within the app
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (!hasUnsaved) return;
+
+      const link = e.target.closest('a[href], [data-navigate]');
+      if (!link) return;
+
+      const href = link.getAttribute('href') || link.dataset.navigate;
+      if (!href) return;
+
+      if (href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript')) return;
+      if (href === location.pathname) return;
+
+      const isInternalLink = href.startsWith('/') || href.startsWith('.');
+      if (!isInternalLink) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      setPendingNavigation(href);
+      setShowUnsavedModal(true);
+    };
+
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, [hasUnsaved, location.pathname]);
+
+  // Intercept browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (hasUnsaved) {
+        window.history.pushState(null, '', location.pathname + location.search);
+        setPendingNavigation(null);
+        setShowUnsavedModal(true);
+      }
+    };
+
+    if (hasUnsaved) {
+      window.history.pushState(null, '', location.pathname + location.search);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [hasUnsaved, location.pathname, location.search]);
+
+ const handleLocalUpdate = useCallback((updates, markUnsaved = true) => {
+  setCourse(prev => ({ ...prev, ...updates }));
+  if (markUnsaved) {
+    setHasUnsaved(true);
+  }
+}, []);
+
+  // MAIN SAVE: Sends ALL section data at once via PUT
+  const handleSave = async (shouldNavigate = false, navigateTo = null) => {
+    if (!course) return;
+    setSaving(true);
+    setSaveStatus('saving');
+
+    const payload = prepareCourseSavePayload(course);
+
+    try {
+      const response = await updateCourse(id, payload);
+
+      if (response.success) {
+        setSaveStatus('saved');
+        setHasUnsaved(false);
+
+        // Refresh data from server
+        const fresh = await getCourseById(id);
+        if (fresh.success && fresh.data) {
+          const data = fresh.data;
+          const tags = transformBackendTags(data.tags, data.tagIds);
+
+          const updatedCourse = {
+            ...data,
+            status: mapBackendStatus(data.status),
+            requirements: toEditableList(data.requirements),
+            learningObjectives: toEditableList(data.learningOutcomes),
+            targetAudience: toEditableList(data.targetAudiences),
+            sections: transformBackendSections(data.sections),
+            tags: tags.length > 0 ? tags : course.tags,
+            tagIds: data.tagIds || course.tagIds,
+          };
+
+          setCourse(updatedCourse);
+
+          // After successful save, auto-select the first uncompleted section
+          const firstUncompleted = getFirstUncompletedSection(updatedCourse);
+          setActiveSection(firstUncompleted);
+        }
+
         if (shouldNavigate && navigateTo) {
           navigate(navigateTo);
         }
       } else {
         setSaveStatus('error');
-        console.error('Save failed:', response.message);
       }
     } catch (err) {
+      console.error('[EditCourse] Save error:', err);
       setSaveStatus('error');
-      console.error('Save error:', err);
     } finally {
       setTimeout(() => setSaveStatus(null), 2000);
       setSaving(false);
@@ -221,59 +275,45 @@ const EditCourse = () => {
 
   const handleSubmitReview = async () => {
     setSubmitting(true);
-    const response = await submitForReview(id);
-    
-    console.log('[EditCourse] Full submit response:', response);
-    
-    if (response.success) {
-      setCourse(prev => ({ ...prev, status: 'pending' }));
-      setShowSubmitModal(false);
-      navigate('/instructor/courses', { 
-        state: { success: response.message || 'Course submitted for review successfully!' } 
-      });
-    } else {
-      setShowSubmitModal(false);
-      
-      let hasErrors = false;
-      let errorList = [];
-      let errorMessage = response.message || 'Please fix the following issues:';
-      
-      if (response.errors && Array.isArray(response.errors) && response.errors.length > 0) {
-        hasErrors = true;
-        errorList = response.errors;
-      } 
-      else if (response.data?.errors && Array.isArray(response.data.errors)) {
-        hasErrors = true;
-        errorList = response.data.errors;
-      }
-      else if (response.validationErrors && Array.isArray(response.validationErrors)) {
-        hasErrors = true;
-        errorList = response.validationErrors;
-      }
-      else if (typeof response.message === 'string' && response.message.includes('section')) {
-        hasErrors = true;
-        errorList = [response.message];
-      }
-      
-      if (hasErrors && errorList.length > 0) {
-        console.log('[EditCourse] Showing validation modal with errors:', errorList);
-        setValidationErrors(errorList);
-        setValidationMessage(errorMessage);
-        setShowValidationErrors(true);
+    try {
+      const response = await submitForReview(id);
+
+      if (response.success) {
+        setCourse(prev => ({ ...prev, status: 'pending' }));
+        setShowSubmitModal(false);
+        navigate('/instructor/courses', { 
+          state: { success: response.message || 'Course submitted for review successfully!' } 
+        });
       } else {
-        console.log('[EditCourse] No structured errors found, raw response:', response);
-        if (response.message && response.message.length > 10) {
-          setValidationErrors([response.message]);
-          setValidationMessage('Course validation failed:');
+        setShowSubmitModal(false);
+
+        let errorList = [];
+        let errorMessage = response.message || 'Please fix the following issues:';
+
+        if (response.errors && Array.isArray(response.errors) && response.errors.length > 0) {
+          errorList = response.errors;
+        } else if (response.data?.errors && Array.isArray(response.data.errors)) {
+          errorList = response.data.errors;
+        }
+
+        if (errorList.length > 0) {
+          setValidationErrors(errorList);
+          setValidationMessage(errorMessage);
           setShowValidationErrors(true);
         } else {
-          alert(response.message || 'Failed to submit for review. Please check your course content and try again.');
+          setValidationErrors([response.message || 'Failed to submit']);
+          setValidationMessage('Course validation failed:');
+          setShowValidationErrors(true);
         }
       }
+    } catch (err) {
+      console.error('[EditCourse] Submit error:', err);
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
+  // Handle "Back to courses" button click
   const handleNavigation = (path) => {
     if (hasUnsaved) {
       setPendingNavigation(path);
@@ -283,13 +323,16 @@ const EditCourse = () => {
     }
   };
 
+  // Modal action handlers
   const handleDiscardAndNavigate = () => {
     setHasUnsaved(false);
     setShowUnsavedModal(false);
+
     if (pendingNavigation) {
       navigate(pendingNavigation);
-      setPendingNavigation(null);
     }
+
+    setPendingNavigation(null);
   };
 
   const handleSaveAndNavigate = async () => {
@@ -298,15 +341,13 @@ const EditCourse = () => {
     setPendingNavigation(null);
   };
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
+  const handleKeepEditing = () => {
+    setShowUnsavedModal(false);
+    setPendingNavigation(null);
   };
 
   const isEditable = course?.status === 'draft' || course?.status === 'rejected';
-  const isPublished = course?.status === 'published';
+  const ActiveSectionComponent = SECTIONS[activeSection];
 
   if (loading) {
     return (
@@ -322,152 +363,74 @@ const EditCourse = () => {
   if (!course) return null;
 
   return (
-    <>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header Section */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="flex-1">
-                <button
-                  onClick={() => handleNavigation('/instructor/courses')}
-                  className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-3 transition group"
-                >
-                  <HiArrowLeft size={16} className="group-hover:-translate-x-0.5 transition" />
-                  <span className="text-sm">Back to courses</span>
-                </button>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-xl lg:text-2xl font-bold text-gray-800 line-clamp-1">
-                    {course.title}
-                  </h1>
-                  <CourseStatusBadge status={course.status} showDescription={false} />
-                  {hasUnsaved && (
-                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                      <HiExclamationCircle size={12} />
-                      Unsaved changes
-                    </span>
-                  )}
-                </div>
-                {isPublished && (
-                  <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
-                    <HiEye size={14} />
-                    This course is live and visible to students
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                {isEditable && (
-                  <button
-                    onClick={() => setShowSubmitModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 transition shadow-sm"
-                  >
-                    <HiPaperAirplane size={16} />
-                    Submit for Review
-                  </button>
-                )}
-                <button
-                  onClick={() => handleSave(false)}
-                  disabled={saving || !isEditable}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition disabled:opacity-50 shadow-sm"
-                >
-                  {saveStatus === 'saving' && (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  )}
-                  {saveStatus === 'saved' && <HiCheckCircle size={16} />}
-                  {saveStatus === 'error' && <HiExclamationCircle size={16} />}
-                  {saveStatus !== 'saving' && saveStatus !== 'saved' && saveStatus !== 'error' && <HiOutlineSave size={16} />}
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-                {saveStatus === 'saved' && (
-                  <span className="text-xs text-green-600 animate-fade-in">Saved!</span>
-                )}
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* SCROLLABLE MAIN CONTENT */}
+      <main className="flex-1 min-h-screen overflow-y-auto mr-80">
+        <div className="max-w-3xl mx-auto px-8 py-8 pb-32">
+          {/* Section Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-800">
+              {SECTION_LABELS[activeSection]}
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {SECTION_DESCRIPTIONS[activeSection]}
+            </p>
           </div>
+
+          {/* Active Section Content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSection}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {ActiveSectionComponent && (
+                <ActiveSectionComponent
+                  data={course}
+                  onUpdate={
+                            activeSection === 'title-category'
+                              ? (updates) => handleLocalUpdate(updates, false)
+                              : handleLocalUpdate
+                          }
+                  isEditable={isEditable}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Bottom spacing for save bar */}
+          <div className="h-24" />
         </div>
+      </main>
 
-        {/* Main Content */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="space-y-4">
-            {/* Progress Indicator */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Course Completion</span>
-                <span className="text-purple-600 font-medium">In Progress</span>
-              </div>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-purple-600 rounded-full" style={{ width: '45%' }} />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Complete all sections to submit for review
-              </p>
-            </div>
+      {/* FIXED RIGHT SIDEBAR */}
+      <aside className="w-80 flex-shrink-0 fixed right-0 top-0 h-screen z-20 overflow-hidden border-l border-gray-200">
+        <EditCourseSidebar
+          course={course}
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+          onSave={() => handleSave(false)}
+          onSubmitReview={() => setShowSubmitModal(true)}
+          onNavigateBack={() => handleNavigation('/instructor/courses')}
+          saving={saving}
+          saveStatus={saveStatus}
+          hasUnsaved={hasUnsaved}
+          isEditable={isEditable}
+          getSectionStatus={getSectionStatus}
+        />
+      </aside>
 
-            {/* Plan Course Section */}
-            <PlanCourseSection 
-              data={course} 
-              onUpdate={handleLocalUpdate} 
-              isEditable={isEditable}
-              isExpanded={expandedSections.plan}
-              onToggle={() => toggleSection('plan')}
-            />
-
-            {/* Course Landing Page */}
-            <CourseLandingPageSection 
-              data={course} 
-              onUpdate={handleLocalUpdate} 
-              isEditable={isEditable}
-              isExpanded={expandedSections.landing}
-              onToggle={() => toggleSection('landing')}
-            />
-
-            {/* Course Structure */}
-            <CourseStructureSection 
-              data={course} 
-              onUpdate={handleLocalUpdate} 
-              isEditable={isEditable}
-              isExpanded={expandedSections.structure}
-              onToggle={() => toggleSection('structure')}
-            />
-
-            {/* Pricing */}
-            <PricingSection 
-              data={course} 
-              onUpdate={handleLocalUpdate} 
-              isEditable={isEditable}
-              isExpanded={expandedSections.pricing}
-              onToggle={() => toggleSection('pricing')}
-            />
-
-            {/* Course Messages */}
-            <CourseMessagesSection 
-              data={course} 
-              onUpdate={handleLocalUpdate} 
-              isEditable={isEditable}
-              isExpanded={expandedSections.messages}
-              onToggle={() => toggleSection('messages')}
-            />
-
-            {/* Promotions */}
-            <PromotionsSection 
-              isExpanded={expandedSections.promotions}
-              onToggle={() => toggleSection('promotions')}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Unsaved Changes Modal */}
+      {/* UNSAVED CHANGES MODAL */}
       <UnsavedChangesModal
         isOpen={showUnsavedModal}
-        onClose={() => setShowUnsavedModal(false)}
+        onClose={handleKeepEditing}
         onConfirm={handleDiscardAndNavigate}
         onSave={handleSaveAndNavigate}
         isSaving={saving}
       />
 
-      {/* Submit for Review Modal */}
       <SubmitForReviewModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
@@ -476,7 +439,6 @@ const EditCourse = () => {
         submitting={submitting}
       />
 
-      {/* Validation Errors Modal */}
       <CourseValidationErrorsModal
         isOpen={showValidationErrors}
         onClose={() => setShowValidationErrors(false)}
@@ -485,7 +447,7 @@ const EditCourse = () => {
         courseTitle={course.title}
         courseId={id}
       />
-    </>
+    </div>
   );
 };
 

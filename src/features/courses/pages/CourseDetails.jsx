@@ -163,9 +163,7 @@ const CourseDetails = () => {
 
   const {
     course, loading, error,
-    isEnrolled, isSaved,
-    markEnrolled,
-    toggleSave,
+    isEnrolled, markEnrolled,
     isLessonAccessible,
     refetch,
   } = useCourseDetails(id);
@@ -244,15 +242,6 @@ const CourseDetails = () => {
     } else {
       await startCheckout(normalisedCourse.id);
     }
-  };
-
-  const handleSave = async () => {
-    if (!isAuthenticated) {
-      handleAuthRequired();
-      return;
-    }
-    await toggleSave();
-    refetch();
   };
 
   const handlePlayLesson = useCallback((lesson) => {
@@ -337,11 +326,9 @@ const CourseDetails = () => {
                 course={normalisedCourse}
                 currency={currency}
                 isEnrolled={isEnrolled}
-                isSaved={isSaved}
                 isAuthenticated={isAuthenticated}
                 onAuthRequired={handleAuthRequired}
                 onSuccess={() => markEnrolled()}
-                onSave={handleSave}
                 onShare={() => {}}
               />
             </div>

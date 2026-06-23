@@ -174,26 +174,31 @@ const Dashboard = () => {
                     <td className='px-6 py-4 text-gray-600'>{course.category}</td>
                     <td className='px-6 py-4'>
                       <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${
-                        course.status === 'published' 
-                          ? 'bg-green-100 text-green-700' 
-                          : course.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-amber-100 text-amber-700'
+                        course.status === 'published' ? 'bg-green-100 text-green-700' :
+                         course.status === 'pending'? 'bg-yellow-100 text-yellow-700': 
+                         course.status === 'rejected'? 'bg-red-100 text-red-700': 'bg-amber-100 text-amber-700'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${
                           course.status === 'published' ? 'bg-green-500' : 
-                          course.status === 'pending' ? 'bg-yellow-500' : 'bg-amber-500'
+                          course.status === 'pending' ? 'bg-yellow-500' : 
+                          course.status === 'rejected' ? 'bg-red-500' : 'bg-amber-500'
                         }`} />
-                        {course.status === 'published' ? 'Published' : course.status === 'pending' ? 'Pending' : 'Draft'}
+
+                        {course.status === 'published' ? 'Published' :
+                         course.status === 'pending' ? 'Pending' : 
+                         course.status === 'draft' ? 'Draft' : 'Reject'}
+
                       </span>
                     </td>
                     <td className='px-6 py-4 text-gray-500 text-sm'>
                       {new Date(course.createdAt).toLocaleDateString()}
                     </td>
                     <td className='px-6 py-4'>
-                      <Link to={`/instructor/courses/edit/${course.id}`} className='text-purple-600 hover:text-purple-700 text-sm font-medium'>
-                        Edit →
-                      </Link>
+                      {(course.status === 'draft' || course.status === 'rejected') &&
+                        <Link to={`/instructor/courses/edit/${course.id}`} className='text-purple-600 hover:text-purple-700 text-sm font-medium'>
+                          Edit →
+                        </Link>
+                      }
                     </td>
                   </tr>
                 ))}

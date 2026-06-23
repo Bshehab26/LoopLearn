@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiBookOpen, HiPlus } from 'react-icons/hi';
 import SectionHeader from '../SectionHeader';
-import SectionItem from './SectionItem';
+import SectionItem from './SectionItem'
 
 const CourseStructureSection = ({ data, onUpdate, isEditable }) => {
   const [isOpen, setIsOpen] = useState(false);

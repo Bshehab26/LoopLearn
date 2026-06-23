@@ -8,11 +8,29 @@ const ENDPOINTS = {
   TAGS: '/Tag',
 };
 
-export const getCategories = async () => {
+export const getCategories = async (page = 1, pageSize = 10000) => {
   try {
-    const response = await api.get(ENDPOINTS.CATEGORIES);
-    return response.data;
+    const response = await api.get(ENDPOINTS.CATEGORIES, { 
+      params: { page, pageSize } 
+    });
+
+    const data = response.data?.data || [];
+    const totalCount = parseInt(response.headers['total-count'] || response.headers['Total-Count'] || data.length);
+    const currentPage = parseInt(response.headers['page-number'] || response.headers['Page-Number'] || page);
+    const currentPageSize = parseInt(response.headers['page-size'] || response.headers['Page-Size'] || pageSize);
+
+    return {
+      success: true,
+      data: data,
+      pagination: {
+        totalCount,
+        pageNumber: currentPage,
+        pageSize: currentPageSize,
+      },
+      hasMore: (currentPage * currentPageSize) < totalCount
+    };
   } catch (error) {
+    console.error('[getCategories] Error:', error);
     return handleApiError(error);
   }
 };
@@ -23,186 +41,83 @@ export const getCategories = async () => {
 
 /**
  * Get tags with pagination support
+ * Reads Total-Count, Page-Number, Page-Size from response headers
  * @param {number} page - Page number (default: 1)
- * @param {number} pageSize - Items per page (default: 20)
- * @param {boolean} loadAll - If true, loads all tags (default: false)
+ * @param {number} pageSize - Items per page (default: 50)
+ * @returns {Promise<{success, data: Array, pagination: {totalCount, pageNumber, pageSize}, hasMore}>}
  */
-export const getTags = async (page = 1, pageSize = 20, loadAll = false) => {
+export const getTags = async (page = 1, pageSize = 50) => {
   try {
-    // If loadAll is true, fetch all tags with pagination
-    if (loadAll) {
-      return await getAllTagsInternal(pageSize);
-    }
-
-    const response = await api.get(ENDPOINTS.TAGS, {
-      params: { page, pageSize }
+    const response = await api.get('/Tag', { 
+      params: { page, pageSize } 
     });
-    
-    console.log('[getTags] Raw response:', response);
-    console.log('[getTags] Headers:', response.headers);
-    
-    // Extract pagination headers
-    const totalCount = parseInt(response.headers['total-count'] || 0);
-    const currentPage = parseInt(response.headers['page-number'] || page);
-    const currentPageSize = parseInt(response.headers['page-size'] || pageSize);
-    
-    // Handle different response formats
-    let tagsData = [];
-    if (response.data?.data && Array.isArray(response.data.data)) {
-      tagsData = response.data.data;
-    } else if (Array.isArray(response.data)) {
-      tagsData = response.data;
-    } else if (response.data?.success && response.data?.data) {
-      tagsData = response.data.data;
-    }
-    
-    // Transform to expected format
-    const formattedTags = tagsData.map(tag => ({
-      id: tag.id,
-      name: tag.name
-    }));
-    
-    console.log('[getTags] Formatted tags:', formattedTags.length);
-    console.log('[getTags] Total count:', totalCount);
-    
+
+    const data = response.data?.data || [];
+    const totalCount = parseInt(response.headers['total-count'] || response.headers['Total-Count'] || data.length);
+    const currentPage = parseInt(response.headers['page-number'] || response.headers['Page-Number'] || page);
+    const currentPageSize = parseInt(response.headers['page-size'] || response.headers['Page-Size'] || pageSize);
+
     return {
       success: true,
-      data: formattedTags,
-      total: totalCount,
-      page: currentPage,
-      pageSize: currentPageSize,
-      hasMore: formattedTags.length < totalCount,
-      headers: {
-        'total-count': totalCount,
-        'page-number': currentPage,
-        'page-size': currentPageSize,
-      }
+      data: data,
+      pagination: {
+        totalCount,
+        pageNumber: currentPage,
+        pageSize: currentPageSize,
+      },
+      hasMore: (currentPage * currentPageSize) < totalCount
     };
   } catch (error) {
     console.error('[getTags] Error:', error);
-    return {
-      success: false,
-      message: error.message || 'Failed to load tags',
-      data: [],
-      total: 0,
-      page: 1,
-      pageSize: 20,
-      hasMore: false,
-    };
+    return handleApiError(error);
   }
 };
 
 /**
- * Internal function to fetch ALL tags by iterating through paginated results
+ * Get all tags (loads all pages sequentially)
+ * Use this when you need the complete tag list
+ * @param {AbortSignal} signal - Optional abort signal for cancellation
+ * @returns {Promise<{success, data: Array, totalCount}>}
  */
-const getAllTagsInternal = async (pageSize = 50) => {
+export const getAllTags = async (signal) => {
   try {
-    console.log('[getAllTagsInternal] Loading all tags...');
-    let allTags = [];
-    let currentPage = 1;
+    const allTags = [];
+    let page = 1;
+    const pageSize = 100;
     let hasMore = true;
-    let totalCount = 0;
 
-    while (hasMore) {
-      const response = await api.get(ENDPOINTS.TAGS, {
-        params: { page: currentPage, pageSize }
+    while (hasMore && !signal?.aborted) {
+      const response = await api.get('/Tag', { 
+        params: { page, pageSize },
+        signal 
       });
 
-      // Extract data
-      let tagsData = [];
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        tagsData = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        tagsData = response.data;
-      } else if (response.data?.success && response.data?.data) {
-        tagsData = response.data.data;
-      }
+      const data = response.data?.data || [];
+      const totalCount = parseInt(response.headers['total-count'] || response.headers['Total-Count'] || data.length);
 
-      // Transform to expected format
-      const formattedTags = tagsData.map(tag => ({
-        id: tag.id,
-        name: tag.name
-      }));
+      allTags.push(...data);
 
-      allTags = [...allTags, ...formattedTags];
+      hasMore = (page * pageSize) < totalCount && data.length === pageSize;
+      page++;
 
-      // Check if we have more pages
-      const total = parseInt(response.headers['total-count'] || 0);
-      totalCount = total || totalCount;
-      
-      hasMore = allTags.length < totalCount;
-      currentPage++;
-
-      // Safety limit to prevent infinite loops
-      if (currentPage > 100) {
-        console.warn('[getAllTagsInternal] Reached page limit, stopping');
-        break;
-      }
+      // Safety break
+      if (page > 50) break;
     }
 
-    console.log('[getAllTagsInternal] Loaded all tags:', allTags.length);
-    
+    if (signal?.aborted) {
+      return { success: false, data: [], message: 'Request cancelled' };
+    }
+
     return {
       success: true,
       data: allTags,
-      total: totalCount || allTags.length,
-      page: 1,
-      pageSize: allTags.length,
-      hasMore: false,
-      headers: {
-        'total-count': totalCount || allTags.length,
-        'page-number': 1,
-        'page-size': allTags.length,
-      }
+      totalCount: allTags.length
     };
   } catch (error) {
-    console.error('[getAllTagsInternal] Error:', error);
-    return {
-      success: false,
-      message: error.message || 'Failed to load all tags',
-      data: [],
-      total: 0,
-      page: 1,
-      pageSize: 0,
-      hasMore: false,
-    };
-  }
-};
-
-/**
- * Get all tags (public API)
- */
-export const getAllTags = async (pageSize = 50) => {
-  return await getAllTagsInternal(pageSize);
-};
-
-/**
- * Search tags by name (loads all tags and filters client-side)
- */
-export const searchTags = async (searchTerm) => {
-  try {
-    // Get all tags
-    const allTags = await getAllTagsInternal(50);
-    
-    if (!allTags.success) {
-      return allTags;
+    if (error.name === 'AbortError') {
+      return { success: false, data: [], message: 'Request cancelled' };
     }
-
-    // Filter client-side
-    const filtered = allTags.data.filter(tag =>
-      tag.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return {
-      success: true,
-      data: filtered,
-      total: filtered.length,
-      page: 1,
-      pageSize: filtered.length,
-      hasMore: false,
-    };
-  } catch (error) {
-    console.error('[searchTags] Error:', error);
+    console.error('[getAllTags] Error:', error);
     return handleApiError(error);
   }
 };

@@ -1,228 +1,139 @@
 // src/features/instructor/components/TagSelector.jsx
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { HiSearch, HiX, HiPlus, HiTag, HiChevronDown } from 'react-icons/hi';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HiSearch, HiX, HiPlus, HiTag, HiChevronLeft, HiChevronRight, HiOutlineRefresh } from 'react-icons/hi';
 import { getTags } from '../../../shared/api/preLoadData.api';
+
+const PAGE_SIZE = 20; // Fixed page size matching backend
 
 export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [allTags, setAllTags] = useState([]);
-  const [displayedTags, setDisplayedTags] = useState([]);
+  const [allTags, setAllTags] = useState([]);       // All loaded tags from all pages
+  const [displayedTags, setDisplayedTags] = useState([]); // Tags for current page view
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalTags, setTotalTags] = useState(0);
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  
+
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
-  const loadMoreRef = useRef(null);
-  const observerRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
-  const PAGE_SIZE = 20; // Load 20 at a time for better UX
+  // Load tags for a specific page
+  const loadTagsPage = async (pageNum) => {
+    if (loading) return;
 
-  // Load tags on mount
-  useEffect(() => {
-    if (isOpen && !initialLoadDone) {
-      loadTags(1, true);
-      setInitialLoadDone(true);
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
-  }, [isOpen]);
+    abortControllerRef.current = new AbortController();
 
-  // Load tags when search changes
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    const delayDebounce = setTimeout(() => {
-      if (searchTerm.trim() === '') {
-        // No search - show paginated tags
-        setIsSearching(false);
-        setSearchResults([]);
-        if (!initialLoadDone) {
-          loadTags(1, true);
-          setInitialLoadDone(true);
-        } else {
-          // Reset to first page when clearing search
-          setDisplayedTags(allTags.slice(0, PAGE_SIZE));
-          setHasMore(allTags.length < totalTags);
-          setPage(1);
-        }
-      } else {
-        // Search mode
-        handleSearch(searchTerm);
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounce);
-  }, [searchTerm, isOpen]);
-
-  // Load tags with pagination
-  const loadTags = async (pageNum, reset = false) => {
-    if (loading || loadingMore) return;
-    
-    const isFirstPage = pageNum === 1;
-    if (isFirstPage) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-
-    try {
-      const response = await getTags(pageNum, PAGE_SIZE);
-      console.log('[TagSelector] Loaded tags page:', pageNum, response);
-      
-      if (response.success && response.data) {
-        const newTags = response.data;
-        const totalCount = response.total || 0;
-        
-        if (reset || isFirstPage) {
-          setAllTags(newTags);
-          setDisplayedTags(newTags);
-        } else {
-          setAllTags(prev => {
-            const updated = [...prev, ...newTags];
-            return updated;
-          });
-          setDisplayedTags(prev => {
-            const updated = [...prev, ...newTags];
-            return updated;
-          });
-        }
-        
-        setTotalTags(totalCount);
-        const currentTotal = reset ? newTags.length : allTags.length + newTags.length;
-        setHasMore(currentTotal < totalCount);
-        setPage(pageNum);
-      }
-    } catch (error) {
-      console.error('Failed to load tags:', error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
-  // Handle search
-  const handleSearch = async (term) => {
-    if (!term.trim()) {
-      setIsSearching(false);
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
     setLoading(true);
 
     try {
-      // Search in already loaded tags first
-      const filtered = allTags.filter(tag => 
-        tag.name.toLowerCase().includes(term.toLowerCase())
-      );
-      
-      // If we have all tags loaded, use client-side search
-      if (allTags.length >= totalTags) {
-        setSearchResults(filtered);
-        setLoading(false);
-        return;
-      }
+      const response = await getTags(pageNum, PAGE_SIZE);
 
-      // Load all tags and search
-      const allTagsResponse = await getTags(1, 100, true);
-      if (allTagsResponse.success) {
-        const allLoadedTags = allTagsResponse.data;
-        const searchFiltered = allLoadedTags.filter(tag =>
-          tag.name.toLowerCase().includes(term.toLowerCase())
-        );
-        setAllTags(allLoadedTags);
-        setDisplayedTags(allLoadedTags);
-        setTotalTags(allLoadedTags.length);
-        setHasMore(false);
-        setSearchResults(searchFiltered);
+      if (response.success && response.data) {
+        const newTags = response.data;
+        const total = response.pagination.totalCount || newTags.length;
+        const pages = Math.ceil(total / PAGE_SIZE) || 1;
+
+        // Store all loaded tags for local search
+        setAllTags(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const uniqueNew = newTags.filter(t => !existingIds.has(t.id));
+          return [...prev, ...uniqueNew];
+        });
+
+        setDisplayedTags(newTags);
+        setTotalCount(total);
+        setTotalPages(pages);
+        setCurrentPage(pageNum);
+
+        if (!initialLoadDone) {
+          setInitialLoadDone(true);
+        }
       }
     } catch (error) {
-      console.error('Search tags error:', error);
+      if (error.name !== 'AbortError') {
+        console.error('Failed to load tags:', error);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Load more tags (infinite scroll)
-  const loadMore = useCallback(() => {
-    if (!hasMore || loadingMore || loading || isSearching) return;
-    if (searchTerm.trim() !== '') return; // Don't paginate during search
-    
-    loadTags(page + 1, false);
-  }, [hasMore, loadingMore, loading, page, searchTerm, isSearching]);
-
-  // Setup intersection observer for infinite scroll
+  // Load tags on first open
   useEffect(() => {
-    if (!isOpen || isSearching || searchTerm.trim() !== '') {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
+    if (isOpen && !initialLoadDone) {
+      loadTagsPage(1);
+    }
+  }, [isOpen]);
+
+  // Local search across all loaded tags
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      // Show current page tags when no search
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      setDisplayedTags(allTags.slice(start, end));
       return;
     }
 
-    const options = {
-      root: null,
-      rootMargin: '20px',
-      threshold: 0.1,
-    };
-
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && hasMore) {
-        loadMore();
-      }
-    }, options);
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [isOpen, loadMore, hasMore, isSearching, searchTerm]);
-
-  // Filter available tags (exclude selected ones)
-  const getAvailableTags = () => {
-    let source = [];
-    
-    if (isSearching || searchTerm.trim() !== '') {
-      source = searchResults;
-    } else {
-      source = displayedTags;
-    }
-    
-    return source.filter(tag => 
-      !selectedTags.some(selected => selected?.id === tag.id)
+    const term = searchTerm.toLowerCase();
+    const filtered = allTags.filter(tag => 
+      tag.name.toLowerCase().includes(term)
     );
+    setDisplayedTags(filtered);
+  }, [searchTerm, allTags, currentPage]);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+
+    // Check if we need to load this page from API
+    const requiredTagsCount = page * PAGE_SIZE;
+    if (allTags.length < requiredTagsCount && page > currentPage) {
+      loadTagsPage(page);
+    } else {
+      // We have enough tags loaded locally
+      setCurrentPage(page);
+      const start = (page - 1) * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      setDisplayedTags(allTags.slice(start, end));
+    }
   };
 
-  const availableTagsList = getAvailableTags();
+  const goToPrevious = () => goToPage(currentPage - 1);
+  const goToNext = () => goToPage(currentPage + 1);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Filter available tags (exclude already selected)
+  const availableTags = displayedTags.filter(tag => 
+    !selectedTags.some(selected => selected?.id === tag.id)
+  );
 
   const handleAddTag = (tag) => {
-    console.log('[TagSelector] Adding tag:', tag);
-    
     if (!selectedTags.some(t => t?.id === tag.id)) {
       const newSelectedTags = [...selectedTags, tag];
-      console.log('[TagSelector] New selectedTags:', newSelectedTags);
       onTagsChange(newSelectedTags);
     }
-    setSearchTerm('');
-    setIsOpen(false);
   };
 
   const handleRemoveTag = (tagId) => {
-    console.log('[TagSelector] Removing tag id:', tagId);
     const newSelectedTags = selectedTags.filter(tag => tag.id !== tagId);
-    console.log('[TagSelector] New selectedTags after remove:', newSelectedTags);
     onTagsChange(newSelectedTags);
   };
 
@@ -231,18 +142,35 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Toggle dropdown
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
     if (!isOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 100);
+      setTimeout(() => searchInputRef.current?.focus(), 50);
     }
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   // Display only mode (non-editable)
@@ -293,7 +221,7 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
               </span>
             ))
           ) : (
-            <span className="text-sm text-gray-400">No tags selected yet</span>
+            <span className="text-sm text-gray-400 py-1">No tags selected yet</span>
           )}
         </div>
       </div>
@@ -306,46 +234,63 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
       >
         <HiPlus size={18} />
         <span>{isOpen ? 'Close Tag Picker' : 'Add Tags'}</span>
-        {totalTags > 0 && !isOpen && (
-          <span className="text-xs text-gray-400 ml-1">({totalTags} available)</span>
+        {totalCount > 0 && !isOpen && (
+          <span className="text-xs text-gray-400 ml-1">({totalCount} available)</span>
         )}
       </button>
 
       {/* Tag Picker Popup */}
-      {isOpen && (
-        <div className="mt-3 border border-gray-200 rounded-xl bg-white shadow-lg overflow-hidden">
-          {/* Search Header */}
-          <div className="p-3 border-b border-gray-100 bg-gray-50">
-            <div className="relative">
-              <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search tags..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition bg-white"
-                autoFocus
-              />
-            </div>
-            {searchTerm.trim() !== '' && (
-              <p className="text-xs text-gray-400 mt-1.5">
-                {loading ? 'Searching...' : `Found ${availableTagsList.length} matching tags`}
-              </p>
-            )}
-          </div>
-
-          {/* Tags Grid */}
-          <div className="p-3 max-h-72 overflow-y-auto" style={{ maxHeight: '320px' }}>
-            {loading && !loadingMore ? (
-              <div className="text-center py-6">
-                <div className="inline-block w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-xs text-gray-400 mt-2">Loading tags...</p>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="mt-3 border border-gray-200 rounded-xl bg-white shadow-xl overflow-hidden"
+          >
+            {/* Search Header */}
+            <div className="p-3 border-b border-gray-100 bg-gray-50">
+              <div className="relative">
+                <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search tags..."
+                  className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition bg-white"
+                  autoFocus
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => { setSearchTerm(''); searchInputRef.current?.focus(); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    <HiX size={14} />
+                  </button>
+                )}
               </div>
-            ) : availableTagsList.length > 0 ? (
-              <>
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-xs text-gray-400">
+                  {loading ? 'Loading...' : `${availableTags.length} shown`}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {selectedTags.length} selected
+                </p>
+              </div>
+            </div>
+
+            {/* Tags Grid */}
+            <div className="p-3 max-h-64 overflow-y-auto">
+              {loading && allTags.length === 0 ? (
+                <div className="text-center py-8">
+                  <HiOutlineRefresh className="w-6 h-6 animate-spin text-purple-600 mx-auto mb-2" />
+                  <p className="text-xs text-gray-400">Loading tags...</p>
+                </div>
+              ) : availableTags.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {availableTagsList.map((tag) => (
+                  {availableTags.map((tag) => (
                     <button
                       key={tag.id}
                       type="button"
@@ -360,58 +305,84 @@ export const TagSelector = ({ selectedTags = [], onTagsChange, isEditable }) => 
                     </button>
                   ))}
                 </div>
-                
-                {/* Load More Trigger */}
-                {hasMore && searchTerm.trim() === '' && !isSearching && (
-                  <div ref={loadMoreRef} className="py-4 text-center">
-                    {loadingMore ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs text-gray-400">Loading more tags...</span>
-                      </div>
-                    ) : (
+              ) : searchTerm ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">No tags found matching "{searchTerm}"</p>
+                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">No tags available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            {!searchTerm.trim() && totalPages > 1 && (
+              <div className="p-3 border-t border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-center gap-2">
+                  {/* Previous Button */}
+                  <button
+                    onClick={goToPrevious}
+                    disabled={currentPage === 1 || loading}
+                    className="p-2 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Previous page"
+                  >
+                    <HiChevronLeft size={18} />
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {getPageNumbers().map((page) => (
                       <button
-                        onClick={loadMore}
-                        className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1 mx-auto"
+                        key={page}
+                        onClick={() => goToPage(page)}
+                        disabled={loading}
+                        className={`
+                          min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition
+                          ${page === currentPage
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'text-gray-600 hover:bg-gray-200'
+                          }
+                          disabled:opacity-50
+                        `}
                       >
-                        <HiChevronDown size={14} />
-                        Load more tags
+                        {page}
                       </button>
-                    )}
+                    ))}
                   </div>
-                )}
-                
-                {/* All loaded indicator */}
-                {!hasMore && searchTerm.trim() === '' && !isSearching && allTags.length > 0 && (
-                  <div className="py-3 text-center">
-                    <p className="text-xs text-gray-400">All {allTags.length} tags loaded</p>
-                  </div>
-                )}
-              </>
-            ) : searchTerm ? (
-              <div className="text-center py-6">
-                <p className="text-sm text-gray-500">No tags found matching "{searchTerm}"</p>
-                <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-sm text-gray-500">No tags available</p>
+
+                  {/* Next Button */}
+                  <button
+                    onClick={goToNext}
+                    disabled={currentPage === totalPages || loading}
+                    className="p-2 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Next page"
+                  >
+                    <HiChevronRight size={18} />
+                  </button>
+                </div>
+
+                {/* Page Info */}
+                <p className="text-center text-xs text-gray-400 mt-2">
+                  Page {currentPage} of {totalPages} • {totalCount} total tags
+                </p>
               </div>
             )}
-          </div>
 
-          {/* Footer */}
-          <div className="p-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400 flex justify-between">
-            <span>{selectedTags.length} selected • {totalTags} total tags</span>
-            <span>
-              {searchTerm.trim() === '' 
-                ? `Showing ${displayedTags.length} of ${totalTags}`
-                : `${availableTagsList.length} matching`
-              }
-            </span>
-          </div>
-        </div>
-      )}
+            {/* Search Results Info */}
+            {searchTerm.trim() && (
+              <div className="p-3 border-t border-gray-100 bg-gray-50 text-center">
+                <p className="text-xs text-gray-400">
+                  {availableTags.length} results from {allTags.length} loaded tags
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
+export default TagSelector;

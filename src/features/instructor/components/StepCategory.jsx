@@ -1,17 +1,17 @@
 /**
  * StepCategory.jsx
- * Step 2: Category selection with categories from database + custom option
+ * Step 2: Category selection with searchable dropdown
  */
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { HiOutlineTag, HiSearch, HiPlus, HiX } from 'react-icons/hi';
-import { getCategories } from '../../../shared/api/preLoadData.api'
+import { HiOutlineTag, HiPlus, HiX } from 'react-icons/hi';
+import SearchableDropdown from '../../../shared/components/SearchableDropdown';
+import { getCategories } from '../../../shared/api/preLoadData.api';
 
 const StepCategory = ({ selectedCategory, onCategoryChange, error }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customCategory, setCustomCategory] = useState('');
 
@@ -21,7 +21,7 @@ const StepCategory = ({ selectedCategory, onCategoryChange, error }) => {
       try {
         const response = await getCategories();
         if (response.success) {
-          setCategories(response.data);
+          setCategories(response.data || []);
         }
       } catch (err) {
         console.error('Failed to fetch categories:', err);
@@ -32,12 +32,17 @@ const StepCategory = ({ selectedCategory, onCategoryChange, error }) => {
     fetchCategories();
   }, []);
 
-  const filteredCategories = categories.filter(cat =>
-    cat.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Convert categories to dropdown options
+  const categoryOptions = categories.map(cat => ({
+    value: cat.name,
+    label: cat.name,
+    searchText: cat.name + ' ' + (cat.description || ''),
+    description: cat.description,
+    icon: getCategoryIcon(cat.name),
+  }));
 
-  const handleSelectCategory = (categoryName) => {
-    onCategoryChange(categoryName);
+  const handleSelect = (value) => {
+    onCategoryChange(value);
     setShowCustomInput(false);
     setCustomCategory('');
   };
@@ -50,13 +55,26 @@ const StepCategory = ({ selectedCategory, onCategoryChange, error }) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
+  // Custom option renderer with icons
+  const renderOption = (option) => (
+    <div className="flex items-center gap-3">
+      <span className="text-xl flex-shrink-0">{option.icon}</span>
+      <div className="min-w-0">
+        <p className="font-medium text-sm">{option.label}</p>
+        {option.description && (
+          <p className="text-xs text-gray-400 truncate">{option.description}</p>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+
+  // Custom value renderer
+  const renderValue = (option) => (
+    <div className="flex items-center gap-2">
+      <span className="text-lg">{option.icon}</span>
+      <span className="font-medium">{option.label}</span>
+    </div>
+  );
 
   return (
     <motion.div
@@ -74,138 +92,132 @@ const StepCategory = ({ selectedCategory, onCategoryChange, error }) => {
           Select the category that best describes your course content
         </p>
       </div>
-      
-      {/* Search Bar */}
-      <div className="max-w-2xl mx-auto mb-6">
-        <div className="relative">
-          <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search categories..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition"
-          />
-        </div>
-      </div>
-      
-      {/* Category Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
-        {filteredCategories.map((category) => {
-          const isSelected = selectedCategory === category.name;
-          
-          return (
-            <motion.button
-              key={category.id}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleSelectCategory(category.name)}
-              className={`
-                relative p-4 rounded-xl border-2 text-left transition-all group
-                ${isSelected 
-                  ? 'border-purple-500 bg-purple-50 shadow-md' 
-                  : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/30'
-                }
-              `}
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">
-                  {category.name === 'Web Development' && '💻'}
-                  {category.name === 'Mobile Development' && '📱'}
-                  {category.name === 'Data Science' && '📊'}
-                  {category.name === 'UI/UX Design' && '🎨'}
-                  {category.name === 'Cybersecurity' && '🔒'}
-                  {category.name === 'DevOps' && '⚙️'}
-                  {category.name === 'Cloud Computing' && '☁️'}
-                  {category.name === 'Game Development' && '🎮'}
-                  {category.name === 'Business' && '💼'}
-                  {category.name === 'Marketing' && '📢'}
-                  {!['Web Development', 'Mobile Development', 'Data Science', 'UI/UX Design', 'Cybersecurity', 'DevOps', 'Cloud Computing', 'Game Development', 'Business', 'Marketing'].includes(category.name) && '📚'}
-                </span>
-                <div className="flex-1">
-                  <h3 className={`font-semibold ${isSelected ? 'text-purple-700' : 'text-gray-800'}`}>
-                    {category.name}
-                  </h3>
-                  {category.description && (
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{category.description}</p>
-                  )}
-                </div>
-                {isSelected && (
-                  <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
 
-      {/* Custom Category Option */}
-      {!showCustomInput ? (
-        <div className="text-center mt-6">
-          <button
-            onClick={() => setShowCustomInput(true)}
-            className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 text-sm font-medium"
-          >
-            <HiPlus size={16} />
-            Can't find your category? Add custom
-          </button>
-        </div>
-      ) : (
-        <div className="max-w-md mx-auto mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Custom Category Name
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              placeholder="e.g., Artificial Intelligence"
-              className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none"
-              autoFocus
-            />
+      <div className="max-w-xl mx-auto space-y-6">
+        {/* Searchable Dropdown */}
+        <SearchableDropdown
+          options={categoryOptions}
+          value={selectedCategory}
+          onChange={handleSelect}
+          placeholder="Select a category..."
+          searchPlaceholder="Search categories..."
+          label="Course Category"
+          error={error}
+          loading={loading}
+          emptyMessage="No categories found"
+          optionRenderer={renderOption}
+          valueRenderer={renderValue}
+          icon={HiOutlineTag}
+        />
+
+        {/* Custom Category Option */}
+        {!showCustomInput ? (
+          <div className="text-center">
             <button
-              onClick={handleCustomSubmit}
-              disabled={!customCategory.trim()}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+              onClick={() => setShowCustomInput(true)}
+              className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 text-sm font-medium transition"
             >
-              Add
-            </button>
-            <button
-              onClick={() => {
-                setShowCustomInput(false);
-                setCustomCategory('');
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            >
-              <HiX size={16} />
+              <HiPlus size={16} />
+              Can't find your category? Add custom
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
-            Your custom category will be reviewed by our team
-          </p>
-        </div>
-      )}
-      
-      {filteredCategories.length === 0 && !showCustomInput && (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No categories found matching "{searchTerm}"</p>
-          <button
-            onClick={() => setShowCustomInput(true)}
-            className="mt-2 text-purple-600 text-sm hover:underline"
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-gray-50 rounded-xl border border-gray-200"
           >
-            Add "{searchTerm}" as custom category
-          </button>
-        </div>
-      )}
-      
-      {error && <p className="text-red-500 text-sm text-center mt-4">{error}</p>}
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Custom Category Name
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="e.g., Artificial Intelligence"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleCustomSubmit()}
+              />
+              <button
+                onClick={handleCustomSubmit}
+                disabled={!customCategory.trim()}
+                className="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 font-medium"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => {
+                  setShowCustomInput(false);
+                  setCustomCategory('');
+                }}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                <HiX size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Your custom category will be reviewed by our team
+            </p>
+          </motion.div>
+        )}
+
+        {/* Selected Category Display */}
+        {selectedCategory && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-4 bg-purple-50 rounded-xl border border-purple-200"
+          >
+            <p className="text-xs text-purple-600 font-medium mb-2 uppercase tracking-wide">Selected</p>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {getCategoryIcon(selectedCategory)}
+              </span>
+              <div>
+                <p className="font-semibold text-gray-800">{selectedCategory}</p>
+                <p className="text-xs text-gray-500">
+                  {categories.find(c => c.name === selectedCategory)?.description || 'Custom category'}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </motion.div>
   );
+};
+
+// Helper: Get emoji icon for category
+const getCategoryIcon = (name) => {
+  const icons = {
+    'Web Development': '💻',
+    'Mobile Development': '📱',
+    'Data Science': '📊',
+    'UI/UX Design': '🎨',
+    'Cybersecurity': '🔒',
+    'DevOps': '⚙️',
+    'Cloud Computing': '☁️',
+    'Game Development': '🎮',
+    'Business': '💼',
+    'Marketing': '📢',
+    'Artificial Intelligence': '🤖',
+    'Machine Learning': '🧠',
+    'Blockchain': '⛓️',
+    'Database': '🗄️',
+    'Networking': '🌐',
+    'Programming Languages': '💻',
+    'Software Engineering': '🏗️',
+    'Project Management': '📋',
+    'Finance': '💰',
+    'Photography': '📷',
+    'Music': '🎵',
+    'Health & Fitness': '💪',
+    'Personal Development': '🌱',
+    'Language Learning': '🗣️',
+  };
+  return icons[name] || '📚';
 };
 
 export default StepCategory;

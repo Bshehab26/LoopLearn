@@ -1,11 +1,10 @@
 // src/features/instructor/components/PlanCourseSection.jsx
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { HiPlus, HiTrash, HiClipboardList, HiCheckCircle, HiUsers, HiAcademicCap } from 'react-icons/hi';
-import SectionHeader from './SectionHeader';
 
-const PlanCourseSection = ({ data, onUpdate, isEditable, isExpanded, onToggle }) => {
+const PlanCourseSection = ({ data, onUpdate, isEditable }) => {
   const [newItem, setNewItem] = useState({ field: '', text: '' });
 
   const addItem = (field, emptyItem) => {
@@ -63,10 +62,8 @@ const PlanCourseSection = ({ data, onUpdate, isEditable, isExpanded, onToggle })
     }
   };
 
-  const renderSection = (field, minItems = 0) => {
+  const renderSection = (field) => {
     const items = data[field] || [];
-    const isMinMet = items.length >= minItems;
-
     return (
       <div className="bg-gray-50 rounded-xl p-5">
         <div className="flex items-start justify-between mb-4">
@@ -74,11 +71,6 @@ const PlanCourseSection = ({ data, onUpdate, isEditable, isExpanded, onToggle })
             <div className="flex items-center gap-2 mb-1">
               {getItemIcon(field)}
               <h3 className="font-medium text-gray-800">{getTitle(field)}</h3>
-              {minItems > 0 && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${isMinMet ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {isMinMet ? `${items.length}/${minItems} added` : `Need ${minItems - items.length} more`}
-                </span>
-              )}
             </div>
             <p className="text-xs text-gray-500">{getDescription(field)}</p>
           </div>
@@ -106,7 +98,7 @@ const PlanCourseSection = ({ data, onUpdate, isEditable, isExpanded, onToggle })
               )}
             </div>
           )}
-          
+
           {items.map((item) => (
             <div key={item.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-200 group hover:border-purple-200 transition">
               <div className="flex-shrink-0 mt-1">
@@ -136,32 +128,29 @@ const PlanCourseSection = ({ data, onUpdate, isEditable, isExpanded, onToggle })
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      <SectionHeader
-        icon={HiClipboardList}
-        title="Plan Your Course"
-        subtitle="Define learning outcomes, requirements, and target audience"
-        isOpen={isExpanded}
-        onToggle={onToggle}
-        badge="Required"
-      />
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="border-t border-gray-100"
-          >
-            <div className="p-6 space-y-6">
-              {renderSection('learningObjectives', 4)}
-              {renderSection('requirements', 0)}
-              {renderSection('targetAudience', 0)}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+            <HiClipboardList size={20} className="text-purple-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-800">Plan Your Course</h3>
+            <p className="text-xs text-gray-500">Define learning outcomes, requirements, and target audience</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {renderSection('learningObjectives')}
+          {renderSection('requirements')}
+          {renderSection('targetAudience')}
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

@@ -27,7 +27,7 @@ const isFakeId = (id) => {
   return id && typeof id === 'number' && id > 1_000_000;
 };
 
-// Transform backend sections to frontend sections (converts duration to minutes)
+// Transform backend sections to frontend sections
 export const transformBackendSections = (sections) => {
   if (!sections) return [];
   return sections.map((sec, idx) => ({
@@ -45,7 +45,7 @@ export const transformBackendSections = (sections) => {
             videoUrl: item.lesson.videoUrl || '',
             order: item.lesson.order,
             isPreview: item.lesson.isPreview || false,
-            duration: timeSpanToMinutes(item.lesson.duration)  // convert to minutes
+            duration: timeSpanToMinutes(item.lesson.duration)
           }
         };
       } else if (item.type === 'Quiz') {
@@ -75,7 +75,7 @@ export const transformBackendSections = (sections) => {
   }));
 };
 
-// Transform frontend sections to backend format (converts minutes to TimeSpan)
+// Transform frontend sections to backend format
 export const transformFrontendSections = (sections) => {
   if (!sections) return null;
   return sections.map(sec => ({
@@ -97,7 +97,6 @@ export const transformFrontendSections = (sections) => {
             duration: minutesToTimeSpan(lesson.duration || 0)
           }
         };
-        console.log('lesson.duration before:', lesson.duration, '-> after:', minutesToTimeSpan(lesson.duration || 0));
       } else if (item.type === 'Quiz') {
         const quiz = item.quiz;
         return {
@@ -124,4 +123,71 @@ export const transformFrontendSections = (sections) => {
       return item;
     })
   }));
+};
+
+// Transform backend tags to frontend format (ensure consistent structure)
+export const transformBackendTags = (tags, tagIds) => {
+  if (!tags && !tagIds) return [];
+
+  // If we have both tags and tagIds, merge them properly
+  if (tags && tagIds && Array.isArray(tags) && Array.isArray(tagIds)) {
+    return tags.map((tag, idx) => ({
+      id: tag.id || tagIds[idx],
+      name: tag.name || 'Unknown'
+    })).filter(t => t.id);
+  }
+
+  // If only tags array with objects
+  if (tags && Array.isArray(tags)) {
+    return tags.map(tag => ({
+      id: tag.id,
+      name: tag.name || tag.tagName || 'Unknown'
+    })).filter(t => t.id);
+  }
+
+  // If only tagIds array
+  if (tagIds && Array.isArray(tagIds)) {
+    return tagIds.map(id => ({ id, name: 'Loading...' }));
+  }
+
+  return [];
+};
+
+// Prepare course data for save (flatten all sections into payload)
+export const prepareCourseSavePayload = (course) => {
+  const tagIds = Array.isArray(course.tagIds) 
+    ? course.tagIds 
+    : (course.tags || []).map(t => t.id).filter(Boolean);
+
+  return {
+    description: course.description || '',
+    thumbnailUrl: course.thumbnailUrl || '',
+    subtitle: course.subtitle || '',
+    language: course.language || 'en',
+    level: course.level || 'Beginner',
+    isFree: course.isFree ?? false,
+    price: course.isFree ? 0 : (course.price ?? 0),
+    requirements: fromEditableList(course.requirements),
+    learningOutcomes: fromEditableList(course.learningObjectives),
+    targetAudiences: fromEditableList(course.targetAudience),
+    tagIds: tagIds,
+    sections: transformFrontendSections(course.sections)
+  };
+};
+
+// Calculate course completion percentage for progress bar
+export const calculateCompletion = (course) => {
+  if (!course) return 0;
+  let completed = 0;
+  let total = 6; // Total sections to complete
+
+  if (course.title?.trim()) completed++;
+  if (course.category) completed++;
+  if (course.description?.trim()?.length > 50) completed++;
+  if (course.thumbnailUrl) completed++;
+  if ((course.learningObjectives || []).length >= 3) completed++;
+  if ((course.sections || []).length > 0 && 
+      course.sections.some(s => s.items?.some(i => i.type === 'Lesson'))) completed++;
+
+  return Math.round((completed / total) * 100);
 };
