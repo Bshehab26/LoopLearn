@@ -1,5 +1,5 @@
 // src/features/profile/components/ChangePasswordSection.jsx
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPencil, HiCheck, HiX, HiEye, HiEyeOff, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
 
@@ -98,6 +98,7 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   
   const oldPasswordRef = useRef(null);
 
@@ -114,6 +115,12 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
     }
   }, [successMessage]);
 
+  useEffect(() => {
+    if (isEditing) {
+      setErrorMessage('');
+    }
+  }, [isEditing]);
+
   const toggleShow = useCallback((field) => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
   }, []);
@@ -124,7 +131,10 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
-  }, [errors]);
+    if (errorMessage) {
+      setErrorMessage('');
+    }
+  }, [errors, errorMessage]);
 
   const validateForm = useCallback(() => {
     const newErrors = {};
@@ -150,14 +160,29 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
     if (!validateForm()) return;
     
     setIsSubmitting(true);
-    const success = await onChangePassword(formData);
-    setIsSubmitting(false);
+    setErrorMessage('');
     
-    if (success) {
-      setSuccessMessage('Password changed successfully!');
-      setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' });
-      setErrors({});
-      setIsEditing(false);
+    try {
+      // Pass all three fields to onChangePassword
+      const result = await onChangePassword(
+        formData.oldPassword,
+        formData.newPassword,
+        formData.confirmPassword
+      );
+      
+      if (result === true) {
+        setSuccessMessage('Password changed successfully!');
+        setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+        setErrors({});
+        setIsEditing(false);
+      } else {
+        setErrorMessage('Failed to change password. Please try again.');
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      setErrorMessage('An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -165,6 +190,7 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
     setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' });
     setErrors({});
     setShowPasswords({ old: false, new: false, confirm: false });
+    setErrorMessage('');
     setIsEditing(false);
   };
 
@@ -218,6 +244,18 @@ const ChangePasswordSection = ({ onChangePassword, saving = false }) => {
           >
             <HiCheckCircle size={16} />
             {successMessage}
+          </motion.div>
+        )}
+        
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2"
+          >
+            <HiExclamationCircle size={16} />
+            {errorMessage}
           </motion.div>
         )}
       </AnimatePresence>

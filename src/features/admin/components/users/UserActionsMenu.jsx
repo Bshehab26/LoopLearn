@@ -1,6 +1,7 @@
 // src/features/admin/components/users/UserActionsMenu.jsx
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import {
   HiOutlineDotsVertical,
   HiOutlineEye,
@@ -8,6 +9,7 @@ import {
   HiOutlineLockClosed,
   HiOutlineLockOpen,
 } from 'react-icons/hi';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const UserActionsMenu = ({
   user,
@@ -18,20 +20,129 @@ const UserActionsMenu = ({
   disableRoleChange = false,
   disableBan = false,
 }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0, direction: 'down' });
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  // Calculate menu position
+  const calculatePosition = useCallback(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 180;
+    const menuHeight = 200;
+    const padding = 10;
+
+    // X position - align to right
+    let x = rect.right - menuWidth;
+    if (x < padding) x = padding;
+    if (x + menuWidth > window.innerWidth - padding) {
+      x = window.innerWidth - menuWidth - padding;
+    }
+
+    // Y position - smart flip
+    const spaceDown = window.innerHeight - rect.bottom - padding;
+    const spaceUp = rect.top - padding;
+    const shouldGoUp = spaceDown < menuHeight && spaceUp > spaceDown;
+
+    let y;
+    let direction;
+    if (shouldGoUp) {
+      y = rect.top - menuHeight - padding;
+      direction = 'up';
+    } else {
+      y = rect.bottom + padding;
+      direction = 'down';
+    }
+
+    // Keep in viewport
+    if (y < padding) y = padding;
+    if (y + menuHeight > window.innerHeight - padding) {
+      y = window.innerHeight - menuHeight - padding;
+    }
+
+    setPosition({ x, y, direction });
   }, []);
 
-  const close = () => setOpen(false);
+  const closeMenu = useCallback(() => setIsOpen(false), []);
 
-  // Determine if the current user can modify this user
+  // Handle outside clicks
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        buttonRef.current && !buttonRef.current.contains(e.target) &&
+        menuRef.current && !menuRef.current.contains(e.target)
+      ) {
+        closeMenu();
+      }
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') closeMenu();
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      window.addEventListener('scroll', calculatePosition, true);
+      window.addEventListener('resize', calculatePosition);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', calculatePosition, true);
+      window.removeEventListener('resize', calculatePosition);
+    };
+  }, [isOpen, closeMenu, calculatePosition]);
+
+  useEffect(() => {
+    if (isOpen) {
+      requestAnimationFrame(calculatePosition);
+    }
+  }, [isOpen, calculatePosition]);
+
+  const handleToggle = () => {
+    if (!isOpen) {
+      requestAnimationFrame(calculatePosition);
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const handleAction = (callback) => () => {
+    closeMenu();
+    if (callback) callback(user);
+  };
+
+  // Action Button Component
+  const ActionButton = ({ icon: Icon, label, onClick, color = 'gray', disabled = false }) => {
+    const colors = {
+      gray: 'hover:bg-gray-50 text-gray-700',
+      blue: 'hover:bg-blue-50 text-blue-600',
+      green: 'hover:bg-green-50 text-green-600',
+      red: 'hover:bg-red-50 text-red-600',
+    };
+
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`
+          w-full flex items-center gap-3 px-4 py-2.5 text-sm
+          transition-all duration-150
+          ${colors[color] || colors.gray}
+          ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:pl-5'}
+        `}
+      >
+        <Icon size={15} className="flex-shrink-0" />
+        <span className="flex-1 text-left font-medium">{label}</span>
+      </button>
+    );
+  };
+
+  // Determine permissions
   const isSelf = currentUser?.id === user?.id;
   const isSuperAdmin = currentUser?.role === 'SuperAdmin';
   const isAdmin = currentUser?.role === 'Admin';
@@ -44,54 +155,111 @@ const UserActionsMenu = ({
   // Only SuperAdmin can ban/unban other admins
   const canToggleBan = !isSelf && !isTargetSuperAdmin && (isSuperAdmin || !isTargetAdmin);
 
+  // Count actions to determine menu height
+  let actionCount = 1; // View details always visible
+  if (!disableRoleChange && canModifyRole) actionCount++;
+  if (!disableBan && canToggleBan) actionCount++;
+  
+  const menuHeight = Math.min(actionCount * 44 + 60, 250);
+
   return (
-    <div className="relative inline-block" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-        aria-label="User actions"
-      >
-        <HiOutlineDotsVertical size={16} />
-      </button>
+    <>
+      {/* Trigger Button */}
+      <div ref={buttonRef} className="inline-block">
+        <button
+          onClick={handleToggle}
+          className={`
+            p-1.5 rounded-lg transition-all duration-200
+            ${isOpen 
+              ? 'bg-purple-100 text-purple-700 ring-2 ring-purple-200' 
+              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+            }
+          `}
+          aria-label="User actions"
+        >
+          <HiOutlineDotsVertical size={18} />
+        </button>
+      </div>
 
-      {open && (
-        <div className="absolute right-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-100 z-20 py-1">
-          <button
-            onClick={() => { onViewDetails(user); close(); }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"
+      {/* Dropdown Menu */}
+      {isOpen && ReactDOM.createPortal(
+        <AnimatePresence>
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, scale: 0.92, y: -5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: -5 }}
+            transition={{ duration: 0.12 }}
+            className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden"
+            style={{
+              top: position.y,
+              left: position.x,
+              width: 180,
+              maxHeight: menuHeight,
+              transformOrigin: position.direction === 'up' ? 'bottom right' : 'top right',
+            }}
           >
-            <HiOutlineEye size={14} /> View details
-          </button>
-
-          {!disableRoleChange && canModifyRole && (
-            <button
-              onClick={() => { onChangeRole(user); close(); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"
-            >
-              <HiOutlineUserCircle size={14} /> Change role
-            </button>
-          )}
-
-          {!disableBan && canToggleBan && (
-            <button
-              onClick={() => { onToggleBan(user); close(); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 ${
-                user.isLocked ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {user.isLocked ? <HiOutlineLockOpen size={14} /> : <HiOutlineLockClosed size={14} />}
-              {user.isLocked ? 'Unban user' : 'Ban user'}
-            </button>
-          )}
-
-          {isSelf && (
-            <div className="px-3 py-2 text-xs text-gray-400 italic border-t border-gray-100">
-              You cannot modify your own account
+            {/* Header */}
+            <div className="px-4 py-2 bg-gray-50/80 border-b border-gray-100">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Actions
+              </span>
             </div>
-          )}
-        </div>
+
+            {/* Actions */}
+            <div className="py-1">
+              <ActionButton
+                icon={HiOutlineEye}
+                label="View Details"
+                onClick={handleAction(onViewDetails)}
+                color="gray"
+              />
+
+              {!disableRoleChange && canModifyRole && (
+                <>
+                  <div className="border-t border-gray-100 mx-3 my-1" />
+                  <ActionButton
+                    icon={HiOutlineUserCircle}
+                    label="Change Role"
+                    onClick={handleAction(onChangeRole)}
+                    color="blue"
+                  />
+                </>
+              )}
+
+              {!disableBan && canToggleBan && (
+                <>
+                  <div className="border-t border-gray-100 mx-3 my-1" />
+                  <ActionButton
+                    icon={user?.isLocked ? HiOutlineLockOpen : HiOutlineLockClosed}
+                    label={user?.isLocked ? 'Unban User' : 'Ban User'}
+                    onClick={handleAction(onToggleBan)}
+                    color={user?.isLocked ? 'green' : 'red'}
+                  />
+                </>
+              )}
+
+              {isSelf && (
+                <>
+                  <div className="border-t border-gray-100 mx-3 my-1" />
+                  <div className="px-4 py-2.5 text-xs text-gray-400 text-center">
+                    You cannot modify your own account
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-1.5 bg-gray-50/80 border-t border-gray-100">
+              <p className="text-[9px] text-gray-400 text-center">
+                <kbd className="px-1 py-0.5 bg-white rounded border border-gray-200 text-[8px] font-mono">ESC</kbd> to close
+              </p>
+            </div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 

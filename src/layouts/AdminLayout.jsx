@@ -22,7 +22,7 @@ const HiOutlineLogout = HiLogout;
 const HiOutlineHome = HiHome;
 const HiOutlineMenuAlt2 = HiMenuAlt2;
 const HiOutlineUserAdd = HiUserAdd;
-const HiOutlineFolder = HiFolder;  // ← Only declare once
+const HiOutlineFolder = HiFolder;
 
 // ============================================================================
 // Sidebar Navigation Configuration - INCLUDES CATEGORIES & TAGS
@@ -173,6 +173,7 @@ const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           h-screen bg-gradient-to-b from-gray-900 to-gray-800
           shadow-2xl transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          flex-shrink-0
         `}
       >
         <div className="flex flex-col h-full">
@@ -314,7 +315,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <AdminSidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}
@@ -329,12 +330,15 @@ const AdminLayout = () => {
         <HiOutlineMenuAlt2 size={20} />
       </button>
 
-      <div className="flex-1 flex flex-col min-h-screen">
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+      {/* Main Content Area - Fixed height */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Header - Fixed height */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
           <h1 className="text-2xl font-bold text-gray-800">{getPageTitle()}</h1>
         </div>
 
-        <main className="flex-1 overflow-auto">
+        {/* Content - Scrollable */}
+        <main className="flex-1 overflow-y-auto">
           <div className="p-4 sm:p-6 lg:p-8">
             <Outlet />
           </div>
