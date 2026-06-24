@@ -19,7 +19,7 @@ const Chat = () => {
 
   return (
     <>
-      <ChatButton onClick={toggleChat} hasNotifications={!isOpen} />
+      <ChatButton onClick={toggleChat} unreadCount={0} />
       
       <AnimatePresence>
         {isOpen && (
