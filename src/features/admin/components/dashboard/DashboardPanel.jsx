@@ -85,7 +85,7 @@ const DashboardPanel = () => {
       label: 'Total Courses',
       value: formatNumber(courseStats.totalCourses || 0),
       tone: '#0EA5E9',
-      to: '/admin/courses',
+      to: '/admin/courses/all',
     },
     {
       icon: HiOutlineClipboardCheck,

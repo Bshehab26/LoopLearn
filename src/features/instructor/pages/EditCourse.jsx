@@ -10,7 +10,9 @@ import { getCourseById, updateCourse, submitForReview } from '../api/instructor.
 import { mapBackendStatus } from '../utils/courseStatusMapper';
 import { 
   toEditableList, 
+  fromEditableList,
   transformBackendSections, 
+  transformFrontendSections,
   transformBackendTags,
   prepareCourseSavePayload 
 } from '../utils/courseHelpers';
@@ -88,6 +90,9 @@ const EditCourse = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const mainContentRef = useRef(null);
+  
+  // Store the last saved tags locally to preserve them when backend doesn't return them
+  const lastSavedTagsRef = useRef({ tagIds: [], tags: [] });
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -111,11 +116,33 @@ const EditCourse = () => {
         const res = await getCourseById(id);
         if (res.success && res.data) {
           const data = res.data;
+          console.log('[EditCourse] Loaded course data:', {
+            tagIds: data.tagIds,
+            tags: data.tags,
+            title: data.title,
+            status: data.status
+          });
+
+          // Use the working status mapper from the second version
+          const mappedStatus = mapBackendStatus(data.status);
+          console.log(`[EditCourse] Raw backend status: ${JSON.stringify(data.status)} -> mapped: "${mappedStatus}"`);
+
+          // Guard against direct URL access: only draft/rejected courses are editable
+          if (mappedStatus !== 'draft' && mappedStatus !== 'rejected') {
+            console.warn(`[EditCourse] Course status "${mappedStatus}" is not editable. Redirecting.`);
+            setLoading(false);
+            navigate('/instructor/courses', {
+              replace: true,
+              state: { error: 'This course can no longer be edited because of its current status.' },
+            });
+            return;
+          }
+
           const tags = transformBackendTags(data.tags, data.tagIds);
 
           const transformed = {
             ...data,
-            status: mapBackendStatus(data.status),
+            status: mappedStatus,
             requirements: toEditableList(data.requirements),
             learningObjectives: toEditableList(data.learningOutcomes),
             targetAudience: toEditableList(data.targetAudiences),
@@ -212,12 +239,12 @@ const EditCourse = () => {
     };
   }, [hasUnsaved, location.pathname, location.search]);
 
- const handleLocalUpdate = useCallback((updates, markUnsaved = true) => {
-  setCourse(prev => ({ ...prev, ...updates }));
-  if (markUnsaved) {
-    setHasUnsaved(true);
-  }
-}, []);
+  const handleLocalUpdate = useCallback((updates, markUnsaved = true) => {
+    setCourse(prev => ({ ...prev, ...updates }));
+    if (markUnsaved) {
+      setHasUnsaved(true);
+    }
+  }, []);
 
   // MAIN SAVE: Sends ALL section data at once via PUT
   const handleSave = async (shouldNavigate = false, navigateTo = null) => {
@@ -225,30 +252,75 @@ const EditCourse = () => {
     setSaving(true);
     setSaveStatus('saving');
 
-    const payload = prepareCourseSavePayload(course);
+    // Use the working save payload preparation from the second version
+    // Ensure tagIds is an array
+    const tagIds = Array.isArray(course.tagIds) ? course.tagIds : [];
+    const tags = Array.isArray(course.tags) ? course.tags : [];
+    
+    console.log('[Save] Tag IDs being sent:', tagIds);
+    console.log('[Save] Tags being sent:', tags);
+
+    const payload = {
+      description: course.description,
+      thumbnailUrl: course.thumbnailUrl || '',
+      subtitle: course.subtitle,
+      language: course.language,
+      level: course.level,
+      isFree: course.isFree,
+      price: course.isFree ? 0 : course.price,
+      requirements: fromEditableList(course.requirements),
+      learningOutcomes: fromEditableList(course.learningObjectives),
+      targetAudiences: fromEditableList(course.targetAudience),
+      tagIds: tagIds,
+      sections: transformFrontendSections(course.sections)
+    };
+
+    console.log('[Save] Sending payload:', payload);
 
     try {
       const response = await updateCourse(id, payload);
+      console.log('[Save] Response:', response);
 
       if (response.success) {
         setSaveStatus('saved');
         setHasUnsaved(false);
 
+        // Save the tags locally so we can restore them if backend doesn't return them
+        lastSavedTagsRef.current = { tagIds, tags };
+        console.log('[Save] Saved tags to ref:', lastSavedTagsRef.current);
+
         // Refresh data from server
         const fresh = await getCourseById(id);
         if (fresh.success && fresh.data) {
           const data = fresh.data;
-          const tags = transformBackendTags(data.tags, data.tagIds);
+          console.log('[Save] Refreshed course data from DB:', {
+            tagIds: data.tagIds,
+            tags: data.tags,
+            subtitle: data.subtitle
+          });
+
+          // Use the working status mapper
+          const mappedStatus = mapBackendStatus(data.status);
+          
+          // If backend didn't return tags, restore from our saved ref
+          let freshTagIds = data.tagIds || [];
+          let freshTags = data.tags || [];
+          
+          if ((!freshTagIds || freshTagIds.length === 0) && tagIds.length > 0) {
+            console.log('[Save] Backend returned no tags, restoring from ref');
+            freshTagIds = tagIds;
+            freshTags = tags;
+          }
 
           const updatedCourse = {
             ...data,
-            status: mapBackendStatus(data.status),
+            status: mappedStatus,
             requirements: toEditableList(data.requirements),
             learningObjectives: toEditableList(data.learningOutcomes),
             targetAudience: toEditableList(data.targetAudiences),
             sections: transformBackendSections(data.sections),
-            tags: tags.length > 0 ? tags : course.tags,
-            tagIds: data.tagIds || course.tagIds,
+            tags: freshTags.length > 0 ? freshTags : course.tags,
+            tagIds: freshTagIds.length > 0 ? freshTagIds : course.tagIds,
           };
 
           setCourse(updatedCourse);
@@ -263,6 +335,7 @@ const EditCourse = () => {
         }
       } else {
         setSaveStatus('error');
+        console.error('Save failed:', response.message);
       }
     } catch (err) {
       console.error('[EditCourse] Save error:', err);
@@ -277,6 +350,8 @@ const EditCourse = () => {
     setSubmitting(true);
     try {
       const response = await submitForReview(id);
+      
+      console.log('[EditCourse] Full submit response:', response);
 
       if (response.success) {
         setCourse(prev => ({ ...prev, status: 'pending' }));
@@ -287,23 +362,41 @@ const EditCourse = () => {
       } else {
         setShowSubmitModal(false);
 
+        let hasErrors = false;
         let errorList = [];
         let errorMessage = response.message || 'Please fix the following issues:';
 
         if (response.errors && Array.isArray(response.errors) && response.errors.length > 0) {
+          hasErrors = true;
           errorList = response.errors;
-        } else if (response.data?.errors && Array.isArray(response.data.errors)) {
+        } 
+        else if (response.data?.errors && Array.isArray(response.data.errors)) {
+          hasErrors = true;
           errorList = response.data.errors;
         }
+        else if (response.validationErrors && Array.isArray(response.validationErrors)) {
+          hasErrors = true;
+          errorList = response.validationErrors;
+        }
+        else if (typeof response.message === 'string' && response.message.includes('section')) {
+          hasErrors = true;
+          errorList = [response.message];
+        }
 
-        if (errorList.length > 0) {
+        if (hasErrors && errorList.length > 0) {
+          console.log('[EditCourse] Showing validation modal with errors:', errorList);
           setValidationErrors(errorList);
           setValidationMessage(errorMessage);
           setShowValidationErrors(true);
         } else {
-          setValidationErrors([response.message || 'Failed to submit']);
-          setValidationMessage('Course validation failed:');
-          setShowValidationErrors(true);
+          console.log('[EditCourse] No structured errors found, raw response:', response);
+          if (response.message && response.message.length > 10) {
+            setValidationErrors([response.message]);
+            setValidationMessage('Course validation failed:');
+            setShowValidationErrors(true);
+          } else {
+            alert(response.message || 'Failed to submit for review. Please check your course content and try again.');
+          }
         }
       }
     } catch (err) {
@@ -390,10 +483,10 @@ const EditCourse = () => {
                 <ActiveSectionComponent
                   data={course}
                   onUpdate={
-                            activeSection === 'title-category'
-                              ? (updates) => handleLocalUpdate(updates, false)
-                              : handleLocalUpdate
-                          }
+                    activeSection === 'title-category'
+                      ? (updates) => handleLocalUpdate(updates, false)
+                      : handleLocalUpdate
+                  }
                   isEditable={isEditable}
                 />
               )}

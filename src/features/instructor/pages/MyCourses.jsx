@@ -44,6 +44,7 @@ const MyCourses = () => {
   const [submittingCourseId, setSubmittingCourseId] = useState(null);
   const [submittingCourse, setSubmittingCourse] = useState(null);
   const [successMessage, setSuccessMessage] = useState(location.state?.success || null);
+  const [errorMessage, setErrorMessage] = useState(location.state?.error || null);
   const [viewMode, setViewMode] = useState('grid');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -119,6 +120,13 @@ const MyCourses = () => {
     }
   }, [successMessage]);
 
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
+
   const selectedCourseForSubmit = showSubmitModal 
     ? courses.find(c => c.id === showSubmitModal) 
     : null;
@@ -161,6 +169,21 @@ const MyCourses = () => {
             className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm"
           >
             {successMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Error Message (e.g. blocked direct edit-URL access) */}
+      <AnimatePresence>
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2"
+          >
+            <HiExclamationCircle size={16} className="flex-shrink-0" />
+            {errorMessage}
           </motion.div>
         )}
       </AnimatePresence>
@@ -248,54 +271,77 @@ const MyCourses = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredCourses.map((course) => (
-                <div key={course.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition">
-                  <div className="flex items-center gap-4">
-                    {/* Thumbnail */}
-                    <div className="w-20 h-14 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      {course.thumbnailUrl ? (
-                        <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
-                          No img
+              {filteredCourses.map((course) => {
+                // Mirror the same permission rules used in CourseCard.jsx
+                const canEdit = course.status === 'draft' || course.status === 'rejected';
+                const canSubmit = course.status === 'draft' || course.status === 'rejected';
+                const canDelete = course.status !== 'pending';
+                const canView = course.status === 'published';
+                const isPending = course.status === 'pending';
+
+                return (
+                  <div key={course.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition">
+                    <div className="flex items-center gap-4">
+                      {/* Thumbnail */}
+                      <div className="w-20 h-14 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        {course.thumbnailUrl ? (
+                          <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+                            No img
+                          </div>
+                        )}
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-gray-800 truncate">{course.title}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[course.status]?.countColor || 'bg-gray-100'}`}>
+                            {STATUS_CONFIG[course.status]?.label || course.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">{course.subtitle || 'No subtitle'}</p>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                          <span>{course.enrollmentCount || 0} students</span>
+                          <span>⭐ {course.averageRating || 0}</span>
+                          <span>{course.isFree ? 'Free' : `$${course.price}`}</span>
+                        </div>
+                        {isPending && (
+                          <p className="text-xs text-yellow-600 mt-1">⏳ This course is under review by the admin team</p>
+                        )}
+                        {course.status === 'rejected' && (
+                          <p className="text-xs text-red-600 mt-1">❌ Rejected - Edit and resubmit for review</p>
+                        )}
+                      </div>
+                      {/* Actions - hidden entirely for pending courses, same as CourseCard */}
+                      {!isPending && (
+                        <div className="flex items-center gap-1">
+                          {canView && (
+                            <button onClick={() => handleView(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600" title="View">
+                              <HiEye size={16} />
+                            </button>
+                          )}
+                          {canEdit && (
+                            <button onClick={() => handleEdit(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-blue-600" title="Edit">
+                              <HiPencil size={16} />
+                            </button>
+                          )}
+                          {canSubmit && (
+                            <button onClick={() => setShowSubmitModal(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-green-600" title="Submit">
+                              <HiPaperAirplane size={16} />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => setShowDeleteConfirm(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-red-500" title="Delete">
+                              <HiTrash size={16} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-800 truncate">{course.title}</h3>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[course.status]?.countColor || 'bg-gray-100'}`}>
-                          {STATUS_CONFIG[course.status]?.label || course.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 truncate">{course.subtitle || 'No subtitle'}</p>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                        <span>{course.enrollmentCount || 0} students</span>
-                        <span>⭐ {course.averageRating || 0}</span>
-                        <span>{course.isFree ? 'Free' : `$${course.price}`}</span>
-                      </div>
-                    </div>
-                    {/* Actions */}
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => handleView(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600" title="View">
-                        <HiEye size={16} />
-                      </button>
-                      <button onClick={() => handleEdit(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-blue-600" title="Edit">
-                        <HiPencil size={16} />
-                      </button>
-                      {course.status === 'draft' && (
-                        <button onClick={() => setShowSubmitModal(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-green-600" title="Submit">
-                          <HiPaperAirplane size={16} />
-                        </button>
-                      )}
-                      <button onClick={() => setShowDeleteConfirm(course.id)} className="p-2 rounded-lg hover:bg-gray-100 text-red-500" title="Delete">
-                        <HiTrash size={16} />
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
