@@ -1,114 +1,52 @@
-/**
- * ChatButton.jsx
- * Floating chat button component with animations.
- * Opens chat window when clicked.
- * 
- * @module features/chat/components/ChatButton
- */
-
+// src/features/chat/components/ChatButton.jsx
 import { motion } from 'framer-motion';
-import { HiChat } from 'react-icons/hi';
+import { HiChatAlt2 } from 'react-icons/hi';
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-/** Button dimensions */
-const BUTTON_SIZE = {
-  width: 56,
-  height: 56,
-};
-
-/** Animation variants */
-const BUTTON_ANIMATION = {
-  whileHover: { scale: 1.1, boxShadow: '0 8px 30px rgba(83, 74, 183, 0.4)' },
-  whileTap: { scale: 0.95 },
-  initial: { scale: 0, opacity: 0 },
-  animate: { scale: 1, opacity: 1 },
-  transition: { type: 'spring', stiffness: 260, damping: 20 },
-};
-
-/** Pulse animation for attention */
-const PULSE_ANIMATION = {
-  animate: {
-    boxShadow: [
-      '0 0 0 0 rgba(83, 74, 183, 0.4)',
-      '0 0 0 15px rgba(83, 74, 183, 0)',
-      '0 0 0 0 rgba(83, 74, 183, 0)',
-    ],
-    transition: {
-      repeat: Infinity,
-      duration: 2.5,
-      repeatDelay: 2,
-    },
-  },
-};
-
-/** Wave animation for the icon */
-const WAVE_ANIMATION = {
-  animate: {
-    rotate: [0, -5, 5, -5, 0],
-    transition: {
-      repeat: Infinity,
-      duration: 2,
-      repeatDelay: 4,
-      ease: 'easeInOut',
-    },
-  },
-};
-
-// ============================================================================
-// Main Component
-// ============================================================================
-
-/**
- * ChatButton - Floating chat button with animations
- * @param {Object} props
- * @param {Function} props.onClick - Click handler to open chat
- * @param {boolean} props.hasNotifications - Whether to show pulse effect
- * @param {number} props.unreadCount - Number of unread messages
- * @returns {React.ReactElement} Chat button component
- */
-const ChatButton = ({ 
-  onClick, 
-  hasNotifications = false,
-  unreadCount = 0 
-}) => {
+const ChatButton = ({ onClick, unreadCount = 0 }) => {
   return (
     <motion.button
       onClick={onClick}
-      className='fixed bottom-6 right-6 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 shadow-xl flex items-center justify-center z-50 cursor-pointer group'
-      style={{ width: BUTTON_SIZE.width, height: BUTTON_SIZE.height }}
-      {...BUTTON_ANIMATION}
+      className='fixed bottom-6 right-6 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 shadow-xl shadow-purple-500/30 flex items-center justify-center z-50 cursor-pointer group hover:shadow-2xl hover:shadow-purple-500/40 transition-shadow'
+      style={{ width: 60, height: 60 }}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.95 }}
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
       aria-label='Open chat'
     >
-      {/* Pulse ring effect */}
+      {/* Pulse ring */}
       <motion.div
-        className='absolute inset-0 rounded-full'
-        {...PULSE_ANIMATION}
+        className='absolute inset-0 rounded-2xl bg-purple-500'
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0, 0.3],
+        }}
+        transition={{
+          repeat: Infinity,
+          duration: 3,
+          ease: 'easeInOut',
+        }}
       />
       
-      {/* Chat icon with wave animation */}
-      <motion.div
-        {...WAVE_ANIMATION}
-        className='relative z-10 text-white'
-      >
-        <HiChat size={26} />
-      </motion.div>
+      {/* Icon */}
+      <div className='relative z-10 text-white'>
+        <HiChatAlt2 size={28} />
+      </div>
       
-      {/* Unread count badge */}
+      {/* Unread badge */}
       {unreadCount > 0 && (
         <motion.span
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className='absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center z-20 border-2 border-white'
+          className='absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center z-20 border-2 border-white px-1'
         >
-          {unreadCount > 9 ? '9+' : unreadCount}
+          {unreadCount > 99 ? '99+' : unreadCount}
         </motion.span>
       )}
       
-      {/* Tooltip on hover */}
-      <span className='absolute right-full mr-3 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg'>
+      {/* Tooltip */}
+      <span className='absolute right-full mr-3 px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-xl'>
         💬 Chat with Loopy
       </span>
     </motion.button>
