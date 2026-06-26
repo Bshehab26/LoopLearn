@@ -8,16 +8,14 @@ import {
   HiChevronUp, 
   HiChatAlt2,
   HiOutlineChevronDoubleUp,
-  HiOutlineChevronDoubleDown
+  HiOutlineChevronDoubleDown,
+  HiExclamationCircle,
 } from 'react-icons/hi';
-import axios from 'axios';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import useChat from '../hooks/useChat';
 
-const API_BASE_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8000';
-
-const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
+const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => {
   const { 
     messages, 
     loading, 
@@ -25,9 +23,12 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
     sessionId, 
     sendMessage, 
     clearMessages,
-  } = useChat({ sessionId: initialSessionId });
+    isServiceAvailable,
+  } = useChat({ 
+    sessionId: initialSessionId,
+    userId: userId,
+  });
 
-  const [showBackendStatus, setShowBackendStatus] = useState(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -56,21 +57,6 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
       setUnreadCount(0);
     }
   }, [isMinimized]);
-
-  // Check Python AI Chatbot health
-  useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/ai/health`, { timeout: 5000 });
-        setShowBackendStatus(response.data?.status === 'healthy' ? 'online' : 'offline');
-      } catch {
-        setShowBackendStatus('offline');
-      }
-    };
-    checkBackend();
-    const interval = setInterval(checkBackend, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSend = async (text) => {
     await sendMessage(text);
@@ -125,14 +111,12 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
         onClick={isMinimized ? toggleMinimize : undefined}
       >
         <div className='flex items-center gap-3 min-w-0'>
-          {/* Avatar with status */}
           <div className='relative flex-shrink-0'>
             <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40">
               <HiChatAlt2 className="w-5 h-5 text-white" />
             </div>
-            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
-              showBackendStatus === 'online' ? 'bg-green-400' : 
-              showBackendStatus === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
+            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white transition-colors duration-500 ${
+              isServiceAvailable ? 'bg-green-400' : 'bg-red-400'
             }`} />
           </div>
           
@@ -140,15 +124,17 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
             <div className="flex items-center gap-2">
               <span className='font-semibold text-sm truncate'>Loopy AI</span>
               {unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
                   {unreadCount}
                 </span>
               )}
             </div>
             <div className='flex items-center gap-1.5'>
-              <span className='text-[10px] opacity-80'>
-                {showBackendStatus === 'online' ? '🟢 Online' : 
-                 showBackendStatus === 'offline' ? '🔴 Offline' : '🟡 Connecting...'}
+              <span className='text-[10px] opacity-80 flex items-center gap-1'>
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                  isServiceAvailable ? 'bg-green-300 animate-pulse' : 'bg-red-300'
+                }`} />
+                {isServiceAvailable ? 'Online' : 'Offline'}
               </span>
             </div>
           </div>
@@ -158,7 +144,6 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
         <div className='flex gap-0.5 items-center'>
           {!isMinimized && (
             <>
-              {/* Expand/Collapse */}
               <button
                 onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
                 className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
@@ -167,7 +152,6 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
                 {isExpanded ? <HiOutlineChevronDoubleDown size={16} /> : <HiOutlineChevronDoubleUp size={16} />}
               </button>
               
-              {/* New Chat */}
               <button
                 onClick={(e) => { e.stopPropagation(); handleClear(); }}
                 className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
@@ -178,7 +162,6 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
             </>
           )}
           
-          {/* Minimize/Maximize */}
           <button
             onClick={(e) => { e.stopPropagation(); toggleMinimize(); }}
             className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
@@ -187,7 +170,6 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
             {isMinimized ? <HiChevronUp size={18} /> : <HiChevronDown size={18} />}
           </button>
           
-          {/* Close */}
           <button
             onClick={(e) => { e.stopPropagation(); onClose(); }}
             className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
@@ -207,6 +189,12 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
               ? messages[messages.length - 1].text.slice(0, 45) + '...'
               : 'Click to chat with Loopy AI'}
           </span>
+          {!isServiceAvailable && (
+            <span className="text-[10px] text-red-500 ml-auto flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              offline
+            </span>
+          )}
         </div>
       )}
 
@@ -227,10 +215,13 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId }) => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className='bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 flex items-center gap-2 flex-shrink-0 mx-3 mt-2 rounded-r-lg'
+                  className='mx-3 mt-2 p-3 rounded-lg flex items-start gap-2 text-sm bg-red-50 border-l-4 border-red-500 text-red-700'
                 >
-                  <span>⚠️</span>
-                  <span>{error}</span>
+                  <HiExclamationCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
+                  <div className="flex-1">
+                    <p className="font-medium">Error</p>
+                    <p className="text-xs opacity-90 mt-0.5">{error}</p>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

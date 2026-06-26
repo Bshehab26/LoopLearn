@@ -21,7 +21,6 @@ const ChatInput = ({ onSend, loading }) => {
     if (!trimmed || loading) return;
     onSend(trimmed);
     setText('');
-    // Reset height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -40,6 +39,7 @@ const ChatInput = ({ onSend, loading }) => {
         type='button'
         className='text-gray-400 hover:text-purple-600 transition p-2 rounded-full hover:bg-purple-50 flex-shrink-0'
         aria-label='Emoji'
+        disabled={loading}
       >
         <HiEmojiHappy className='w-5 h-5' />
       </button>
