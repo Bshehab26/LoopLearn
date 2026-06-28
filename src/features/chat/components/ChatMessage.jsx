@@ -158,7 +158,7 @@ const ChatMessage = ({ message }) => {
           {/* Text content with bold support — this is always "the answer",
               visually separated below from courses/sources */}
           <div className="whitespace-pre-wrap break-words leading-relaxed">
-            {isBot ? renderTextWithBold(message.text, handleCourseClick) : message.text}
+            {isBot ? renderTextWithBold(message.text, message.recommendedCourses, message.sources, handleCourseClick) : message.text}
           </div>
 
           {/* Timestamp lives with the text answer, not after the courses
@@ -226,15 +226,66 @@ const Timestamp = ({ message, isBot }) => (
   </div>
 );
 
-// Helper: render text with **bold** support, upgrading "**Name** (ID: N)"
-// into a clickable course link (and hiding the raw "(ID: N)" text, since
-// the link itself now signals "this is a course you can open").
-const renderTextWithBold = (text, onCourseClick) => {
+// Normalize a course title for fuzzy comparison: lowercase, strip any
+// leaked "(ID: N)" noise, strip punctuation, collapse whitespace. This is
+// what lets bold text from the LLM's free-form answer match against the
+// reliable, backend-built recommendedCourses array regardless of exactly
+// how the LLM phrased it.
+const normalizeTitle = (s) =>
+  (s || '')
+    .toLowerCase()
+    .replace(/\(id:\s*\d+\)/gi, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// Find the course (if any) that a bold label refers to. We never trust an
+// "(ID: N)" the LLM might have written in the answer text — Llama 3.1 8B
+// doesn't reproduce that pattern consistently across all courses, so any
+// regex built around it only works for some phrasings and not others (the
+// bug reported: works for some courses, not others). Instead we match the
+// bold label's TEXT against titles from the structured, backend-built data
+// — both `recommendedCourses` (search/list tool paths) and `sources`
+// (single get_course_details path) — which always carries the correct id
+// regardless of which tool the backend happened to call. This is robust
+// regardless of how the LLM formats the surrounding sentence.
+const findCourseByLabel = (label, courses, sources) => {
+  const norm = normalizeTitle(label);
+  if (!norm) return null;
+
+  // Build one lookup pool: recommendedCourses use `courseId`, sources use
+  // `course_id` — normalize both to the same shape.
+  const pool = [
+    ...(courses || []).map((c) => ({ id: c.courseId, title: c.title })),
+    ...(sources || []).map((s) => ({ id: s.course_id ?? s.courseId, title: s.title })),
+  ].filter((c) => c.id != null && c.title);
+
+  if (pool.length === 0) return null;
+
+  // Exact match first — resolves cases where one title is a substring of
+  // another (e.g. "React.js" vs "React.js Fundamentals").
+  const exact = pool.find((c) => normalizeTitle(c.title) === norm);
+  if (exact) return exact;
+
+  // Fallback: containment either direction, in case the LLM trimmed or
+  // added a word (e.g. wrote "React Fundamentals" for "React.js Fundamentals").
+  return (
+    pool.find((c) => {
+      const ct = normalizeTitle(c.title);
+      return ct.length > 0 && (ct.includes(norm) || norm.includes(ct));
+    }) || null
+  );
+};
+
+// Helper: render text with **bold** support, upgrading any bold span that
+// matches a known course into a clickable link. Any literal "(ID: N)" the
+// LLM wrote — wherever it appears — is stripped from the visible label
+// since the link itself now signals "this opens a course."
+const renderTextWithBold = (text, courses, sources, onCourseClick) => {
   if (!text) return null;
 
   const parts = [];
-  // Bold span optionally followed by " (ID: <id>)" — captures the id when present.
-  const regex = /\*\*(.*?)\*\*(?:\s*\(ID:\s*(\d+)\))?/g;
+  const regex = /\*\*(.*?)\*\*/g;
   let lastIndex = 0;
   let match;
 
@@ -243,31 +294,41 @@ const renderTextWithBold = (text, onCourseClick) => {
       parts.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>);
     }
 
-    const label = match[1];
-    const courseId = match[2];
+    // Strip a leaked "(ID: N)" from inside the bold label itself, if present.
+    const rawLabel = match[1];
+    const cleanLabel = rawLabel.replace(/\s*\(ID:\s*\d+\)\s*$/i, '').trim() || rawLabel;
 
-    if (courseId && onCourseClick) {
+    const course = findCourseByLabel(cleanLabel, courses, sources);
+
+    if (course && onCourseClick) {
       parts.push(
         <button
           key={`link-${match.index}`}
-          onClick={() => onCourseClick(courseId)}
+          onClick={() => onCourseClick(course.id)}
           className="font-semibold text-purple-700 underline decoration-purple-300 hover:text-purple-900 hover:decoration-purple-600 transition-colors"
         >
-          {label}
+          {cleanLabel}
         </button>
       );
     } else {
       parts.push(
         <strong key={`bold-${match.index}`} className="font-semibold text-purple-700">
-          {label}
+          {cleanLabel}
         </strong>
       );
     }
     lastIndex = match.index + match[0].length;
   }
 
-  if (lastIndex < text.length) {
-    parts.push(<span key="text-end">{text.slice(lastIndex)}</span>);
+  // Also catch a trailing "(ID: N)" that sits OUTSIDE the bold span
+  // (e.g. "**React.js** (ID: 6)") — since it's now redundant once the
+  // bold text above is a link, strip it from the plain-text remainder too.
+  const rest = lastIndex < text.length ? text.slice(lastIndex) : '';
+  if (rest) {
+    const cleanedRest = rest.replace(/^\s*\(ID:\s*\d+\)/i, '');
+    if (cleanedRest) {
+      parts.push(<span key="text-end">{cleanedRest}</span>);
+    }
   }
 
   return parts.length > 0 ? parts : <span>{text}</span>;
