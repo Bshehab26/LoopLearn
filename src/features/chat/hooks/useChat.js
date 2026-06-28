@@ -15,6 +15,7 @@ const INITIAL_MESSAGES = [
     actions: [],
     recommendedCourses: [],
     metadata: null,
+    showCourses: false,
   },
 ];
 
@@ -25,6 +26,27 @@ const createMessage = (sender, text, extra = {}) => ({
   timestamp: new Date(),
   ...extra,
 });
+
+// Keywords that signal the user is actually asking about courses —
+// used to decide whether the recommended-courses panel should show under
+// the bot's reply. Without this, any reply that happens to carry matched
+// courses (even for an unrelated question) would show the carousel,
+// which adds noise the user didn't ask for.
+const COURSE_INTENT_PATTERN = /\b(course|courses|recommend|recommendation|suggest|suggestion|enroll|enrolment|enrollment|class|classes|tutorial|learn|study|training|curriculum|lesson|certificate|certification)\b/i;
+
+const hasCourseIntent = (text) => {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return false;
+
+  // Short queries (1-2 words, e.g. "react", "ui ux", "python") are almost
+  // always bare topic lookups — the user is browsing by subject, not
+  // making conversation, so a matched-courses panel is the expected result
+  // even though no explicit "course"-type keyword was used.
+  const wordCount = trimmed.split(/\s+/).length;
+  if (wordCount <= 2) return true;
+
+  return COURSE_INTENT_PATTERN.test(trimmed);
+};
 
 const useChat = ({
   sessionId: providedSessionId,
@@ -118,6 +140,10 @@ const useChat = ({
           actions,
           recommendedCourses,
           metadata,
+          // Only worth showing the courses panel if the user actually
+          // asked something course-related — otherwise it's noise on a
+          // reply to an unrelated question.
+          showCourses: hasCourseIntent(trimmed),
         });
 
         setMessages((prev) => [...prev, botMessage]);

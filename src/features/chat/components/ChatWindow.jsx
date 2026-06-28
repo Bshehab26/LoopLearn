@@ -1,12 +1,11 @@
 // src/features/chat/components/ChatWindow.jsx
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
-import { 
-  HiX, 
-  HiRefresh, 
-  HiChevronDown, 
-  HiChevronUp, 
-  HiChatAlt2,
+import {
+  HiX,
+  HiRefresh,
+  HiChevronDown,
+  HiChevronUp,
   HiOutlineChevronDoubleUp,
   HiOutlineChevronDoubleDown,
   HiExclamationCircle,
@@ -14,17 +13,21 @@ import {
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import useChat from '../hooks/useChat';
+import avatar from '../../../assets/chatAvatar.png';
 
-const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => {
-  const { 
-    messages, 
-    loading, 
-    error, 
-    sessionId, 
-    sendMessage, 
+// `isOpen` controls visibility via animation only — this component stays
+// mounted across open/close cycles so the conversation in useChat's state
+// is never lost. See Chat.jsx for why.
+const ChatWindow = ({ isOpen, onClose, sessionId: initialSessionId, userId = null }) => {
+  const {
+    messages,
+    loading,
+    error,
+    sessionId,
+    sendMessage,
     clearMessages,
     isServiceAvailable,
-  } = useChat({ 
+  } = useChat({
     sessionId: initialSessionId,
     userId: userId,
   });
@@ -33,30 +36,41 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => 
   const [isExpanded, setIsExpanded] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (messagesEndRef.current && !isMinimized) {
+    if (messagesEndRef.current && !isMinimized && isOpen) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, loading, isMinimized]);
+  }, [messages, loading, isMinimized, isOpen]);
 
-  // Track unread messages when minimized
+  // Track unread messages when minimized or closed
   useEffect(() => {
-    if (isMinimized && messages.length > 1) {
+    if ((isMinimized || !isOpen) && messages.length > 1) {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg.sender === 'bot') {
-        setUnreadCount(prev => prev + 1);
+        setUnreadCount((prev) => prev + 1);
       }
     }
-  }, [messages, isMinimized]);
+  }, [messages, isMinimized, isOpen]);
 
-  // Reset unread when opened
+  // Reset unread when opened and not minimized
   useEffect(() => {
-    if (!isMinimized) {
+    if (isOpen && !isMinimized) {
       setUnreadCount(0);
     }
-  }, [isMinimized]);
+  }, [isOpen, isMinimized]);
+
+  // Re-focus the input after a response comes back, so the user can keep
+  // typing immediately without re-clicking the field.
+  useEffect(() => {
+    if (!loading && isOpen && !isMinimized) {
+      // small delay lets the new message render / scroll finish first
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [loading, isOpen, isMinimized]);
 
   const handleSend = async (text) => {
     await sendMessage(text);
@@ -82,44 +96,56 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => 
     }
   };
 
-  // Window size classes
+  // Window size + position classes.
+  // Non-expanded states anchor from the bottom (grows from the launcher).
+  // Expanded state anchors from the TOP instead — anchoring a tall (90vh)
+  // box from the bottom (bottom-24 = 96px up) pushes its top edge above
+  // y=0 on common viewport heights, which is what was cutting off the
+  // header/avatar. Anchoring from the top with a fixed margin guarantees
+  // the whole window — including the header — stays on-screen.
   const getWindowClasses = () => {
     if (isMinimized) {
-      return 'h-16 w-[92%] sm:w-80 cursor-pointer hover:shadow-xl';
+      return 'bottom-24 h-16 w-[92%] sm:w-80 cursor-pointer hover:shadow-xl';
     }
     if (isExpanded) {
-      return 'h-[90vh] w-[95%] sm:w-[650px] lg:w-[750px]';
+      return 'top-6 bottom-6 h-auto w-[95%] sm:w-[650px] lg:w-[750px]';
     }
-    return 'h-[600px] w-[92%] sm:w-[420px]';
+    return 'bottom-24 h-[600px] w-[92%] sm:w-[420px]';
   };
 
   return (
     <motion.div
-      initial={{ y: 100, opacity: 0, scale: 0.9 }}
-      animate={{ 
-        y: 0, 
-        opacity: 1, 
-        scale: 1,
-        transition: { type: 'spring', damping: 25, stiffness: 300 }
-      }}
-      exit={{ y: 100, opacity: 0, scale: 0.9 }}
-      className={`fixed bottom-24 right-3 sm:right-6 bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-200/60 backdrop-blur-md transition-all duration-300 ease-out ${getWindowClasses()}`}
+      initial={false}
+      animate={
+        isOpen
+          ? { y: 0, opacity: 1, scale: 1, pointerEvents: 'auto' }
+          : { y: 40, opacity: 0, scale: 0.95, pointerEvents: 'none' }
+      }
+      transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+      aria-hidden={!isOpen}
+      // overflow-hidden restored now that the window can never extend past
+      // the viewport — this is what keeps the rounded corners crisp.
+      className={`fixed right-3 sm:right-6 bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-200/60 backdrop-blur-md transition-[width,height,top,bottom] duration-300 ease-out ${getWindowClasses()}`}
     >
       {/* Header */}
-      <div 
-        className='flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white flex-shrink-0 select-none'
+      <div
+        className='relative flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white flex-shrink-0 select-none'
         onClick={isMinimized ? toggleMinimize : undefined}
       >
         <div className='flex items-center gap-3 min-w-0'>
           <div className='relative flex-shrink-0'>
-            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40">
-              <HiChatAlt2 className="w-5 h-5 text-white" />
-            </div>
-            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white transition-colors duration-500 ${
-              isServiceAvailable ? 'bg-green-400' : 'bg-red-400'
-            }`} />
+            <img
+              src={avatar}
+              alt='Loopy AI'
+              className='w-9 h-9 rounded-full object-cover border-2 border-white/40 bg-white/20'
+            />
+            <div
+              className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white transition-colors duration-500 ${
+                isServiceAvailable ? 'bg-green-400' : 'bg-red-400'
+              }`}
+            />
           </div>
-          
+
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className='font-semibold text-sm truncate'>Loopy AI</span>
@@ -131,49 +157,76 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => 
             </div>
             <div className='flex items-center gap-1.5'>
               <span className='text-[10px] opacity-80 flex items-center gap-1'>
-                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                  isServiceAvailable ? 'bg-green-300 animate-pulse' : 'bg-red-300'
-                }`} />
+                <span
+                  className={`inline-block w-1.5 h-1.5 rounded-full ${
+                    isServiceAvailable ? 'bg-green-300 animate-pulse' : 'bg-red-300'
+                  }`}
+                />
                 {isServiceAvailable ? 'Online' : 'Offline'}
               </span>
             </div>
           </div>
         </div>
-        
-        {/* Window controls */}
+
+        {/*
+          Window controls — ordered by convention:
+          Refresh (utility, low-stakes) → Minimize (reversible) →
+          Expand (reversible, bigger visual jump) → Close (kept furthest
+          from the others, isolated, since it's the only destructive-feeling
+          action — even though we no longer lose data on close, it should
+          still read as visually distinct from the rest).
+        */}
         <div className='flex gap-0.5 items-center'>
           {!isMinimized && (
             <>
               <button
-                onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
-                className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
-                title={isExpanded ? 'Collapse' : 'Expand'}
-              >
-                {isExpanded ? <HiOutlineChevronDoubleDown size={16} /> : <HiOutlineChevronDoubleUp size={16} />}
-              </button>
-              
-              <button
                 onClick={(e) => { e.stopPropagation(); handleClear(); }}
                 className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
                 title="New conversation"
+                aria-label="Start a new conversation"
               >
                 <HiRefresh size={15} />
               </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleMinimize(); }}
+                className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
+                title="Minimize"
+                aria-label="Minimize chat"
+              >
+                <HiChevronDown size={18} />
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
+                className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
+                title={isExpanded ? 'Collapse' : 'Expand'}
+                aria-label={isExpanded ? 'Collapse chat window' : 'Expand chat window'}
+              >
+                {isExpanded ? <HiOutlineChevronDoubleDown size={16} /> : <HiOutlineChevronDoubleUp size={16} />}
+              </button>
             </>
           )}
-          
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleMinimize(); }}
-            className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
-            title={isMinimized ? 'Maximize' : 'Minimize'}
-          >
-            {isMinimized ? <HiChevronUp size={18} /> : <HiChevronDown size={18} />}
-          </button>
-          
+
+          {isMinimized && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleMinimize(); }}
+              className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
+              title="Maximize"
+              aria-label="Maximize chat"
+            >
+              <HiChevronUp size={18} />
+            </button>
+          )}
+
+          {/* Visual separator before the destructive action */}
+          <span className='w-px h-5 bg-white/25 mx-1' />
+
           <button
             onClick={(e) => { e.stopPropagation(); onClose(); }}
             className='text-white/70 hover:text-white hover:bg-white/20 rounded-lg p-1.5 transition-all'
             title="Close chat"
+            aria-label="Close chat"
           >
             <HiX size={18} />
           </button>
@@ -185,7 +238,7 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => 
         <div className="px-4 py-2.5 bg-purple-50/80 text-purple-700 text-xs flex items-center gap-2">
           <span className="text-base">💬</span>
           <span className="truncate">
-            {messages.length > 1 
+            {messages.length > 1
               ? messages[messages.length - 1].text.slice(0, 45) + '...'
               : 'Click to chat with Loopy AI'}
           </span>
@@ -235,11 +288,11 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => 
                   <p className="text-gray-500 text-sm">Ask me about courses, recommendations, or anything!</p>
                 </div>
               )}
-              
+
               {messages.map((msg) => (
                 <ChatMessage key={msg.id} message={msg} />
               ))}
-              
+
               {loading && (
                 <div className='flex justify-start'>
                   <div className='bg-white border border-gray-100 text-gray-800 max-w-[200px] p-4 rounded-2xl rounded-bl-md shadow-sm'>
@@ -252,13 +305,13 @@ const ChatWindow = ({ onClose, sessionId: initialSessionId, userId = null }) => 
                   </div>
                 </div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
             <div className="flex-shrink-0">
-              <ChatInput onSend={handleSend} loading={loading} />
+              <ChatInput onSend={handleSend} loading={loading} inputRef={inputRef} autoFocus={isOpen} />
             </div>
           </motion.div>
         )}
