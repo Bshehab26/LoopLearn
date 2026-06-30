@@ -1,6 +1,7 @@
 // src/features/chat/components/ChatWindow.jsx
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   HiX,
   HiRefresh,
@@ -37,6 +38,26 @@ const ChatWindow = ({ isOpen, onClose, sessionId: initialSessionId, userId = nul
   const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const location = useLocation();
+  const previousPathRef = useRef(location.pathname);
+
+  // Auto-minimize on navigation. ChatWindow intentionally stays mounted
+  // across route changes (so the conversation survives), but it shouldn't
+  // keep floating fully open over every new page the user navigates to —
+  // that reads as the widget "following you around" rather than a
+  // dismissible assistant. Minimizing (not closing) keeps the unread
+  // badge / conversation state intact and lets the user reopen with one
+  // click if they still want it.
+  useEffect(() => {
+    if (location.pathname !== previousPathRef.current) {
+      previousPathRef.current = location.pathname;
+      if (isOpen && !isMinimized) {
+        setIsMinimized(true);
+        setIsExpanded(false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -98,6 +119,12 @@ const ChatWindow = ({ isOpen, onClose, sessionId: initialSessionId, userId = nul
 
   // Window size + position classes.
   // Non-expanded states anchor from the bottom (grows from the launcher).
+  // The default (non-expanded, non-minimized) size now uses a smaller base
+  // height AND a max-height capped relative to the viewport — fixed h-[600px]
+  // was tall enough to collide with the navbar on common laptop viewport
+  // heights (~700-768px), since bottom-24 (96px) + 600px leaves very little
+  // room above. Capping against 100vh guarantees breathing room up top
+  // regardless of screen size.
   // Expanded state anchors from the TOP instead — anchoring a tall (90vh)
   // box from the bottom (bottom-24 = 96px up) pushes its top edge above
   // y=0 on common viewport heights, which is what was cutting off the
@@ -110,7 +137,7 @@ const ChatWindow = ({ isOpen, onClose, sessionId: initialSessionId, userId = nul
     if (isExpanded) {
       return 'top-6 bottom-6 h-auto w-[95%] sm:w-[650px] lg:w-[750px]';
     }
-    return 'bottom-24 h-[600px] w-[92%] sm:w-[420px]';
+    return 'bottom-24 h-[520px] max-h-[calc(100vh-160px)] w-[92%] sm:w-[400px]';
   };
 
   return (

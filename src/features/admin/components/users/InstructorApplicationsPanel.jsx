@@ -356,9 +356,9 @@ const InstructorApplicationsPanel = () => {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        {app.avatar ? (
+                        {app.profileImageUrl ? (
                           <img
-                            src={app.avatar}
+                            src={app.profileImageUrl}
                             alt={app.fullName || app.userName}
                             className="w-8 h-8 rounded-full object-cover"
                           />
@@ -438,9 +438,9 @@ const InstructorApplicationsPanel = () => {
         {selectedApplication && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-              {selectedApplication.avatar ? (
+              {selectedApplication.profileImageUrl ? (
                 <img
-                  src={selectedApplication.avatar}
+                  src={selectedApplication.profileImageUrl}
                   alt={selectedApplication.fullName || selectedApplication.userName}
                   className="w-12 h-12 rounded-full object-cover"
                 />
@@ -465,16 +465,10 @@ const InstructorApplicationsPanel = () => {
                 <span className="text-gray-600">Submitted:</span>
                 <span className="text-gray-800">{formatDate(selectedApplication.requestedAt)}</span>
               </div>
-              {selectedApplication.message && (
+              {selectedApplication.bio && (
                 <div className="bg-gray-50 rounded-lg p-3 mt-2">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Message</p>
-                  <p className="text-sm text-gray-700">{selectedApplication.message}</p>
-                </div>
-              )}
-              {selectedApplication.experience && (
-                <div className="bg-gray-50 rounded-lg p-3 mt-2">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Experience</p>
-                  <p className="text-sm text-gray-700">{selectedApplication.experience}</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Bio</p>
+                  <p className="text-sm text-gray-700">{selectedApplication.bio}</p>
                 </div>
               )}
             </div>
