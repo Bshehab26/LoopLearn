@@ -52,7 +52,7 @@ const StatCard = ({ title, value, icon: Icon, color, bgColor }) => (
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { courses, loading: coursesLoading } = useInstructorCourses();
+  const { courses, loading: coursesLoading ,statistics} = useInstructorCourses();
   const [stats, setStats] = useState({
     totalCourses: 0,
     totalStudents: 0,
@@ -63,13 +63,13 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!coursesLoading) {
-      const totalEnrollments = courses.reduce((sum, c) => sum + (c.enrollmentCount || 0), 0);
-      const totalRevenue = courses.reduce((sum, c) => sum + ((c.price || 0) * (c.enrollmentCount || 0)), 0);
+      // const totalEnrollments = courses.reduce((sum, c) => sum + (c.enrollmentCount || 0), 0);
+      // const totalRevenue = courses.reduce((sum, c) => sum + ((c.price || 0) * (c.enrollmentCount || 0)), 0);
       setStats({
-        totalCourses: courses.length,
-        totalStudents: totalEnrollments, // unique students? assuming enrollment count is students
-        totalRevenue,
-        totalEnrollments,
+        totalCourses: statistics.totalCourses,
+        totalStudents: statistics.totalStudents, // unique students? assuming enrollment count is students
+        totalRevenue:statistics.totalRevenue,
+        totalEnrollments:statistics.totalEnrollments,
       });
       setStatsLoading(false);
     }

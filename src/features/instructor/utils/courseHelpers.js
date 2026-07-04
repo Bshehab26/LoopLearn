@@ -1,3 +1,4 @@
+// src/features/instructor/utils/courseHelper.js
 // Helper for editable lists (stable keys)
 export const toEditableList = (arr) => (arr || []).map((text, idx) => ({ id: idx + 1, text }));
 export const fromEditableList = (arr) => arr?.map(i => i.text).filter(t => t?.trim()) || null;

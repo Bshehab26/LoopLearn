@@ -10,6 +10,7 @@ import { mapBackendStatus } from '../utils/courseStatusMapper';
 
 export const useInstructorCourses = () => {
   const [courses, setCourses] = useState([]);
+  const [statistics , setStats] = useState();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'draft', 'pending', 'published', 'rejected'
@@ -24,6 +25,7 @@ export const useInstructorCourses = () => {
           ...course,
           status: mapBackendStatus(course.status)
         }));
+        setStats(response.stats);
         setCourses(mappedCourses);
         setError(null);
       } else {
@@ -99,6 +101,7 @@ export const useInstructorCourses = () => {
 
   return {
     courses: filteredCourses(),
+    statistics,
     allCourses: courses,
     loading,
     error,

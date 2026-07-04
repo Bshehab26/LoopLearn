@@ -290,7 +290,8 @@ const StudentEnrolled = () => {
     filterByCourse,
     goToPage: goToApiPage,
     currentPage: apiPage,
-    refetch
+    refetch,
+    statistics
   } = useInstructorStudents();
 
   // Fetch courses for filter dropdown

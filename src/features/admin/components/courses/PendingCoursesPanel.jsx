@@ -53,7 +53,7 @@ const PendingCoursesPanel = () => {
         setCourses(res.data || []);
         setPagination(res.pagination || { page, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 1 });
       } else {
-        setError(res.message || 'Failed to load pending courses.');
+        setError(res.message || 'No pending courses.');
       }
     } catch (err) {
       if (err.response?.status === 404) {
