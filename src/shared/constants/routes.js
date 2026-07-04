@@ -8,12 +8,16 @@ export const ROUTES = {
   SIGN_IN: '/signin',
   SIGN_UP: '/signup',
   
+  // Legal Pages - ADD THESE
+  PRIVACY_POLICY: '/privacy-policy',
+  TERMS_OF_SERVICE: '/terms-of-service',
+  
   // Student
   MY_ENROLLMENTS: '/my-enrollments',
   PROFILE: '/profile',
   CHAT: '/chat',
   WATCH: (courseId) => `/watch/${courseId}`,
-  BECOME_INSTRUCTOR: '/become-instructor',  // ADD THIS
+  BECOME_INSTRUCTOR: '/become-instructor',
   
   // Instructor
   INSTRUCTOR_DASHBOARD: '/instructor',

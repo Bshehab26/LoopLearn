@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi';
 import { useAuth } from '../../../store/AppProvider';
 import { useInstructorCourses } from '../hooks/useInstructorCourses';
+import { formatPrice } from '../../../shared/utils/formatters';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -114,7 +115,7 @@ const Dashboard = () => {
           <StatCard
             key={index}
             title={stat.title}
-            value={stats[stat.key] || 0}
+            value={stat.key === 'totalRevenue' ? formatPrice(stats[stat.key] || 0) : (stats[stat.key] || 0)}
             icon={stat.icon}
             color={stat.color}
             bgColor={stat.bgColor}

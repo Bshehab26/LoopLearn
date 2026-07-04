@@ -46,10 +46,11 @@ export const getCategories = async (page = 1, pageSize = 10000) => {
  * @param {number} pageSize - Items per page (default: 50)
  * @returns {Promise<{success, data: Array, pagination: {totalCount, pageNumber, pageSize}, hasMore}>}
  */
-export const getTags = async (page = 1, pageSize = 50) => {
+export const getTags = async (page = 1, pageSize = 50, signal) => {
   try {
     const response = await api.get('/Tag', { 
-      params: { page, pageSize } 
+      params: { page, pageSize },
+      signal,
     });
 
     const data = response.data?.data || [];

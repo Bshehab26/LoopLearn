@@ -1,8 +1,10 @@
 // src/features/admin/components/courses/PendingCoursesPanel.jsx
 //
-// Drives PendingCourses.jsx. Uses GET /api/Admin/courses/pending —
-// returns a flat list (no pagination) ordered oldest-first so reviews
-// happen in submission order.
+// Drives PendingCourses.jsx. Uses GET /api/Admin/courses/pending, ordered
+// oldest-first so reviews happen in submission order. The endpoint IS
+// paginated server-side (page/pageSize + Total-Count/Page-Number/Page-Size
+// headers) — this panel now actually requests a page and renders controls
+// for it instead of always fetching page 1 and showing everything at once.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +16,7 @@ import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
 import TableSkeleton from '../common/TableSkeleton';
 import Avatar from '../common/Avatar';
+import Pagination from '../../../../shared/components/Pagination';
 import {
   HiOutlineClipboardList,
   HiOutlineCheckCircle,
@@ -28,12 +31,16 @@ const formatDate = (d) =>
 const fmt = (amount) =>
   amount == null ? '—' : `$${Number(amount).toFixed(2)}`;
 
+const PAGE_SIZE = 10;
+
 const PendingCoursesPanel = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rejectModalCourse, setRejectModalCourse] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 });
 
   const { approve, reject, loading: actionLoading, error: actionError, clearError } = useAdminCourseActions();
 
@@ -41,19 +48,24 @@ const PendingCoursesPanel = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getPendingCourses();
-      if (res.success) setCourses(res.data || []);
-      else setError(res.message || 'Failed to load pending courses.');
+      const res = await getPendingCourses({ page, pageSize: PAGE_SIZE });
+      if (res.success) {
+        setCourses(res.data || []);
+        setPagination(res.pagination || { page, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 1 });
+      } else {
+        setError(res.message || 'Failed to load pending courses.');
+      }
     } catch (err) {
       if (err.response?.status === 404) {
         setCourses([]);
+        setPagination({ page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 });
       } else {
         setError(err.response?.data?.message || 'Failed to load pending courses.');
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => { fetchPending(); }, [fetchPending]);
 
@@ -175,6 +187,25 @@ const PendingCoursesPanel = () => {
             </tbody>
           </table>
         </div>
+
+        {pagination.totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+            <p className="text-xs text-gray-400">
+              Showing{' '}
+              <span className="font-medium text-gray-600">
+                {(pagination.page - 1) * pagination.pageSize + 1}
+                –
+                {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)}
+              </span>{' '}
+              of <span className="font-medium text-gray-600">{pagination.totalCount}</span> pending courses
+            </p>
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
       </div>
 
       <RejectCourseModal

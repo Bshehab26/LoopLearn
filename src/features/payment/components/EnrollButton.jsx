@@ -42,6 +42,7 @@ const EnrollButton = ({
   onAuthRequired,
   onSuccess,
   className = '',
+  hideTrustBadge = false,
 }) => {
   const {
     startCheckout,
@@ -161,7 +162,7 @@ const EnrollButton = ({
       </AnimatePresence>
 
       {/* Stripe trust badge for paid courses */}
-      {!course.isFree && !enrolled && (
+      {!hideTrustBadge && !course.isFree && !enrolled && (
         <p className="mt-2 text-center text-[11px] text-gray-400 flex items-center justify-center gap-1">
           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>

@@ -20,7 +20,7 @@ const SignUp = lazy(() => import('../features/auth/pages/SignUp'));
 // Student
 const Home           = lazy(() => import('../features/student/pages/Home'));
 const MyEnrollments  = lazy(() => import('../features/student/pages/MyEnrollments'));
-const InstructorApplicationPage = lazy(() => import('../features/student/pages/InstructorApplicationPage')); // ADD THIS
+const InstructorApplicationPage = lazy(() => import('../features/student/pages/InstructorApplicationPage'));
 
 // Profile
 const Profile = lazy(() => import('../features/profile/pages/Profile'));
@@ -37,6 +37,10 @@ const Chat = lazy(() => import('../features/chat/pages/Chat'));
 const PaymentSuccessPage  = lazy(() => import('../features/payment/pages/PaymentSuccessPage'));
 const PaymentCancelPage   = lazy(() => import('../features/payment/pages/PaymentCancelPage'));
 const PaymentHistoryPage  = lazy(() => import('../features/payment/pages/PaymentHistoryPage'));
+
+// Legal Pages - ADD THESE
+const PrivacyPolicy = lazy(() => import('../shared/pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('../shared/pages/TermsOfService'));
 
 // Instructor
 const InstructorDashboard       = lazy(() => import('../features/instructor/pages/Dashboard'));
@@ -107,6 +111,10 @@ const AppRouter = () => {
         <Route path={ROUTES.SIGN_IN} element={<AuthGuard><SignIn /></AuthGuard>} />
         <Route path={ROUTES.SIGN_UP} element={<AuthGuard><SignUp /></AuthGuard>} />
 
+        {/* ── Legal Pages (Public - No Layout) ─────────────────────────────── */}
+        <Route path={ROUTES.PRIVACY_POLICY} element={<PrivacyPolicy />} />
+        <Route path={ROUTES.TERMS_OF_SERVICE} element={<TermsOfService />} />
+
         {/* ── Student Layout ────────────────────────────────────────────────── */}
         <Route element={<StudentLayout />}>
           {/* Public */}
@@ -129,7 +137,6 @@ const AppRouter = () => {
             <Route path={ROUTES.PROFILE}               element={<Profile />} />
             <Route path={ROUTES.WATCH(':courseId')}    element={<WatchWindow />} />
             <Route path="/my-payments" element={<PaymentHistoryPage />} />
-            {/* ADD THIS ROUTE */}
             <Route path={ROUTES.BECOME_INSTRUCTOR} element={<InstructorApplicationPage />} />
           </Route>
         </Route>

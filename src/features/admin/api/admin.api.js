@@ -89,10 +89,10 @@ export const getAdminCourseById = async (courseId) => {
 };
 
 /** GET /api/Admin/courses/pending */
-export const getPendingCourses = async () => {
+export const getPendingCourses = async ({ page = 1, pageSize = 10 } = {}) => {
   try {
-    const response = await api.get('/Admin/courses/pending');
-    return response.data;
+    const response = await api.get('/Admin/courses/pending', { params: { page, pageSize } });
+    return { ...response.data, pagination: buildPagination(response.headers, page, pageSize) };
   } catch (error) {
     return handleApiError(error);
   }

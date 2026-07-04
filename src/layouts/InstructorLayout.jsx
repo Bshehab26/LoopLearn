@@ -23,8 +23,43 @@ import {
   HiOutlineHome, HiMenuAlt2, HiX, HiOutlineBell,
   HiOutlineChevronRight,
 } from 'react-icons/hi';
-import { useAuth } from '../store/AppProvider';
+import { useAuth, useProfile } from '../store/AppProvider';
 import { ROUTES } from '../shared/constants/routes';
+
+// ============================================================================
+// Avatar (same pattern as Navbar.jsx: shows profile.avatar if present, else initials)
+// ============================================================================
+
+function useAvatarKey(avatarUrl) {
+  const [avatarKey, setAvatarKey] = useState(Date.now());
+  React.useEffect(() => { if (avatarUrl) setAvatarKey(Date.now()); }, [avatarUrl]);
+  React.useEffect(() => {
+    const refresh = () => setAvatarKey(Date.now());
+    window.addEventListener('avatar-updated', refresh);
+    return () => window.removeEventListener('avatar-updated', refresh);
+  }, []);
+  return avatarKey;
+}
+
+const Avatar = ({ avatarUrl, initials, sizeClass = 'w-8 h-8' }) => {
+  const avatarKey = useAvatarKey(avatarUrl);
+  if (avatarUrl) {
+    return (
+      <img
+        key={avatarKey}
+        src={`${avatarUrl}?t=${avatarKey}`}
+        alt={initials}
+        className={`${sizeClass} rounded-full object-cover flex-shrink-0`}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeClass} rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+      {initials}
+    </div>
+  );
+};
 
 // ============================================================================
 // Nav config
@@ -63,7 +98,7 @@ const NAV_ITEMS = [
 // Sidebar
 // ============================================================================
 
-const Sidebar = ({ isOpen, onClose, username, initials }) => {
+const Sidebar = ({ isOpen, onClose, username, initials, avatarUrl }) => {
   const navigate = useNavigate();
 
   const handleLogout  = () => { useAuth().logout(); navigate(ROUTES.SIGN_IN); };
@@ -107,9 +142,7 @@ const Sidebar = ({ isOpen, onClose, username, initials }) => {
         {/* ── Avatar strip ── */}
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-purple-50 border border-purple-100">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              {initials}
-            </div>
+            <Avatar avatarUrl={avatarUrl} initials={initials} sizeClass="w-8 h-8" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-800 truncate">{username}</p>
               <p className="text-[11px] text-purple-600 font-medium">Instructor</p>
@@ -255,6 +288,7 @@ const TopBar = ({ onMenuClick, username }) => {
 const InstructorLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
+  const { profile } = useProfile();
 
   const username = user?.username || user?.email?.split('@')[0] || 'Instructor';
   const initials = username.slice(0, 2).toUpperCase();
@@ -266,6 +300,7 @@ const InstructorLayout = () => {
         onClose={() => setSidebarOpen(false)}
         username={username}
         initials={initials}
+        avatarUrl={profile?.avatar}
       />
 
       {/* Right column: topbar + content */}

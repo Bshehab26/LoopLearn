@@ -1,12 +1,14 @@
 // src/features/courses/components/CourseCard.jsx
 
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   HiStar, 
   HiClock, 
   HiOutlineBookOpen,
   HiUserGroup 
 } from 'react-icons/hi';
+import { ROUTES } from '../../../shared/constants/routes'; // ADD THIS IMPORT
 
 // Get currency from env or default to USD
 const CURRENCY = import.meta.env.VITE_CURRENCY || 'USD';
@@ -99,6 +101,8 @@ const imageVariants = {
 };
 
 const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
+  const navigate = useNavigate(); // ADD THIS HOOK
+
   const {
     id,
     title,
@@ -137,6 +141,18 @@ const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
   const formattedPrice = formatPrice(price, isFree);
   const formattedDuration = formatDuration(duration);
 
+  // Navigate to course details with scroll to top
+  const handleNavigateToCourse = () => {
+    navigate(`/course/${id}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Alternative: Use ROUTES constant if you have it configured
+  // const handleNavigateToCourse = () => {
+  //   navigate(ROUTES.COURSE_DETAILS.replace(':id', id));
+  //   window.scrollTo({ top: 0, behavior: 'smooth' });
+  // };
+
   // Play Icon Component
   const PlayIcon = () => (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,7 +170,8 @@ const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
         animate="visible"
         whileHover="hover"
         variants={cardVariants}
-        className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300"
+        className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 cursor-pointer"
+        onClick={handleNavigateToCourse} // ADD THIS - Makes entire card clickable
       >
         {/* Thumbnail Container */}
         <div className="relative h-48 overflow-hidden bg-gray-100">
@@ -222,7 +239,10 @@ const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="px-6 py-2 bg-white rounded-full text-gray-800 font-semibold text-sm shadow-lg"
-              onClick={() => window.location.href = `/course/${id}`}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent double trigger
+                handleNavigateToCourse();
+              }}
             >
               View Course
             </motion.button>
@@ -282,7 +302,8 @@ const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
       animate="visible"
       whileHover="hover"
       variants={cardVariants}
-      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row"
+      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row cursor-pointer"
+      onClick={handleNavigateToCourse} // ADD THIS - Makes entire card clickable
     >
       {/* Thumbnail */}
       <div className="relative sm:w-64 h-48 sm:h-auto overflow-hidden bg-gray-100">
@@ -373,7 +394,10 @@ const CourseCard = ({ course, index = 0, viewMode = 'grid' }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition shadow-sm"
-              onClick={() => window.location.href = `/course/${id}`}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent double trigger
+                handleNavigateToCourse();
+              }}
             >
               <PlayIcon />
               Enroll Now

@@ -10,8 +10,8 @@
  */
 export const extractPaginationHeaders = (headers, defaults = {}) => {
   const total = parseInt(headers['total-count'] || 0, 10);
-  const page = parseInt(headers['page'] || defaults.page || 1, 10);
-  const pageSize = parseInt(headers['pagesize'] || defaults.pageSize || 10, 10);
+  const page = parseInt(headers['page-number'] || defaults.page || 1, 10);
+  const pageSize = parseInt(headers['page-size'] || defaults.pageSize || 10, 10);
   
   return {
     page,

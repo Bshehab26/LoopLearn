@@ -8,8 +8,43 @@ import {
   HiMenuAlt2, HiChevronLeft, HiChevronRight, HiSparkles, HiClock,
   HiViewGrid, HiUserAdd, HiFolder,
 } from 'react-icons/hi';
-import { useAuth } from '../store/AppProvider';
+import { useAuth, useProfile } from '../store/AppProvider';
 import { ROUTES } from '../shared/constants/routes';
+
+// ============================================================================
+// Avatar (same pattern as Navbar.jsx: shows profile.avatar if present, else initials)
+// ============================================================================
+
+function useAvatarKey(avatarUrl) {
+  const [avatarKey, setAvatarKey] = useState(Date.now());
+  useEffect(() => { if (avatarUrl) setAvatarKey(Date.now()); }, [avatarUrl]);
+  useEffect(() => {
+    const refresh = () => setAvatarKey(Date.now());
+    window.addEventListener('avatar-updated', refresh);
+    return () => window.removeEventListener('avatar-updated', refresh);
+  }, []);
+  return avatarKey;
+}
+
+const Avatar = ({ avatarUrl, initials, sizeClass = 'w-10 h-10' }) => {
+  const avatarKey = useAvatarKey(avatarUrl);
+  if (avatarUrl) {
+    return (
+      <img
+        key={avatarKey}
+        src={`${avatarUrl}?t=${avatarKey}`}
+        alt={initials}
+        className={`${sizeClass} rounded-xl object-cover flex-shrink-0`}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeClass} rounded-xl flex items-center justify-center text-sm font-medium bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg flex-shrink-0`}>
+      {initials}
+    </div>
+  );
+};
 
 // Icon aliases for clarity
 const HiOutlineLayoutDashboard = HiViewGrid;
@@ -94,6 +129,7 @@ const NAVIGATION = {
 
 const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const { user, logout } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -206,12 +242,8 @@ const AdminSidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
           {/* User Profile */}
           <div className={`p-4 border-b border-gray-700/50 ${isCollapsed ? 'text-center' : ''}`}>
             <div className={`flex ${isCollapsed ? 'flex-col' : 'items-center gap-3'}`}>
-              <div className={`
-                w-10 h-10 rounded-xl flex items-center justify-center text-sm font-medium 
-                bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg
-                ${isCollapsed ? 'mx-auto' : ''}
-              `}>
-                {initials}
+              <div className={isCollapsed ? 'mx-auto' : ''}>
+                <Avatar avatarUrl={profile?.avatar} initials={initials} sizeClass="w-10 h-10" />
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">

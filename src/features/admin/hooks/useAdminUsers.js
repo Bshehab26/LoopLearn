@@ -37,13 +37,13 @@ const useAdminUsers = () => {
       
       if (response.success) {
         setUsers(response.data);
-        // Extract pagination from headers
-        const totalCount = parseInt(response.headers?.['total-count'] || '0');
+        const p = response.pagination || {};
         setPagination(prev => ({
           ...prev,
-          currentPage: page,
-          totalItems: totalCount,
-          totalPages: Math.ceil(totalCount / pagination.pageSize),
+          currentPage: p.page || page,
+          totalItems: p.totalCount || 0,
+          totalPages: p.totalPages || 1,
+          pageSize: p.pageSize || prev.pageSize,
         }));
       } else {
         setError(response.message || 'Failed to load users.');

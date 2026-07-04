@@ -1,11 +1,6 @@
-/**
- * Footer.jsx
- * Website footer component with brand info, navigation links, newsletter signup, and social media links.
- * 
- * @module shared/components/Footer
- */
+// src/shared/components/Footer.jsx (update the imports and links)
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   FaFacebook, 
@@ -15,12 +10,17 @@ import {
   FaYoutube, 
   FaGithub,
   FaEnvelope,
-  FaArrowRight
+  FaArrowRight,
+  FaCheckCircle
 } from 'react-icons/fa';
+import { ROUTES } from '../constants/routes'; // ADD THIS IMPORT
 
 const Footer = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [email, setEmail] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const scrollTo = (id) => {
     if (location.pathname !== '/') {
@@ -30,6 +30,47 @@ const Footer = () => {
       }, 300);
     } else {
       document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleNavigateToCourses = () => {
+    navigate(ROUTES.COURSE_LIST);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setIsLoading(true);
+    try {
+      // Send email using EmailJS or your preferred service
+      const response = await fetch('YOUR_EMAIL_API_ENDPOINT', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          subject: 'Newsletter Subscription',
+          message: `New subscriber: ${email}`
+        }),
+      });
+
+      if (response.ok) {
+        setIsSubscribed(true);
+        setEmail('');
+        setTimeout(() => setIsSubscribed(false), 5000);
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      // Fallback: Open mail client
+      window.location.href = `mailto:support@looplearn.com?subject=Newsletter Subscription&body=Please subscribe me to the newsletter. My email: ${email}`;
+      setIsSubscribed(true);
+      setEmail('');
+      setTimeout(() => setIsSubscribed(false), 5000);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -50,7 +91,7 @@ const Footer = () => {
           
           {/* Brand Column */}
           <div className='md:col-span-4 text-center md:text-left'>
-            <Link to='/'>
+            <Link to={ROUTES.HOME}>
               <h1 className='font-extrabold text-2xl md:text-3xl tracking-wide'>
                 LOOP<span className='text-purple-500'>LEARN</span>
               </h1>
@@ -74,7 +115,7 @@ const Footer = () => {
             <h3 className='font-semibold text-white text-lg mb-4'>Company</h3>
             <ul className='space-y-3'>
               <li>
-                <Link to='/' className='text-gray-400 hover:text-purple-400 transition text-sm'>
+                <Link to={ROUTES.HOME} className='text-gray-400 hover:text-purple-400 transition text-sm'>
                   Home
                 </Link>
               </li>
@@ -89,19 +130,19 @@ const Footer = () => {
                 </button>
               </li>
               <li>
-                <Link to='/course-list' className='text-gray-400 hover:text-purple-400 transition text-sm'>
+                <button onClick={handleNavigateToCourses} className='text-gray-400 hover:text-purple-400 transition text-sm'>
                   All Courses
+                </button>
+              </li>
+              <li>
+                <Link to={ROUTES.PRIVACY_POLICY} className='text-gray-400 hover:text-purple-400 transition text-sm'>
+                  Privacy Policy
                 </Link>
               </li>
               <li>
-                <a href='#' className='text-gray-400 hover:text-purple-400 transition text-sm'>
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href='#' className='text-gray-400 hover:text-purple-400 transition text-sm'>
+                <Link to={ROUTES.TERMS_OF_SERVICE} className='text-gray-400 hover:text-purple-400 transition text-sm'>
                   Terms of Service
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -113,17 +154,37 @@ const Footer = () => {
               <p className='text-sm text-gray-400 mb-4'>
                 Subscribe to our newsletter for the latest courses and special offers.
               </p>
-              <div className='flex flex-col sm:flex-row gap-3'>
+              <form onSubmit={handleSubscribe} className='flex flex-col sm:flex-row gap-3'>
                 <input
                   type='email'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder='Enter your email address'
+                  required
                   className='flex-1 px-4 py-2.5 text-sm rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition'
                 />
-                <button className='px-5 py-2.5 bg-purple-600 hover:bg-purple-700 transition text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2'>
-                  Subscribe
-                  <FaArrowRight size={12} />
+                <button 
+                  type='submit'
+                  disabled={isLoading || isSubscribed}
+                  className='px-5 py-2.5 bg-purple-600 hover:bg-purple-700 transition text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isLoading ? 'Sending...' : isSubscribed ? (
+                    <>
+                      Subscribed <FaCheckCircle size={14} />
+                    </>
+                  ) : (
+                    <>
+                      Subscribe
+                      <FaArrowRight size={12} />
+                    </>
+                  )}
                 </button>
-              </div>
+              </form>
+              {isSubscribed && (
+                <p className='mt-2 text-sm text-green-400'>
+                  ✓ Thanks for subscribing! We'll keep you updated.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -145,7 +206,6 @@ const Footer = () => {
                     size={18} 
                     className='text-gray-400 group-hover:text-white transition-colors duration-300'
                   />
-                  {/* Tooltip on hover */}
                   <span className='absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap'>
                     {social.label}
                   </span>

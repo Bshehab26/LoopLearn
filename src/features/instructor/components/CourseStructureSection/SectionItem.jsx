@@ -287,6 +287,13 @@ const SectionItem = ({ section, onUpdate, onDelete, onMoveUp, onMoveDown, isEdit
                         />
                         <span className="text-sm text-gray-700">Free preview lesson</span>
                       </label>
+                      <textarea
+                        placeholder="Description (optional)"
+                        value={newLesson.description}
+                        onChange={(e) => setNewLesson({ ...newLesson, description: e.target.value })}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none resize-none"
+                      />
                       <div className="flex gap-2 justify-end">
                         <button
                           onClick={() => setShowAddLesson(false)}

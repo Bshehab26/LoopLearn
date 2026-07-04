@@ -9,6 +9,11 @@ import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
 import Pagination from '../../../../shared/components/Pagination';
 
+// Backend returns sentinel strings like "No Image" or "Profile Image Not Provided."
+// instead of null when there's no picture — those aren't real URLs, so filter them out.
+const hasProfileImage = (url) =>
+  !!url && !['no image', 'profile image not provided.'].includes(url.trim().toLowerCase());
+
 const UserRow = ({ user, currentUser, onViewDetails, onChangeRole, onToggleBan }) => {
   const isSelf = currentUser?.id === user?.id;
   const isSuperAdmin = currentUser?.role === 'SuperAdmin';
@@ -29,8 +34,16 @@ const UserRow = ({ user, currentUser, onViewDetails, onChangeRole, onToggleBan }
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#534AB7] to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-            {user.fullName?.charAt(0) || user.userName?.charAt(0) || '?'}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#534AB7] to-purple-500 flex items-center justify-center text-white text-xs font-medium overflow-hidden flex-shrink-0">
+            {hasProfileImage(user.profileImageUrl) ? (
+              <img
+                src={user.profileImageUrl}
+                alt={user.fullName || user.userName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              user.fullName?.charAt(0) || user.userName?.charAt(0) || '?'
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-800">{user.fullName}</p>
@@ -123,7 +136,13 @@ const UserTable = ({
       </div>
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="px-4 py-3 border-t border-gray-100">
+        <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center">
+          <span className="text-xs text-gray-400">
+            Page {pagination.currentPage} of {pagination.totalPages}
+            {typeof pagination.totalItems === 'number' && (
+              <> · <span className="font-medium text-gray-600">{pagination.totalItems}</span> users</>
+            )}
+          </span>
           <Pagination
             currentPage={pagination.currentPage}
             totalPages={pagination.totalPages}
